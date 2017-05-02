@@ -1,6 +1,7 @@
 extern crate num;
 extern crate extprim;
 extern crate rand;
+extern crate linked_hash_map;
 
 use std::hash::Hash;
 use std::fmt;
@@ -8,15 +9,27 @@ use num::PrimInt;
 use num::FromPrimitive;
 use extprim::u128::u128;
 
-
+pub mod dna_string;
 pub mod exts;
 pub mod dir;
 pub mod paths;
 pub mod vmer;
+mod fx;
 
 use dir::Dir;
 use exts::Exts;
 
+
+/// Convert a 2-bit representation of a base to a char
+pub fn bits_to_ascii(c: u8) -> u8 {
+    match c {
+        0u8 => 'A' as u8,
+        1u8 => 'C' as u8,
+        2u8 => 'G' as u8,
+        3u8 => 'T' as u8,
+        _ => 'X' as u8,
+    }
+}
 
 /// Convert an ASCII-encoded DNA base to a 2-bit representation
 pub fn base_to_bits(c: u8) -> u8 {
@@ -117,7 +130,7 @@ pub fn complement(base: u8) -> u8 {
 }
 
 
-pub trait Mer: std::marker::Sized + Copy + Clone + PartialEq + PartialOrd + Eq + Ord + Hash + fmt::Debug {
+pub trait Mer: Clone + PartialEq + PartialOrd + Eq + Ord + Hash + fmt::Debug {
 
     fn len(&self) -> usize;
     fn get(&self, pos: usize) -> u8;
@@ -170,7 +183,7 @@ pub trait Mer: std::marker::Sized + Copy + Clone + PartialEq + PartialOrd + Eq +
     }
 }
 
-pub trait Kmer: Mer {
+pub trait Kmer: std::marker::Sized + Copy + Mer {
 
     fn empty() -> Self;
     fn k() -> usize;
@@ -390,8 +403,6 @@ impl<T: PrimInt + FromPrimitive + Hash + IntHelp> fmt::Debug for IntKmer<T> {
         write!(f, "{}", s)
     }
 }
-
-
 
 
 #[cfg(test)]
