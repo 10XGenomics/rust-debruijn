@@ -2,10 +2,11 @@ use std::marker::PhantomData;
 use fx::{FxHashMap, FxLMap, FxHasher};
 use std::collections::VecDeque;
 //use bit_set::BitSet;
-    
+
 use std::hash::BuildHasherDefault;
 use std::ops::Index;
 
+use Mer;
 use Kmer;
 use dna_string::{DnaString, DnaStringSlice};
 use vmer::Vmer;
@@ -83,9 +84,9 @@ impl<K: Kmer, D> DebruijnGraph<K, D> {
     pub fn find_edges(&self, node_id: usize, dir: Dir) -> Vec<(usize, Dir, bool)> {
 
         let exts = self.base.exts[node_id];
-        let sequence = 
-            DnaStringSlice { 
-                dna_string: &self.base.sequence, 
+        let sequence =
+            DnaStringSlice {
+                dna_string: &self.base.sequence,
                 start: self.base.start[node_id],
                 length: self.base.length[node_id] as usize };
 

@@ -8,6 +8,7 @@
 
 use std::fmt;
 use Kmer;
+use KmerIter;
 use bits_to_base;
 use base_to_bits;
 use bits_to_ascii;
@@ -30,6 +31,44 @@ pub struct DnaString {
     len: usize,
 }
 
+impl Mer for DnaString {
+    fn len(&self) -> usize {
+        self.len
+    }
+
+    /// Get the value at position `i`.
+    fn get(&self, i: usize) -> u8 {
+        let (block, bit) = self.addr(i);
+        self.get_by_addr(block, bit)
+    }
+
+    fn set(&self, pos: usize, val: u8) -> Self {
+        let mut result = self.clone();
+        result.set_mut(pos, val);
+        result
+    }
+
+    fn set_slice(&self, pos: usize, nbases: usize, bits: u64) -> Self {
+        unimplemented!()
+    }
+
+    fn rc(&self) -> DnaString {
+        let mut dna_string = DnaString::new();
+        for i in (0..self.len()).rev() {
+            let v = 3 - self.get(i);
+            dna_string.push(v);
+        }
+        dna_string
+    }
+
+    fn extend_left(&self, v: u8) -> Self {
+        unimplemented!()
+    }
+
+    fn extend_right(&self, v: u8) -> Self {
+        unimplemented!()
+    }
+}
 
 impl DnaString {
     /// Create a new instance with a given encoding width (e.g. width=2 for using two bits per value).
@@ -38,10 +77,6 @@ impl DnaString {
             storage: Vec::new(),
             len: 0,
         }
-    }
-
-    pub fn len(&self) -> usize {
-        self.len
     }
 
     /// Create a new instance with a given capacity.
@@ -92,6 +127,12 @@ impl DnaString {
             res.push(bits_to_ascii(v));
         }
         res
+    }
+
+    /// Set the value as position `i`.
+    fn set_mut(&mut self, i: usize, value: u8) {
+        let (block, bit) = self.addr(i);
+        self.set_by_addr(block, bit, value);
     }
 
     /// Append a value.
@@ -246,15 +287,6 @@ impl DnaString {
         dna_string
     }
 
-    pub fn rc(&self) -> DnaString {
-        let mut dna_string = DnaString::new();
-        for i in (0..self.len()).rev() {
-            let v = 3 - self.get(i);
-            dna_string.push(v);
-        }
-        dna_string
-    }
-
     // pub fn complement(&self) -> DnaString {
     //    assert!(self.width == 2, "Complement only supported for 2bit encodings.");
     //    let values: Vec<u32> = Vec::with_capacity(self.len());
@@ -276,7 +308,6 @@ impl DnaString {
     }
 
     pub fn kmers<K: Kmer>(&self) -> Vec<K> {
-
         let mut vec: Vec<K> = Vec::with_capacity(self.len() - K::k() + 1);
         let mut kmer = self.get_kmer(0);
         vec.push(kmer);
@@ -287,24 +318,12 @@ impl DnaString {
         vec
     }
 
-    /// Set the value as position `i`.
-    fn set(&mut self, i: usize, value: u8) {
-        let (block, bit) = self.addr(i);
-        self.set_by_addr(block, bit, value);
-    }
-
-    /// Get the value at position `i`.
-    fn get(&self, i: usize) -> u8 {
-        let (block, bit) = self.addr(i);
-        self.get_by_addr(block, bit)
-    }
-
-    fn extend_left(&self, v: u8) -> Self {
-        unimplemented!()
-    }
-
-    fn extend_right(&self, v: u8) -> Self {
-        unimplemented!()
+    pub fn iter_kmers<K: Kmer>(&self) -> KmerIter<K, Self> {
+        KmerIter {
+            bases: self,
+            kmer: self.first_kmer(),
+            pos: K::k(),
+        }
     }
 
     /// Get the kmer starting at position pos
@@ -325,12 +344,12 @@ impl DnaString {
         while kmer_pos < K::k() {
             // get relevent bases for current block
             let nb = min(K::k() - kmer_pos, 32 - block_pos);
-            
+
             let v = self.storage[block].reverse_by_twos();
             let val = v << (2*block_pos);
             kmer = kmer.set_slice(kmer_pos, nb, val);
 
-            // move to next block, move ahead in kmer. 
+            // move to next block, move ahead in kmer.
             block += 1;
             kmer_pos += nb;
             // alway start a beginning of next block
@@ -471,11 +490,11 @@ impl<'a> fmt::Debug for DnaStringSlice<'a> {
     }
 }
 
-
 #[cfg(test)]
 mod tests {
     use super::*;
     use IntKmer;
+    use KmerIter;
 
     // use bio::data_structures::bwt::{bwt};
     // use bio::data_structures::suffix_array::{suffix_array};
@@ -490,7 +509,7 @@ mod tests {
         dna_string.push(1);
         let mut values: Vec<u8> = dna_string.iter().collect();
         assert_eq!(values, [0, 2, 1]);
-        dna_string.set(1, 3);
+        dna_string.set_mut(1, 3);
         values = dna_string.iter().collect();
         assert_eq!(values, [0, 3, 1]);
     }
@@ -610,15 +629,18 @@ mod tests {
 
     #[test]
     fn test_kmers() {
-        kmer_test::<IntKmer<u64>>();
+        let dna = "TGCATTAGAAAACTCCTTGCCTGTCAGCCCGACAGGTAGAAACTCATTAATCCACACATTGA".to_string() +
+            "CTCTATTTCAGGTAAATATGACGTCAACTCCTGCATGTTGAAGGCAGTGAGTGGCTGAAACAGCATCAAGGCGTGAAGGC";
+        let dna_string = DnaString::from_dna_string(&dna);
+
+        let kmers: Vec<IntKmer<u64>> = dna_string.kmers();
+        kmer_test::<IntKmer<u64>>(&kmers, &dna, &dna_string);
+
+        let kmers_from_iter: Vec<IntKmer<u64>> = dna_string.iter_kmers().collect();
+        kmer_test::<IntKmer<u64>>(&kmers, &dna, &dna_string);
     }
 
-    fn kmer_test<K:Kmer>() {
-        let dna = "TGCATTAGAAAACTCCTTGCCTGTCAGCCCGACAGGTAGAAACTCATTAATCCACACATTGA".to_string() +
-                  "CTCTATTTCAGGTAAATATGACGTCAACTCCTGCATGTTGAAGGCAGTGAGTGGCTGAAACAGCATCAAGGCGTGAAGGC";
-        let dna_string = DnaString::from_dna_string(&dna);
-        let kmers: Vec<K> = dna_string.kmers();
-
+    fn kmer_test<K:Kmer>(kmers: &Vec<K>, dna: &String, dna_string: &DnaString) {
         for i in 0..(dna.len() - K::k() + 1) {
             assert_eq!(kmers[i].to_string(), &dna[i..(i + K::k())]);
         }

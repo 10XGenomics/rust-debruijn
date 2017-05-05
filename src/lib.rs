@@ -141,7 +141,6 @@ pub trait Mer: Clone + PartialEq + PartialOrd + Eq + Ord + Hash + fmt::Debug {
 
     fn rc(&self) -> Self;
 
-
     fn min_rc_flip(&self) -> (Self, bool) {
         let rc = self.rc();
         if *self < rc {
@@ -406,6 +405,28 @@ impl<T: PrimInt + FromPrimitive + Hash + IntHelp> fmt::Debug for IntKmer<T> {
     }
 }
 
+/// Iterate over the Kmers of a sequence efficiently
+pub struct KmerIter<'a,T: Kmer, D> where T: 'a, D: 'a {
+    bases: &'a D,
+    kmer: T,
+    pos: usize
+}
+
+impl<'a, T: Kmer, D: Mer> Iterator for KmerIter<'a, T, D> {
+    type Item=T;
+
+    fn next(&mut self) -> Option<T> {
+        if self.pos <= self.bases.len() {
+            let retval = self.kmer;
+            self.kmer = self.kmer.extend_right(self.bases.get(self.pos));
+            self.pos = self.pos + 1;
+            Some(retval)
+        } else {
+            None
+        }
+    }
+}
+
 
 #[cfg(test)]
 mod tests {
@@ -415,6 +436,8 @@ mod tests {
 
     use vmer::Lmer;
     use vmer::Vmer;
+
+    use KmerIter;
 
     fn check_kmer<T: Kmer>() {
         let K = T::k();
