@@ -2,6 +2,8 @@ extern crate num;
 extern crate extprim;
 extern crate rand;
 extern crate linked_hash_map;
+#[macro_use] extern crate serde_derive;
+extern crate serde;
 
 use std::hash::Hash;
 use std::fmt;
@@ -189,7 +191,7 @@ pub trait Kmer: std::marker::Sized + Copy + Mer {
     fn k() -> usize;
 
     fn from_bytes(bytes: &[u8]) -> Self {
-        if bytes.len() < Self::k() { 
+        if bytes.len() < Self::k() {
             panic!("bytes not long enough to form kmer")
         }
 
@@ -203,7 +205,7 @@ pub trait Kmer: std::marker::Sized + Copy + Mer {
     }
 
     fn from_ascii(bytes: &[u8]) -> Self {
-        if bytes.len() < Self::k() { 
+        if bytes.len() < Self::k() {
             panic!("bytes not long enough to form kmer")
         }
 
@@ -228,7 +230,7 @@ pub trait Kmer: std::marker::Sized + Copy + Mer {
 
 
 /// A fixed-length Kmer sequence.
-#[derive(Copy, Clone, PartialEq, PartialOrd, Eq, Ord, Hash)]
+#[derive(Copy, Clone, PartialEq, PartialOrd, Eq, Ord, Hash, Serialize, Deserialize)]
 pub struct IntKmer<T: PrimInt + FromPrimitive + IntHelp> {
     pub storage: T,
 }
@@ -332,14 +334,14 @@ impl<T: PrimInt + FromPrimitive + Hash + IntHelp> Mer for IntKmer<T> {
     fn set_slice(&self, pos: usize, n_bases: usize, value: u64) -> Self {
         debug_assert!(pos + n_bases <= Self::k());
 
-        let v_shift = 
+        let v_shift =
             if Self::_bits() < 64 {
                 value >> (64 - Self::_bits())
             } else {
                 value
             };
 
-        let v = 
+        let v =
             if Self::_bits() > 64 {
                 Self::from_u64(v_shift) << (Self::_bits() - 64)
             } else {
@@ -418,7 +420,7 @@ mod tests {
         let K = T::k();
 
         let km = random_kmer::<T>();
-    
+
         let rc = km.rc();
         let double_rc = rc.rc();
         assert!(km == double_rc);
