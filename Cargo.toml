@@ -4,8 +4,8 @@ version = "0.1.0"
 authors = ["Patrick Marks <patrick@10xgenomics.com>"]
 
 [dependencies]
-serde = "0.9"
-serde_derive = "0.9"
+serde = "*"
+serde_derive = "*"
 num = "*"
 extprim = "*"
 rand = "*"

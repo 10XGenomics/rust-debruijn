@@ -2,6 +2,8 @@ extern crate num;
 extern crate extprim;
 extern crate rand;
 extern crate linked_hash_map;
+#[macro_use] extern crate serde_derive;
+extern crate serde;
 
 use std::hash::Hash;
 use std::fmt;
@@ -139,7 +141,6 @@ pub trait Mer: Clone + PartialEq + PartialOrd + Eq + Ord + Hash + fmt::Debug {
 
     fn rc(&self) -> Self;
 
-
     fn min_rc_flip(&self) -> (Self, bool) {
         let rc = self.rc();
         if *self < rc {
@@ -189,7 +190,7 @@ pub trait Kmer: std::marker::Sized + Copy + Mer {
     fn k() -> usize;
 
     fn from_bytes(bytes: &[u8]) -> Self {
-        if bytes.len() < Self::k() { 
+        if bytes.len() < Self::k() {
             panic!("bytes not long enough to form kmer")
         }
 
@@ -203,7 +204,7 @@ pub trait Kmer: std::marker::Sized + Copy + Mer {
     }
 
     fn from_ascii(bytes: &[u8]) -> Self {
-        if bytes.len() < Self::k() { 
+        if bytes.len() < Self::k() {
             panic!("bytes not long enough to form kmer")
         }
 
@@ -228,7 +229,7 @@ pub trait Kmer: std::marker::Sized + Copy + Mer {
 
 
 /// A fixed-length Kmer sequence.
-#[derive(Copy, Clone, PartialEq, PartialOrd, Eq, Ord, Hash)]
+#[derive(Copy, Clone, PartialEq, PartialOrd, Eq, Ord, Hash, Serialize, Deserialize)]
 pub struct IntKmer<T: PrimInt + FromPrimitive + IntHelp> {
     pub storage: T,
 }
@@ -332,14 +333,14 @@ impl<T: PrimInt + FromPrimitive + Hash + IntHelp> Mer for IntKmer<T> {
     fn set_slice(&self, pos: usize, n_bases: usize, value: u64) -> Self {
         debug_assert!(pos + n_bases <= Self::k());
 
-        let v_shift = 
+        let v_shift =
             if Self::_bits() < 64 {
                 value >> (64 - Self::_bits())
             } else {
                 value
             };
 
-        let v = 
+        let v =
             if Self::_bits() > 64 {
                 Self::from_u64(v_shift) << (Self::_bits() - 64)
             } else {
@@ -404,6 +405,28 @@ impl<T: PrimInt + FromPrimitive + Hash + IntHelp> fmt::Debug for IntKmer<T> {
     }
 }
 
+/// Iterate over the Kmers of a sequence efficiently
+pub struct KmerIter<'a,T: Kmer, D> where T: 'a, D: 'a {
+    bases: &'a D,
+    kmer: T,
+    pos: usize
+}
+
+impl<'a, T: Kmer, D: Mer> Iterator for KmerIter<'a, T, D> {
+    type Item=T;
+
+    fn next(&mut self) -> Option<T> {
+        if self.pos <= self.bases.len() {
+            let retval = self.kmer;
+            self.kmer = self.kmer.extend_right(self.bases.get(self.pos));
+            self.pos = self.pos + 1;
+            Some(retval)
+        } else {
+            None
+        }
+    }
+}
+
 
 #[cfg(test)]
 mod tests {
@@ -414,11 +437,13 @@ mod tests {
     use vmer::Lmer;
     use vmer::Vmer;
 
+    use KmerIter;
+
     fn check_kmer<T: Kmer>() {
         let K = T::k();
 
         let km = random_kmer::<T>();
-    
+
         let rc = km.rc();
         let double_rc = rc.rc();
         assert!(km == double_rc);

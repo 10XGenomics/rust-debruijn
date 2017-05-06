@@ -4,6 +4,7 @@ use std::fmt;
 use std::hash::Hash;
 
 use Kmer;
+use KmerIter;
 use Mer;
 use Dir;
 use IntKmer;
@@ -122,8 +123,8 @@ impl<T: Kmer, A: Array<Item=u64> + Copy + Eq + Ord + Hash> Mer for Lmer<T, A> {
 
             let mut v = slc[block];
             // Mask the length field packed into the last block
-            if block == A::size() - 1 { 
-                v = v & !0xFF 
+            if block == A::size() - 1 {
+                v = v & !0xFF
             }
 
             let v_rc = !v.reverse_by_twos() << (64 - n_bases*2);
@@ -182,11 +183,11 @@ impl<T: Kmer, A: Array<Item=u64> + Copy + Eq + Ord + Hash> Vmer<T> for Lmer<T, A
         while kmer_pos < T::k() {
             // get relevent bases for current block
             let nb = min(T::k() - kmer_pos, 32 - block_pos);
-            
+
             let val = slc[block] << (2*block_pos);
             kmer = kmer.set_slice(kmer_pos, nb, val);
 
-            // move to next block, move ahead in kmer. 
+            // move to next block, move ahead in kmer.
             block += 1;
             kmer_pos += nb;
             // alway start a beginning of next block
@@ -208,7 +209,7 @@ impl<T: Kmer, A: Array<Item=u64> + Copy + Eq + Ord + Hash> Vmer<T> for Lmer<T, A
     }
 
     /// Efficiently iterate over the kmers in the sequence
-    fn iter_kmers(&self) -> KmerIter<T,Self>
+    fn iter_kmers(&self) -> KmerIter<T, Self>
     {
         KmerIter {
             bases: self,
@@ -217,35 +218,6 @@ impl<T: Kmer, A: Array<Item=u64> + Copy + Eq + Ord + Hash> Vmer<T> for Lmer<T, A
         }
     }
 }
-
-
-/// Iterate over the Kmers of an Lmer efficiently
-pub struct KmerIter<'a,T: Kmer, V: Vmer<T>> where T: 'a, V: 'a
-{
-    bases: &'a V,
-    kmer: T,
-    pos: usize
-}
-
-impl<'a,T: Kmer, V: Vmer<T>> Iterator for KmerIter<'a,T, V> {
-    type Item=T;
-
-    fn next(&mut self) -> Option<T>
-    {
-        if self.pos <= self.bases.len()
-        {
-            let retval = self.kmer;
-            self.kmer = self.kmer.extend_right(self.bases.get(self.pos));
-            self.pos = self.pos + 1;
-            Some(retval)
-        }
-        else
-        {
-            None
-        }
-    }
-}
-
 
 impl<T: Kmer, A: Array<Item=u64> + Copy + Eq + Ord + Hash> fmt::Debug for Lmer<T, A> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
@@ -257,7 +229,6 @@ impl<T: Kmer, A: Array<Item=u64> + Copy + Eq + Ord + Hash> fmt::Debug for Lmer<T
         write!(f, "{}", s)
     }
 }
-
 
 /// Types that can be used as the backing store for a SmallVec
 pub trait Array {
@@ -278,7 +249,7 @@ macro_rules! impl_array(
                 fn size() -> usize { $size }
                 fn as_slice(&self) -> &[T] { self }
                 fn as_mut_slice(&mut self) -> &mut [T] { self }
-                
+
             }
         )+
     }
