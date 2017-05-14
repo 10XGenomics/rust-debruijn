@@ -46,7 +46,7 @@ pub fn FxLMap<K: Hash + Eq, T>() -> FxLMap<K, T> {
 /// similar or slightly worse than FNV, but the speed of the hash function
 /// itself is much higher because it works on up to 8 bytes at a time.
 pub struct FxHasher {
-    hash: usize
+    hash: usize,
 }
 
 #[cfg(target_pointer_width = "32")]

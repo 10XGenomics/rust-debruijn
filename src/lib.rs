@@ -2,7 +2,8 @@ extern crate num;
 extern crate extprim;
 extern crate rand;
 extern crate linked_hash_map;
-#[macro_use] extern crate serde_derive;
+#[macro_use]
+extern crate serde_derive;
 extern crate serde;
 
 use std::hash::Hash;
@@ -61,10 +62,10 @@ pub trait IntHelp: PrimInt + FromPrimitive {
 }
 
 impl IntHelp for u128 {
-
     #[inline]
     fn reverse_by_twos(&self) -> u128 {
-        u128::from_parts(self.low64().reverse_by_twos(), self.high64().reverse_by_twos())
+        u128::from_parts(self.low64().reverse_by_twos(),
+                         self.high64().reverse_by_twos())
     }
 }
 
@@ -133,13 +134,12 @@ pub fn complement(base: u8) -> u8 {
 
 
 pub trait Mer: Sized + fmt::Debug {
-
     fn len(&self) -> usize;
     fn get(&self, pos: usize) -> u8;
-    
-    fn set_mut(&mut self, pos:usize, val: u8);
+
+    fn set_mut(&mut self, pos: usize, val: u8);
     fn set_slice_mut(&mut self, pos: usize, nbases: usize, bits: u64);
-    
+
     fn rc(&self) -> Self;
 
     fn extend_left(&self, v: u8) -> Self;
@@ -154,12 +154,14 @@ pub trait Mer: Sized + fmt::Debug {
 
     fn get_extensions(&self, exts: Exts, dir: Dir) -> Vec<Self> {
         let ext_bases = exts.get(dir);
-        ext_bases.iter().map(|b| self.extend(b.clone(), dir)).collect()
+        ext_bases
+            .iter()
+            .map(|b| self.extend(b.clone(), dir))
+            .collect()
     }
 }
 
 pub trait Kmer: Sized + Copy + Mer + PartialEq + PartialOrd + Eq + Ord + Hash {
-
     fn empty() -> Self;
     fn k() -> usize;
 
@@ -174,11 +176,7 @@ pub trait Kmer: Sized + Copy + Mer + PartialEq + PartialOrd + Eq + Ord + Hash {
 
     fn min_rc(&self) -> Self {
         let rc = self.rc();
-        if *self < rc {
-            self.clone()
-        } else {
-            rc
-        }
+        if *self < rc { self.clone() } else { rc }
     }
 
     /// Test if this Lmer is a rc-palindrome
@@ -224,7 +222,6 @@ pub trait Kmer: Sized + Copy + Mer + PartialEq + PartialOrd + Eq + Ord + Hash {
 }
 
 pub trait MerImmut: Mer + Clone {
-
     fn set(&self, pos: usize, val: u8) -> Self {
         let mut new = self.clone();
         new.set_mut(pos, val);
@@ -235,12 +232,10 @@ pub trait MerImmut: Mer + Clone {
         let mut new = self.clone();
         new.set_slice_mut(pos, nbases, bits);
         new
-    }  
+    }
 }
 
-impl<T> MerImmut for T where T: Mer + Clone {
-
-}
+impl<T> MerImmut for T where T: Mer + Clone {}
 
 /// A fixed-length Kmer sequence.
 #[derive(Copy, Clone, PartialEq, PartialOrd, Eq, Ord, Hash, Serialize, Deserialize)]
@@ -249,7 +244,6 @@ pub struct IntKmer<T: PrimInt + FromPrimitive + IntHelp> {
 }
 
 impl<T: PrimInt + FromPrimitive + Hash + IntHelp> IntKmer<T> {
-
     fn msk() -> T {
         T::one() << 1 | T::one()
     }
@@ -301,8 +295,8 @@ impl<T: PrimInt + FromPrimitive + Hash + IntHelp> IntKmer<T> {
 
     fn top_mask(n_bases: usize) -> T {
         if n_bases > 0 {
-             // first pos bases
-             let one = T::one();
+            // first pos bases
+            let one = T::one();
             ((one << (n_bases * 2)) - one) << (Self::_bits() - n_bases * 2)
         } else {
             T::zero()
@@ -311,8 +305,8 @@ impl<T: PrimInt + FromPrimitive + Hash + IntHelp> IntKmer<T> {
 
     fn bottom_mask(n_bases: usize) -> T {
         if n_bases > 0 {
-             // first pos bases
-             let one = T::one();
+            // first pos bases
+            let one = T::one();
             ((one << (n_bases * 2)) - one)
         } else {
             T::zero()
@@ -322,7 +316,6 @@ impl<T: PrimInt + FromPrimitive + Hash + IntHelp> IntKmer<T> {
 
 
 impl<T: PrimInt + FromPrimitive + Hash + IntHelp> Mer for IntKmer<T> {
-
     fn len(&self) -> usize {
         Self::_k()
     }
@@ -346,19 +339,17 @@ impl<T: PrimInt + FromPrimitive + Hash + IntHelp> Mer for IntKmer<T> {
     fn set_slice_mut(&mut self, pos: usize, n_bases: usize, value: u64) {
         debug_assert!(pos + n_bases <= Self::k());
 
-        let v_shift =
-            if Self::_bits() < 64 {
-                value >> (64 - Self::_bits())
-            } else {
-                value
-            };
+        let v_shift = if Self::_bits() < 64 {
+            value >> (64 - Self::_bits())
+        } else {
+            value
+        };
 
-        let v =
-            if Self::_bits() > 64 {
-                Self::from_u64(v_shift) << (Self::_bits() - 64)
-            } else {
-                Self::from_u64(v_shift)
-            };
+        let v = if Self::_bits() > 64 {
+            Self::from_u64(v_shift) << (Self::_bits() - 64)
+        } else {
+            Self::from_u64(v_shift)
+        };
 
         let top_mask = Self::top_mask(pos);
         let bottom_mask = Self::bottom_mask(Self::k() - (pos + n_bases));
@@ -397,7 +388,6 @@ impl<T: PrimInt + FromPrimitive + Hash + IntHelp> Mer for IntKmer<T> {
 }
 
 impl<T: PrimInt + FromPrimitive + Hash + IntHelp> Kmer for IntKmer<T> {
-
     fn empty() -> Self {
         IntKmer { storage: T::zero() }
     }
@@ -419,14 +409,16 @@ impl<T: PrimInt + FromPrimitive + Hash + IntHelp> fmt::Debug for IntKmer<T> {
 }
 
 /// Iterate over the Kmers of a sequence efficiently
-pub struct KmerIter<'a,K: Kmer, D> where D: 'a {
+pub struct KmerIter<'a, K: Kmer, D>
+    where D: 'a
+{
     bases: &'a D,
     kmer: K,
-    pos: usize
+    pos: usize,
 }
 
 impl<'a, K: Kmer, D: Mer> Iterator for KmerIter<'a, K, D> {
-    type Item=K;
+    type Item = K;
 
     fn next(&mut self) -> Option<K> {
         if self.pos <= self.bases.len() {
@@ -503,15 +495,14 @@ mod tests {
 
     fn check_vmer<V: Vmer<T>, T: Kmer>() {
 
-        let vm = random_vmer::<V,T>();
+        let vm = random_vmer::<V, T>();
         let l = vm.len();
 
         let rc = vm.rc();
 
         for i in 0..l {
 
-            if vm.get(i) != (3 - rc.get(l - 1 - i))
-            {
+            if vm.get(i) != (3 - rc.get(l - 1 - i)) {
                 println!("km: {:?}, rc: {:?}", vm, rc);
             }
 
@@ -535,11 +526,11 @@ mod tests {
         assert!(vm == copy_vmer);
 
 
-        let kmers : Vec<T> = vm.iter_kmers().collect();
+        let kmers: Vec<T> = vm.iter_kmers().collect();
         assert_eq!(kmers.len(), vm.len() - T::k() + 1);
 
         for (pos, kmer) in kmers.iter().enumerate() {
-            for i in 0 .. T::k() {
+            for i in 0..T::k() {
                 assert_eq!(kmer.get(i), vm.get(i + pos))
             }
         }
@@ -553,7 +544,7 @@ mod tests {
         let len = r.gen_range(T::k(), V::max_len());
 
         let mut vmer = V::new(len);
-        for pos in 0 .. len {
+        for pos in 0..len {
             let b = (r.next_u64() % 4) as u8;
             vmer = vmer.set(pos, b);
         }
@@ -620,14 +611,14 @@ mod tests {
         }
     }
 
-        #[test]
+    #[test]
     fn test_kmer_16() {
         for _ in 0..10000 {
             check_kmer::<IntKmer<u32>>();
         }
     }
 
-        #[test]
+    #[test]
     fn test_kmer_8() {
         for _ in 0..10000 {
             check_kmer::<IntKmer<u16>>();

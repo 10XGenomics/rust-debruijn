@@ -17,11 +17,7 @@ impl Dir {
 
     /// Return a fresh Dir opposite direction if do_flip == True
     pub fn cond_flip(&self, do_flip: bool) -> Dir {
-        if do_flip {
-            self.flip()
-        } else {
-            *self
-        }
+        if do_flip { self.flip() } else { *self }
     }
 
     /// Pick between two alternatives, depending on the direction

@@ -32,9 +32,9 @@ impl Exts {
     pub fn set(&self, dir: Dir, pos: u8) -> Exts {
         let shift = pos +
                     match dir {
-            Dir::Right => 4,
-            Dir::Left => 0,
-        };
+                        Dir::Right => 4,
+                        Dir::Left => 0,
+                    };
 
         let new_val = self.val | (1u8 << shift);
         Exts { val: new_val }

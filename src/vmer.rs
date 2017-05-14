@@ -61,12 +61,11 @@ pub trait Vmer<K: Kmer>: Mer + PartialEq + Eq + Clone {
 #[derive(Hash, Copy, Clone, PartialEq, PartialOrd, Eq, Ord, Serialize, Deserialize)]
 pub struct Lmer<K: Kmer, A: Array> {
     storage: A,
-    phantom:  PhantomData<K>,
+    phantom: PhantomData<K>,
 }
 
 
-impl<K: Kmer, A: Array<Item=u64> + Copy + Eq + Ord + Hash> Mer for Lmer<K, A> {
-
+impl<K: Kmer, A: Array<Item = u64> + Copy + Eq + Ord + Hash> Mer for Lmer<K, A> {
     /// The length of the DNA string
     fn len(&self) -> usize {
         (self.storage.as_slice()[A::size() - 1] & 0xff) as usize
@@ -93,7 +92,8 @@ impl<K: Kmer, A: Array<Item=u64> + Copy + Eq + Ord + Hash> Mer for Lmer<K, A> {
         let b0 = pos / 32;
         let block_pos = pos % 32;
         let top_mask = IntKmer::<u64>::top_mask(block_pos);
-        let mut bottom_mask = IntKmer::<u64>::bottom_mask(max(0, 32usize.saturating_sub(block_pos + n_bases)));
+        let mut bottom_mask =
+            IntKmer::<u64>::bottom_mask(max(0, 32usize.saturating_sub(block_pos + n_bases)));
         if b0 == A::size() - 1 {
             bottom_mask = bottom_mask | 0xFF
         }
@@ -131,7 +131,7 @@ impl<K: Kmer, A: Array<Item=u64> + Copy + Eq + Ord + Hash> Mer for Lmer<K, A> {
                 v = v & !0xFF
             }
 
-            let v_rc = !v.reverse_by_twos() << (64 - n_bases*2);
+            let v_rc = !v.reverse_by_twos() << (64 - n_bases * 2);
             new_lmer.set_slice_mut(self.len() - pos - n_bases, n_bases, v_rc);
             block += 1;
             pos += n_bases;
@@ -150,14 +150,14 @@ impl<K: Kmer, A: Array<Item=u64> + Copy + Eq + Ord + Hash> Mer for Lmer<K, A> {
 }
 
 
-impl<K: Kmer, A: Array<Item=u64> + Copy + Eq + Ord + Hash> Vmer<K> for Lmer<K, A> {
+impl<K: Kmer, A: Array<Item = u64> + Copy + Eq + Ord + Hash> Vmer<K> for Lmer<K, A> {
     fn max_len() -> usize {
         (A::size() * 64 - 8) / 2
     }
 
     /// Initialize an blank Lmer of length len.
     /// Will initially represent all A's.
-    fn new(len: usize) -> Lmer<K,A> {
+    fn new(len: usize) -> Lmer<K, A> {
         let mut arr = A::new();
         {
             let slc = arr.as_mut_slice();
@@ -165,7 +165,10 @@ impl<K: Kmer, A: Array<Item=u64> + Copy + Eq + Ord + Hash> Vmer<K> for Lmer<K, A
             // Write the length into the last 8 bits
             slc[A::size() - 1] = (len as u64) & 0xff;
         }
-        Lmer { storage: arr, phantom: PhantomData }
+        Lmer {
+            storage: arr,
+            phantom: PhantomData,
+        }
     }
 
     /// Get the kmer starting at position pos
@@ -188,7 +191,7 @@ impl<K: Kmer, A: Array<Item=u64> + Copy + Eq + Ord + Hash> Vmer<K> for Lmer<K, A
             // get relevent bases for current block
             let nb = min(K::k() - kmer_pos, 32 - block_pos);
 
-            let val = slc[block] << (2*block_pos);
+            let val = slc[block] << (2 * block_pos);
             kmer.set_slice_mut(kmer_pos, nb, val);
 
             // move to next block, move ahead in kmer.
@@ -202,7 +205,7 @@ impl<K: Kmer, A: Array<Item=u64> + Copy + Eq + Ord + Hash> Vmer<K> for Lmer<K, A
     }
 }
 
-impl<K: Kmer, A: Array<Item=u64> + Copy + Eq + Ord + Hash> fmt::Debug for Lmer<K, A> {
+impl<K: Kmer, A: Array<Item = u64> + Copy + Eq + Ord + Hash> fmt::Debug for Lmer<K, A> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let mut s = String::new();
         for pos in 0..self.len() {

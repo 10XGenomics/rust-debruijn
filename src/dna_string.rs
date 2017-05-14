@@ -68,7 +68,9 @@ impl Mer for DnaString {
     }
 }
 
-impl<K> Vmer<K> for DnaString where K: Kmer {
+impl<K> Vmer<K> for DnaString
+    where K: Kmer
+{
     fn new(len: usize) -> Self {
         Self::with_capacity(len)
     }
@@ -97,7 +99,7 @@ impl<K> Vmer<K> for DnaString where K: Kmer {
             let nb = min(K::k() - kmer_pos, 32 - block_pos);
 
             let v = self.storage[block].reverse_by_twos();
-            let val = v << (2*block_pos);
+            let val = v << (2 * block_pos);
             kmer.set_slice_mut(kmer_pos, nb, val);
 
             // move to next block, move ahead in kmer.
@@ -221,7 +223,7 @@ impl DnaString {
         let mut value_block = 0;
         {
             let mut v = value as u64;
-            for _ in 0..(64/WIDTH) {
+            for _ in 0..(64 / WIDTH) {
                 value_block |= v;
                 v <<= WIDTH;
             }
@@ -410,7 +412,9 @@ impl<'a> Mer for DnaStringSlice<'a> {
     }
 }
 
-impl<'a, K> Vmer<K> for DnaStringSlice<'a> where K: Kmer {
+impl<'a, K> Vmer<K> for DnaStringSlice<'a>
+    where K: Kmer
+{
     fn new(_: usize) -> Self {
         unimplemented!()
     }
@@ -429,8 +433,6 @@ impl<'a, K> Vmer<K> for DnaStringSlice<'a> where K: Kmer {
 
 
 impl<'a> DnaStringSlice<'a> {
-
-
     pub fn ascii(&self) -> Vec<u8> {
         let mut v = Vec::new();
         for pos in self.start..(self.start + self.length) {
@@ -608,14 +610,14 @@ mod tests {
     #[test]
     fn test_kmers() {
         let dna = "TGCATTAGAAAACTCCTTGCCTGTCAGCCCGACAGGTAGAAACTCATTAATCCACACATTGA".to_string() +
-            "CTCTATTTCAGGTAAATATGACGTCAACTCCTGCATGTTGAAGGCAGTGAGTGGCTGAAACAGCATCAAGGCGTGAAGGC";
+                  "CTCTATTTCAGGTAAATATGACGTCAACTCCTGCATGTTGAAGGCAGTGAGTGGCTGAAACAGCATCAAGGCGTGAAGGC";
         let dna_string = DnaString::from_dna_string(&dna);
 
         let kmers: Vec<IntKmer<u64>> = dna_string.iter_kmers().collect();
         kmer_test::<IntKmer<u64>>(&kmers, &dna, &dna_string);
     }
 
-    fn kmer_test<K:Kmer>(kmers: &Vec<K>, dna: &String, dna_string: &DnaString) {
+    fn kmer_test<K: Kmer>(kmers: &Vec<K>, dna: &String, dna_string: &DnaString) {
         for i in 0..(dna.len() - K::k() + 1) {
             assert_eq!(kmers[i].to_string(), &dna[i..(i + K::k())]);
         }
