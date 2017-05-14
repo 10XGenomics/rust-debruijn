@@ -139,20 +139,11 @@ pub trait Mer: Sized + fmt::Debug {
     
     fn set_mut(&mut self, pos:usize, val: u8);
     fn set_slice_mut(&mut self, pos: usize, nbases: usize, bits: u64);
-
-    // TODO: derive immutable set function from the set_mut methods + Copy / Clone
-    // or just put them in Kmer
-    //fn set(&self, pos: usize, val: u8) -> Self;
-    //fn set_slice(&self, pos: usize, nbases: usize, bits: u64) -> Self;
-
+    
     fn rc(&self) -> Self;
-
-    //fn min_rc_flip(&self) -> (Self, bool);
-    //fn min_rc(&self) -> Self;
 
     fn extend_left(&self, v: u8) -> Self;
     fn extend_right(&self, v: u8) -> Self;
-
 
     fn extend(&self, v: u8, dir: Dir) -> Self {
         match dir {
