@@ -20,21 +20,29 @@ pub enum ExtMode<K: Kmer> {
     Terminal(Exts),
 }
 
-struct BaseGraph<K, D> {
+
+struct PackedDnaStringSet {
     pub sequence: DnaString,
     pub start: Vec<usize>,
     pub length: Vec<u32>,
-    pub exts: Vec<Exts>,
-    pub data: Vec<D>,
-    phantom: PhantomData<K>,
 }
 
-impl<K: Kmer, D> BaseGraph<K,D> {
-    pub fn add<S: IntoIterator<Item=u8>, T: IntoIterator<Item=u32>>(&mut self, sequence: S, exts: Exts) {
+impl<'a> PackedDnaStringSet {
+    fn get(&'a self, i: usize) -> DnaStringSlice<'a> {
+        DnaStringSlice {
+            dna_string: &self.sequence,
+            start: self.start[i],
+            length: self.length[i] as usize,
+        }
+    }
+
+    fn len(&self) -> usize {
+        self.start.len()
+    }
+
+    fn add<S: IntoIterator<Item=u8>>(&mut self, sequence: S) {
         let start = self.sequence.len();
         self.start.push(start);
-
-        self.exts.push(exts);
 
         let mut length = 0;
         for b in sequence {
@@ -43,19 +51,41 @@ impl<K: Kmer, D> BaseGraph<K,D> {
         }
         self.length.push(length as u32);
     }
+}
+
+
+struct BaseGraph<K, D> {
+    pub sequences: PackedDnaStringSet,
+    pub exts: Vec<Exts>,
+    pub data: Vec<D>,
+    phantom: PhantomData<K>,
+}
+
+impl<K, D> BaseGraph<K, D> {
+    pub fn len(&self) -> usize {
+        self.sequences.len()
+    }
+}
+
+impl<K: Kmer, D> BaseGraph<K,D> {
+    pub fn add<S: IntoIterator<Item=u8>>(&mut self, sequence: S, exts: Exts, data: D) {
+        self.sequences.add(sequence);
+        self.exts.push(exts);
+        self.data.push(data);
+    }
 
     pub fn finish(self) -> DebruijnGraph<K,D> {
 
-        let mut left_sort: Vec<u32> = Vec::with_capacity(self.start.len());
-        let mut right_sort: Vec<u32> = Vec::with_capacity(self.start.len());
-        for i in 0 .. self.start.len()
+        let mut left_sort: Vec<u32> = Vec::with_capacity(self.len());
+        let mut right_sort: Vec<u32> = Vec::with_capacity(self.len());
+        for i in 0 .. self.len()
         {
             left_sort.push(i as u32);
             right_sort.push(i as u32);
         }
 
-        left_sort.sort_by_key( |idx| -> K { self.sequence.get_kmer(self.start[*idx as usize]) });
-        right_sort.sort_by_key(|idx| -> K { self.sequence.get_kmer(self.start[*idx as usize] + (self.length[*idx as usize] as usize) - K::k()) });
+        left_sort.sort_by_key( |idx| -> K { self.sequences.get(*idx as usize).first_kmer() });
+        right_sort.sort_by_key(|idx| -> K { self.sequences.get(*idx as usize).last_kmer() });
 
         DebruijnGraph {
             base: self,
@@ -84,12 +114,7 @@ impl<K: Kmer, D> DebruijnGraph<K, D> {
     pub fn find_edges(&self, node_id: usize, dir: Dir) -> Vec<(usize, Dir, bool)> {
 
         let exts = self.base.exts[node_id];
-        let sequence =
-            DnaStringSlice {
-                dna_string: &self.base.sequence,
-                start: self.base.start[node_id],
-                length: self.base.length[node_id] as usize };
-
+        let sequence = self.base.sequences.get(node_id);
         let kmer: K = sequence.term_kmer(dir);
         let mut edges = Vec::new();
 
@@ -108,7 +133,7 @@ impl<K: Kmer, D> DebruijnGraph<K, D> {
         match side {
             Dir::Left => {
                 let pos = self.left_order.binary_search_by_key(&kmer,
-                    |idx| self.base.sequence.get_kmer(self.base.start[*idx as usize]));
+                    |idx| self.base.sequences.get(*idx as usize).first_kmer());
 
                 match pos {
                     Ok(idx) => Some(self.left_order[idx] as usize),
@@ -117,7 +142,7 @@ impl<K: Kmer, D> DebruijnGraph<K, D> {
             },
             Dir::Right => {
                 let pos = self.right_order.binary_search_by_key(&kmer,
-                    |idx| self.base.sequence.get_kmer(self.base.start[*idx as usize] + (self.base.length[*idx as usize] as usize) - K::k()));
+                    |idx| self.base.sequences.get(*idx as usize).last_kmer());
                 match pos {
                     Ok(idx) => Some(self.right_order[idx] as usize),
                     _ => None,
@@ -182,11 +207,7 @@ pub struct Node<'a, K: Kmer + 'a, D: 'a> {
 
 impl<'a, K: Kmer, D> Node<'a, K, D> {
     pub fn sequence(&self) -> DnaStringSlice<'a> {
-        DnaStringSlice {
-            dna_string: &self.graph.base.sequence,
-            start: self.graph.base.start[self.node_id],
-            length: self.graph.base.length[self.node_id] as usize
-        }
+        self.graph.base.sequences.get(self.node_id)
     }
 
     pub fn data(&self) -> &'a D {
