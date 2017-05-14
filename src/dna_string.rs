@@ -8,13 +8,11 @@
 
 use std::fmt;
 use Kmer;
-use KmerIter;
 use bits_to_base;
 use base_to_bits;
 use bits_to_ascii;
 use std::cmp::min;
 use IntHelp;
-use Dir;
 
 use Mer;
 use vmer::Vmer;
@@ -42,13 +40,13 @@ impl Mer for DnaString {
         self.get_by_addr(block, bit)
     }
 
-    fn set(&self, pos: usize, val: u8) -> Self {
-        let mut result = self.clone();
-        result.set_mut(pos, val);
-        result
+    /// Set the value as position `i`.
+    fn set_mut(&mut self, i: usize, value: u8) {
+        let (block, bit) = self.addr(i);
+        self.set_by_addr(block, bit, value);
     }
 
-    fn set_slice(&self, pos: usize, nbases: usize, bits: u64) -> Self {
+    fn set_slice_mut(&mut self, pos: usize, nbases: usize, bits: u64) {
         unimplemented!()
     }
 
@@ -61,14 +59,58 @@ impl Mer for DnaString {
         dna_string
     }
 
-    fn extend_left(&self, v: u8) -> Self {
+    fn extend_left(&self, _: u8) -> Self {
         unimplemented!()
     }
 
-    fn extend_right(&self, v: u8) -> Self {
+    fn extend_right(&self, _: u8) -> Self {
         unimplemented!()
     }
 }
+
+impl<K> Vmer<K> for DnaString where K: Kmer {
+    fn new(len: usize) -> Self {
+        Self::with_capacity(len)
+    }
+
+    fn max_len() -> usize {
+        <usize>::max_value()
+    }
+
+    /// Get the kmer starting at position pos
+    fn get_kmer(&self, pos: usize) -> K {
+        assert!(self.len() - pos >= K::k());
+
+        // Which block has the first base
+        let (mut block, _) = self.addr(pos);
+
+        // Where we are in the kmer
+        let mut kmer_pos = 0;
+
+        // Where are in the block
+        let mut block_pos = pos % 32;
+
+        let mut kmer = K::empty();
+
+        while kmer_pos < K::k() {
+            // get relevent bases for current block
+            let nb = min(K::k() - kmer_pos, 32 - block_pos);
+
+            let v = self.storage[block].reverse_by_twos();
+            let val = v << (2*block_pos);
+            kmer.set_slice_mut(kmer_pos, nb, val);
+
+            // move to next block, move ahead in kmer.
+            block += 1;
+            kmer_pos += nb;
+            // alway start a beginning of next block
+            block_pos = 0;
+        }
+
+        kmer
+    }
+}
+
 
 impl DnaString {
     /// Create a new instance with a given encoding width (e.g. width=2 for using two bits per value).
@@ -82,7 +124,7 @@ impl DnaString {
     /// Create a new instance with a given capacity.
     pub fn with_capacity(n: usize) -> Self {
         DnaString {
-            storage: Vec::with_capacity(n * WIDTH / 64),
+            storage: Vec::with_capacity(n * WIDTH / 64 + 1),
             len: 0,
         }
     }
@@ -127,12 +169,6 @@ impl DnaString {
             res.push(bits_to_ascii(v));
         }
         res
-    }
-
-    /// Set the value as position `i`.
-    fn set_mut(&mut self, i: usize, value: u8) {
-        let (block, bit) = self.addr(i);
-        self.set_by_addr(block, bit, value);
     }
 
     /// Append a value.
@@ -295,77 +331,6 @@ impl DnaString {
     //    }
     //    values[values.len() - 1] =
     // }
-
-    pub fn get_kmer_slow<K: Kmer>(&self, pos: usize) -> K {
-        // superseded by get_kmer
-
-        let mut kmer = K::empty();
-        for (j, i) in (pos..(pos + K::k())).enumerate() {
-            let v = self.get(i);
-            kmer = kmer.set(j, v);
-        }
-        kmer
-    }
-
-    pub fn kmers<K: Kmer>(&self) -> Vec<K> {
-        let mut vec: Vec<K> = Vec::with_capacity(self.len() - K::k() + 1);
-        let mut kmer = self.get_kmer(0);
-        vec.push(kmer);
-        for i in K::k()..self.len() {
-            kmer = kmer.extend_right(self.get(i));
-            vec.push(kmer);
-        }
-        vec
-    }
-
-    pub fn iter_kmers<K: Kmer>(&self) -> KmerIter<K, Self> {
-        KmerIter {
-            bases: self,
-            kmer: self.first_kmer(),
-            pos: K::k(),
-        }
-    }
-
-    /// Get the kmer starting at position pos
-    pub fn get_kmer<K:Kmer>(&self, pos: usize) -> K {
-        assert!(self.len() - pos >= K::k());
-
-        // Which block has the first base
-        let (mut block, _) = self.addr(pos);
-
-        // Where we are in the kmer
-        let mut kmer_pos = 0;
-
-        // Where are in the block
-        let mut block_pos = pos % 32;
-
-        let mut kmer = K::empty();
-
-        while kmer_pos < K::k() {
-            // get relevent bases for current block
-            let nb = min(K::k() - kmer_pos, 32 - block_pos);
-
-            let v = self.storage[block].reverse_by_twos();
-            let val = v << (2*block_pos);
-            kmer = kmer.set_slice(kmer_pos, nb, val);
-
-            // move to next block, move ahead in kmer.
-            block += 1;
-            kmer_pos += nb;
-            // alway start a beginning of next block
-            block_pos = 0;
-        }
-
-        kmer
-    }
-
-    pub fn first_kmer<K: Kmer>(&self) -> K {
-        self.get_kmer(0)
-    }
-
-    pub fn last_kmer<K: Kmer>(&self) -> K {
-        self.get_kmer(self.len() - K::k())
-    }
 }
 
 
@@ -403,47 +368,68 @@ impl<'a> Iterator for DnaStringIter<'a> {
 }
 
 
-
+#[derive(Eq, PartialEq, Clone)]
 pub struct DnaStringSlice<'a> {
     pub dna_string: &'a DnaString,
     pub start: usize,
     pub length: usize,
 }
 
-impl<'a> DnaStringSlice<'a> {
-    pub fn len(&self) -> usize {
+
+impl<'a> Mer for DnaStringSlice<'a> {
+    fn len(&self) -> usize {
         self.length
     }
 
-    pub fn kmers<K: Kmer>(&self) -> Vec<K> {
-        let mut kmers = Vec::new();
-
-        let mut k0 = self.dna_string.get_kmer::<K>(self.start);
-        kmers.push(k0);
-
-        for i in 1..(self.length - K::k() + 1) {
-            let next_base = self.dna_string.get(self.start + K::k() - 1 + i);
-            k0 = k0.extend_right(next_base);
-            kmers.push(k0);
-        }
-
-        kmers
+    /// Get the value at position `i`.
+    fn get(&self, i: usize) -> u8 {
+        self.dna_string.get(i + self.start)
     }
 
-    pub fn first_kmer<K: Kmer>(&self) -> K {
-        self.dna_string.get_kmer(self.start)
+    /// Set the value as position `i`.
+    fn set_mut(&mut self, _: usize, _: u8) {
+        unimplemented!()
+        //debug_assert!(i < self.length);
+        //self.dna_string.set_mut(i + self.start, value);
     }
 
-    pub fn last_kmer<K: Kmer>(&self) -> K {
-        self.dna_string.get_kmer(self.start + self.length - K::k())
+    fn set_slice_mut(&mut self, _: usize, _: usize, _: u64) {
+        unimplemented!();
     }
 
-    pub fn term_kmer<K: Kmer>(&self, dir: Dir) -> K {
-        match dir {
-            Dir::Left => self.first_kmer(),
-            Dir::Right => self.last_kmer(),
-        }
+    fn rc(&self) -> DnaStringSlice<'a> {
+        unimplemented!();
     }
+
+    fn extend_left(&self, _: u8) -> Self {
+        unimplemented!()
+    }
+
+    fn extend_right(&self, _: u8) -> Self {
+        unimplemented!()
+    }
+}
+
+impl<'a, K> Vmer<K> for DnaStringSlice<'a> where K: Kmer {
+    fn new(_: usize) -> Self {
+        unimplemented!()
+    }
+
+    fn max_len() -> usize {
+        <usize>::max_value()
+    }
+
+    /// Get the kmer starting at position pos
+    fn get_kmer(&self, pos: usize) -> K {
+        debug_assert!(self.length + pos + K::k() <= self.length);
+        self.dna_string.get_kmer(self.start + pos)
+    }
+}
+
+
+
+impl<'a> DnaStringSlice<'a> {
+
 
     pub fn ascii(&self) -> Vec<u8> {
         let mut v = Vec::new();
@@ -473,11 +459,8 @@ impl<'a> DnaStringSlice<'a> {
 
         be
     }
-
-    pub fn get(&self, pos: usize) -> u8 {
-        self.dna_string.get(self.start + pos)
-    }
 }
+
 
 impl<'a> fmt::Debug for DnaStringSlice<'a> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
@@ -495,11 +478,6 @@ mod tests {
     use super::*;
     use IntKmer;
     use KmerIter;
-
-    // use bio::data_structures::bwt::{bwt};
-    // use bio::data_structures::suffix_array::{suffix_array};
-    // use bio::alphabets::{dna, Alphabet};
-    // use bio::data_structures::fmindex::FMIndex;
 
     #[test]
     fn test_dna_string() {
@@ -633,10 +611,7 @@ mod tests {
             "CTCTATTTCAGGTAAATATGACGTCAACTCCTGCATGTTGAAGGCAGTGAGTGGCTGAAACAGCATCAAGGCGTGAAGGC";
         let dna_string = DnaString::from_dna_string(&dna);
 
-        let kmers: Vec<IntKmer<u64>> = dna_string.kmers();
-        kmer_test::<IntKmer<u64>>(&kmers, &dna, &dna_string);
-
-        let kmers_from_iter: Vec<IntKmer<u64>> = dna_string.iter_kmers().collect();
+        let kmers: Vec<IntKmer<u64>> = dna_string.iter_kmers().collect();
         kmer_test::<IntKmer<u64>>(&kmers, &dna, &dna_string);
     }
 

@@ -132,14 +132,45 @@ pub fn complement(base: u8) -> u8 {
 }
 
 
-pub trait Mer: Clone + PartialEq + PartialOrd + Eq + Ord + Hash + fmt::Debug {
+pub trait Mer: Sized + fmt::Debug {
 
     fn len(&self) -> usize;
     fn get(&self, pos: usize) -> u8;
-    fn set(&self, pos: usize, val: u8) -> Self;
-    fn set_slice(&self, pos: usize, nbases: usize, bits: u64) -> Self;
+    
+    fn set_mut(&mut self, pos:usize, val: u8);
+    fn set_slice_mut(&mut self, pos: usize, nbases: usize, bits: u64);
+
+    // TODO: derive immutable set function from the set_mut methods + Copy / Clone
+    // or just put them in Kmer
+    //fn set(&self, pos: usize, val: u8) -> Self;
+    //fn set_slice(&self, pos: usize, nbases: usize, bits: u64) -> Self;
 
     fn rc(&self) -> Self;
+
+    //fn min_rc_flip(&self) -> (Self, bool);
+    //fn min_rc(&self) -> Self;
+
+    fn extend_left(&self, v: u8) -> Self;
+    fn extend_right(&self, v: u8) -> Self;
+
+
+    fn extend(&self, v: u8, dir: Dir) -> Self {
+        match dir {
+            Dir::Left => self.extend_left(v),
+            Dir::Right => self.extend_right(v),
+        }
+    }
+
+    fn get_extensions(&self, exts: Exts, dir: Dir) -> Vec<Self> {
+        let ext_bases = exts.get(dir);
+        ext_bases.iter().map(|b| self.extend(b.clone(), dir)).collect()
+    }
+}
+
+pub trait Kmer: Sized + Copy + Mer + PartialEq + PartialOrd + Eq + Ord + Hash {
+
+    fn empty() -> Self;
+    fn k() -> usize;
 
     fn min_rc_flip(&self) -> (Self, bool) {
         let rc = self.rc();
@@ -159,35 +190,10 @@ pub trait Mer: Clone + PartialEq + PartialOrd + Eq + Ord + Hash + fmt::Debug {
         }
     }
 
-    //fn min_rc_flip(&self) -> (Self, bool);
-    //fn min_rc(&self) -> Self;
-
     /// Test if this Lmer is a rc-palindrome
     fn is_palindrome(&self) -> bool {
         self.len() % 2 == 0 && *self == self.rc()
     }
-
-    fn extend_left(&self, v: u8) -> Self;
-    fn extend_right(&self, v: u8) -> Self;
-
-
-    fn extend(&self, v: u8, dir: Dir) -> Self {
-        match dir {
-            Dir::Left => self.extend_left(v),
-            Dir::Right => self.extend_right(v),
-        }
-    }
-
-    fn get_extensions(&self, exts: Exts, dir: Dir) -> Vec<Self> {
-        let ext_bases = exts.get(dir);
-        ext_bases.iter().map(|b| self.extend(b.clone(), dir)).collect()
-    }
-}
-
-pub trait Kmer: std::marker::Sized + Copy + Mer {
-
-    fn empty() -> Self;
-    fn k() -> usize;
 
     fn from_bytes(bytes: &[u8]) -> Self {
         if bytes.len() < Self::k() {
@@ -197,7 +203,7 @@ pub trait Kmer: std::marker::Sized + Copy + Mer {
         let mut k0 = Self::empty();
 
         for i in 0..Self::k() {
-            k0 = k0.set(i, bytes[i])
+            k0.set_mut(i, bytes[i])
         }
 
         k0
@@ -211,7 +217,7 @@ pub trait Kmer: std::marker::Sized + Copy + Mer {
         let mut k0 = Self::empty();
 
         for i in 0..Self::k() {
-            k0 = k0.set(i, base_to_bits(bytes[i]))
+            k0.set_mut(i, base_to_bits(bytes[i]))
         }
 
         k0
@@ -226,7 +232,24 @@ pub trait Kmer: std::marker::Sized + Copy + Mer {
     }
 }
 
+pub trait MerImmut: Mer + Clone {
 
+    fn set(&self, pos: usize, val: u8) -> Self {
+        let mut new = self.clone();
+        new.set_mut(pos, val);
+        new
+    }
+
+    fn set_slice(&self, pos: usize, nbases: usize, bits: u64) -> Self {
+        let mut new = self.clone();
+        new.set_slice_mut(pos, nbases, bits);
+        new
+    }  
+}
+
+impl<T> MerImmut for T where T: Mer + Clone {
+
+}
 
 /// A fixed-length Kmer sequence.
 #[derive(Copy, Clone, PartialEq, PartialOrd, Eq, Ord, Hash, Serialize, Deserialize)]
@@ -258,7 +281,7 @@ impl<T: PrimInt + FromPrimitive + Hash + IntHelp> IntKmer<T> {
         let mut k0 = Self::empty();
 
         for i in 0..Self::k() {
-            k0 = k0.set(i, bytes[i])
+            k0.set_mut(i, bytes[i])
         }
 
         r.push(k0);
@@ -319,18 +342,17 @@ impl<T: PrimInt + FromPrimitive + Hash + IntHelp> Mer for IntKmer<T> {
         Self::to_byte((self.storage >> bit & Self::msk()))
     }
 
-    fn set(&self, pos: usize, v: u8) -> Self {
+    fn set_mut(&mut self, pos: usize, v: u8) {
         let bit = self.addr(pos);
         let mask = !(Self::msk() << bit);
 
-        let new_block_val = (self.storage & mask) | (Self::from_byte(v) << bit);
-        IntKmer { storage: new_block_val }
+        self.storage = (self.storage & mask) | (Self::from_byte(v) << bit);
     }
 
     /// Set a slice of bases in the kmer, using the packed representation in value.
     /// Sets n_bases, starting at pos. Bases must always be packed into the upper-most
     /// bits of the value.
-    fn set_slice(&self, pos: usize, n_bases: usize, value: u64) -> Self {
+    fn set_slice_mut(&mut self, pos: usize, n_bases: usize, value: u64) {
         debug_assert!(pos + n_bases <= Self::k());
 
         let v_shift =
@@ -353,8 +375,7 @@ impl<T: PrimInt + FromPrimitive + Hash + IntHelp> Mer for IntKmer<T> {
 
         let value_slide = v >> (2 * pos);
 
-        let new_val = (self.storage & mask) | (value_slide & !mask);
-        IntKmer { storage: new_val }
+        self.storage = (self.storage & mask) | (value_slide & !mask);
     }
 
     /// Return the reverse complement of this kmer
@@ -378,8 +399,9 @@ impl<T: PrimInt + FromPrimitive + Hash + IntHelp> Mer for IntKmer<T> {
 
     fn extend_right(&self, v: u8) -> Self {
         let new = self.storage << 2;
-        let kmer = IntKmer { storage: new };
-        kmer.set(Self::k() - 1, v)
+        let mut kmer = IntKmer { storage: new };
+        kmer.set_mut(Self::k() - 1, v);
+        kmer
     }
 }
 
@@ -406,16 +428,16 @@ impl<T: PrimInt + FromPrimitive + Hash + IntHelp> fmt::Debug for IntKmer<T> {
 }
 
 /// Iterate over the Kmers of a sequence efficiently
-pub struct KmerIter<'a,T: Kmer, D> where T: 'a, D: 'a {
+pub struct KmerIter<'a,K: Kmer, D> where D: 'a {
     bases: &'a D,
-    kmer: T,
+    kmer: K,
     pos: usize
 }
 
-impl<'a, T: Kmer, D: Mer> Iterator for KmerIter<'a, T, D> {
-    type Item=T;
+impl<'a, K: Kmer, D: Mer> Iterator for KmerIter<'a, K, D> {
+    type Item=K;
 
-    fn next(&mut self) -> Option<T> {
+    fn next(&mut self) -> Option<K> {
         if self.pos <= self.bases.len() {
             let retval = self.kmer;
             self.kmer = self.kmer.extend_right(self.bases.get(self.pos));
@@ -508,7 +530,6 @@ mod tests {
 
         let double_rc = rc.rc();
         assert!(vm == double_rc);
-
 
         for i in 0..l {
             // Get and set

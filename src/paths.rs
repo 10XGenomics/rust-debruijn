@@ -26,7 +26,7 @@ struct BaseGraph<K, D> {
     pub length: Vec<u32>,
     pub exts: Vec<Exts>,
     pub data: Vec<D>,
-    k: PhantomData<K>,
+    phantom: PhantomData<K>,
 }
 
 impl<K: Kmer, D> BaseGraph<K,D> {
@@ -54,8 +54,8 @@ impl<K: Kmer, D> BaseGraph<K,D> {
             right_sort.push(i as u32);
         }
 
-        left_sort.sort_by_key( |idx| self.sequence.get_kmer::<K>(self.start[*idx as usize]));
-        right_sort.sort_by_key(|idx| self.sequence.get_kmer::<K>(self.start[*idx as usize] + (self.length[*idx as usize] as usize) - K::k()));
+        left_sort.sort_by_key( |idx| -> K { self.sequence.get_kmer(self.start[*idx as usize]) });
+        right_sort.sort_by_key(|idx| -> K { self.sequence.get_kmer(self.start[*idx as usize] + (self.length[*idx as usize] as usize) - K::k()) });
 
         DebruijnGraph {
             base: self,
@@ -90,7 +90,7 @@ impl<K: Kmer, D> DebruijnGraph<K, D> {
                 start: self.base.start[node_id],
                 length: self.base.length[node_id] as usize };
 
-        let kmer = sequence.term_kmer::<K>(dir);
+        let kmer: K = sequence.term_kmer(dir);
         let mut edges = Vec::new();
 
         for i in 0..4
@@ -108,7 +108,7 @@ impl<K: Kmer, D> DebruijnGraph<K, D> {
         match side {
             Dir::Left => {
                 let pos = self.left_order.binary_search_by_key(&kmer,
-                    |idx| self.base.sequence.get_kmer::<K>(self.base.start[*idx as usize]));
+                    |idx| self.base.sequence.get_kmer(self.base.start[*idx as usize]));
 
                 match pos {
                     Ok(idx) => Some(self.left_order[idx] as usize),
@@ -385,9 +385,9 @@ impl<K: Kmer, V:Vmer<K>, D, B: Fn(D,D) -> bool, R: Fn(D,D)->D> PathCompression<K
             Some(&(_, Dir::Right)) => r_ext,
         };
 
-        let edge = V::new(edge_seq.len());
+        let mut edge = V::new(edge_seq.len());
         for (pos, base) in edge_seq.iter().enumerate() {
-            edge.set(pos, *base);
+            edge.set_mut(pos, *base);
         }
         (edge, Exts::from_single_dirs(left_extend, right_extend))
     }
@@ -467,7 +467,7 @@ impl<K: Kmer, V:Vmer<K>, D, B: Fn(D,D) -> bool, R: Fn(D,D)->D> PathCompression<K
 
         let mut edge = V::new(edge_seq.len());
         for (idx, base) in edge_seq.iter().enumerate() {
-            edge = edge.set(idx, *base);
+            edge.set_mut(idx, *base);
         }
         (edge, Exts::from_single_dirs(left_extend, right_extend))
     }
