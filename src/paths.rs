@@ -14,13 +14,6 @@ use Dir;
 use Exts;
 
 
-#[derive(Copy, Clone)]
-pub enum ExtMode<K: Kmer> {
-    Unique(K, Dir, Exts),
-    Terminal(Exts),
-}
-
-
 struct PackedDnaStringSet {
     pub sequence: DnaString,
     pub start: Vec<usize>,
@@ -28,6 +21,13 @@ struct PackedDnaStringSet {
 }
 
 impl<'a> PackedDnaStringSet {
+    fn new() -> Self {
+        PackedDnaStringSet {
+            sequence: DnaString::new(),
+            start: Vec::new(),
+            length: Vec::new(),
+        }
+    }
     fn get(&'a self, i: usize) -> DnaStringSlice<'a> {
         DnaStringSlice {
             dna_string: &self.sequence,
@@ -40,13 +40,13 @@ impl<'a> PackedDnaStringSet {
         self.start.len()
     }
 
-    fn add<S: IntoIterator<Item = u8>>(&mut self, sequence: S) {
+    fn add<'b, S: IntoIterator<Item = &'b u8>>(&mut self, sequence: S) {
         let start = self.sequence.len();
         self.start.push(start);
 
         let mut length = 0;
         for b in sequence {
-            self.sequence.push(b);
+            self.sequence.push(*b);
             length += 1;
         }
         self.length.push(length as u32);
@@ -54,21 +54,30 @@ impl<'a> PackedDnaStringSet {
 }
 
 
-struct BaseGraph<K, D> {
-    pub sequences: PackedDnaStringSet,
+pub struct BaseGraph<K, D> {
+    sequences: PackedDnaStringSet,
     pub exts: Vec<Exts>,
     pub data: Vec<D>,
     phantom: PhantomData<K>,
 }
 
 impl<K, D> BaseGraph<K, D> {
+    pub fn new() -> Self {
+        BaseGraph {
+            sequences: PackedDnaStringSet::new(),
+            exts: Vec::new(),
+            data: Vec::new(),
+            phantom: PhantomData,
+        }
+    }
+
     pub fn len(&self) -> usize {
         self.sequences.len()
     }
 }
 
 impl<K: Kmer, D> BaseGraph<K, D> {
-    pub fn add<S: IntoIterator<Item = u8>>(&mut self, sequence: S, exts: Exts, data: D) {
+    pub fn add<'a, S: IntoIterator<Item = &'a u8>>(&mut self, sequence: S, exts: Exts, data: D) {
         self.sequences.add(sequence);
         self.exts.push(exts);
         self.data.push(data);
@@ -225,7 +234,13 @@ impl<'a, K: Kmer, D> Node<'a, K, D> {
 
 
 
-pub struct PathCompression<K: Kmer, V: Vmer<K>, D, B: Fn(D, D) -> bool, R: Fn(D, D) -> D> {
+#[derive(Copy, Clone)]
+pub enum ExtMode<K: Kmer> {
+    Unique(K, Dir, Exts),
+    Terminal(Exts),
+}
+
+pub struct PathCompression<K: Kmer, V: Vmer<K>, D: Clone, B: Fn(D, D) -> bool, R: Fn(&mut D, &D)> {
     allow_rc: bool,
     k: PhantomData<K>,
     v: PhantomData<V>,
@@ -247,8 +262,10 @@ pub trait BuildGraph<K: Kmer, V: Vmer<K>, D> {
     fn build_graph<I: Index<K, Output = Exts>>(kmers: I) -> DebruijnGraph<K, D>;
 }
 
+
+
 /// Compression of paths in Debruijn graph
-impl<K: Kmer, V: Vmer<K>, D, B: Fn(D, D) -> bool, R: Fn(D, D) -> D> PathCompression<K, V, D, B, R> {
+impl<K: Kmer, V: Vmer<K>, D: Clone, B: Fn(D, D) -> bool, R: Fn(&mut D, &D)> PathCompression<K, V, D, B, R> {
     /// Attempt to extend kmer v in direction dir. Return:
     ///  - Unique(nextKmer, nextDir) if a single unique extension
     ///    is possible.  nextDir indicates the direction to extend nextMker
@@ -256,11 +273,11 @@ impl<K: Kmer, V: Vmer<K>, D, B: Fn(D, D) -> bool, R: Fn(D, D) -> D> PathCompress
     /// - Term(ext) no unique extension possible, indicating the extensions at this end of the line
     fn try_extend_kmer(&self,
                        available_kmers: &FxLMap<K, ()>,
-                       kmer_exts: &FxHashMap<K, Exts>,
+                       kmer_exts: &FxHashMap<K, (Exts, D)>,
                        v: K,
                        dir: Dir)
                        -> ExtMode<K> {
-        let exts = kmer_exts.get(&v).expect("didn't have kmer");
+        let exts = kmer_exts.get(&v).expect("didn't have kmer").0;
         if exts.num_ext_dir(dir) != 1 || v == v.rc() {
             ExtMode::Terminal(exts.single_dir(dir))
         } else {
@@ -290,7 +307,8 @@ impl<K: Kmer, V: Vmer<K>, D, B: Fn(D, D) -> bool, R: Fn(D, D) -> D> PathCompress
 
             // Direction we're approaching the new kmer from
             let new_incoming_dir = dir.flip().cond_flip(do_flip);
-            let next_kmer_exts = kmer_exts.get(&next_kmer).expect("must have kmer");
+            let next_kmer_r = kmer_exts.get(&next_kmer).expect("must have kmer");
+            let next_kmer_exts = next_kmer_r.0;
             let incoming_count = next_kmer_exts.num_ext_dir(new_incoming_dir);
             let outgoing_exts = next_kmer_exts.single_dir(new_incoming_dir.flip());
 
@@ -314,22 +332,23 @@ impl<K: Kmer, V: Vmer<K>, D, B: Fn(D, D) -> bool, R: Fn(D, D) -> D> PathCompress
     /// Sub-lines break if their extensions are not available in this shard
     #[inline(never)]
     fn extend_kmer(&self,
-                   kmer_exts: &FxHashMap<K, Exts>,
+                   kmer_exts: &FxHashMap<K, (Exts, D)>,
                    available_kmers: &mut FxLMap<K, ()>,
                    kmer: K,
                    start_dir: Dir,
-                   max_dist: usize)
-                   -> (Vec<(K, Dir)>, Exts) {
+                   max_dist: usize,
+                   path: &mut Vec<(K, Dir)>)
+                   -> Exts {
 
         let mut current_dir = start_dir;
         let mut current_kmer = kmer;
-        let mut path = Vec::new();
+        path.clear();
 
         let mut final_exts: Exts; // must get set below
 
         if max_dist == 0 {
-            let first_exts = kmer_exts.get(&current_kmer).expect("didn't have kmer");
-            return (path, first_exts.single_dir(start_dir));
+            let first_exts = kmer_exts.get(&current_kmer).expect("didn't have kmer").0;
+            return first_exts.single_dir(start_dir);
         }
 
         let _ = available_kmers.remove(&kmer);
@@ -357,62 +376,78 @@ impl<K: Kmer, V: Vmer<K>, D, B: Fn(D, D) -> bool, R: Fn(D, D) -> D> PathCompress
             }
         }
 
-        (path, final_exts)
+        final_exts
     }
 
 
     /// Build the edge surrounding a kmer
     #[inline(never)]
     fn build_node(&self,
-                  kmer_exts: &FxHashMap<K, Exts>,
+                  kmer_exts: &FxHashMap<K, (Exts, D)>,
                   available_kmers: &mut FxLMap<K, ()>,
-                  seed: K)
-                  -> (V, Exts) {
+                  seed: K,
+                  path: &mut Vec<(K, Dir)>,
+                  edge_seq: &mut VecDeque<u8>)
+                  -> (Exts, D) {
 
-        let (l_path, l_ext) = self.extend_kmer(kmer_exts,
-                                               available_kmers,
-                                               seed,
-                                               Dir::Left,
-                                               V::max_len() - K::k());
-        let (r_path, r_ext) =
-            self.extend_kmer(kmer_exts,
-                             available_kmers,
-                             seed,
-                             Dir::Right,
-                             V::max_len() - K::k() - l_path.len());
 
-        let mut edge_seq = VecDeque::new();
+        edge_seq.clear();
         for i in 0..K::k() {
             edge_seq.push_back(seed.get(i));
         }
 
+        let mut node_data = kmer_exts.get(&seed).expect("must have kmer").1.clone();
+
+        let l_ext = self.extend_kmer(kmer_exts,
+                                    available_kmers,
+                                    seed,
+                                    Dir::Left,
+                                    V::max_len() - K::k(),
+                                    path);
+
         // Add on the left path
-        for &(next_kmer, dir) in l_path.iter() {
+        for &(next_kmer, dir) in path.iter() {
             let kmer = match dir {
                 Dir::Left => next_kmer,
                 Dir::Right => next_kmer.rc(),
             };
 
-            edge_seq.push_front(kmer.get(0))
+            edge_seq.push_front(kmer.get(0));
+
+            // Reduce the data object
+            let &(_, ref data) = kmer_exts.get(&next_kmer).expect("kmer");
+            (self.reduce)(&mut node_data, data);
         }
 
-        // Add on the right path
-        for &(next_kmer, dir) in r_path.iter() {
-            let kmer = match dir {
-                Dir::Left => next_kmer.rc(),
-                Dir::Right => next_kmer,
-            };
-
-            edge_seq.push_back(kmer.get(K::k() - 1))
-        }
-
-        let left_extend = match l_path.last() {
+        let left_extend = match path.last() {
             None => l_ext,
             Some(&(_, Dir::Left)) => l_ext,
             Some(&(_, Dir::Right)) => l_ext.complement(),
         };
 
-        let right_extend = match r_path.last() {
+
+        let r_ext = self.extend_kmer(kmer_exts,
+                             available_kmers,
+                             seed,
+                             Dir::Right,
+                             V::max_len() - edge_seq.len(),
+                             path);
+
+
+        // Add on the right path
+        for &(next_kmer, dir) in path.iter() {
+            let kmer = match dir {
+                Dir::Left => next_kmer.rc(),
+                Dir::Right => next_kmer,
+            };
+
+            edge_seq.push_back(kmer.get(K::k() - 1));
+
+            let &(_, ref data) = kmer_exts.get(&next_kmer).expect("kmer");
+            (self.reduce)(&mut node_data, data)
+        }
+
+        let right_extend = match path.last() {
             None => r_ext,
             Some(&(_, Dir::Left)) => r_ext.complement(),
             Some(&(_, Dir::Right)) => r_ext,
@@ -422,143 +457,42 @@ impl<K: Kmer, V: Vmer<K>, D, B: Fn(D, D) -> bool, R: Fn(D, D) -> D> PathCompress
         for (pos, base) in edge_seq.iter().enumerate() {
             edge.set_mut(pos, *base);
         }
-        (edge, Exts::from_single_dirs(left_extend, right_extend))
+        (Exts::from_single_dirs(left_extend, right_extend), node_data)
     }
 
     /// Build all sedges until all kmers are exhausted
     #[inline(never)]
-    pub fn build_sedges(&self, kmer_exts: &FxHashMap<K, Exts>) -> Vec<(V, Exts)> {
-        let mut edges: Vec<(V, Exts)> = Vec::new();
+    pub fn build_nodes(&self, kmer_exts: &FxHashMap<K, (Exts, D)>) -> BaseGraph<K,D> {
 
         let h = BuildHasherDefault::<FxHasher>::default();
         let mut available_kmers: FxLMap<K, ()> = FxLMap::with_capacity_and_hasher(kmer_exts.len(),
                                                                                   h);
         available_kmers.extend(kmer_exts.keys().map(|k| (k.clone(), ())));
 
+        // Path-compressed De Bruijn graph will be created here
+        let mut graph = BaseGraph::new();
+
+        // Paths will be get assembled here
+        let mut path_buf = Vec::new();
+
+        // Node sequences will get assembled here
+        let mut edge_seq_buf = VecDeque::new();
+
         loop {
             match available_kmers.front() {
-                Some((&k, _)) => {
-                    let sedge: (V, Exts) = self.build_sedge(kmer_exts, &mut available_kmers, k);
-                    edges.push(sedge)
+                Some((&start_kmer, _)) => {
+                    let (node_exts, node_data) = self.build_node(kmer_exts, 
+                    &mut available_kmers, 
+                    start_kmer,
+                    &mut path_buf,
+                    &mut edge_seq_buf);
+
+                    graph.add(&edge_seq_buf, node_exts, node_data);
                 }
                 None => break,
             }
         }
 
-        edges
-    }
-
-
-    /// Build the edge surrounding a kmer
-    #[inline(never)]
-    fn build_sedge(&self,
-                   kmer_exts: &FxHashMap<K, Exts>,
-                   available_kmers: &mut FxLMap<K, ()>,
-                   seed: K)
-                   -> (V, Exts) {
-        let (l_path, l_ext) = self.extend_sedge(kmer_exts,
-                                                available_kmers,
-                                                seed,
-                                                Dir::Left,
-                                                V::max_len() - K::k());
-        let (r_path, r_ext) =
-            self.extend_sedge(kmer_exts,
-                              available_kmers,
-                              seed,
-                              Dir::Right,
-                              V::max_len() - K::k() - l_path.len());
-
-        let mut edge_seq = VecDeque::new();
-        for i in 0..K::k() {
-            edge_seq.push_back(seed.get(i));
-        }
-
-        // Add on the left path
-        for &(next_kmer, dir) in l_path.iter() {
-            let kmer = match dir {
-                Dir::Left => next_kmer,
-                Dir::Right => next_kmer.rc(),
-            };
-
-            edge_seq.push_front(kmer.get(0))
-        }
-
-        // Add on the right path
-        for &(next_kmer, dir) in r_path.iter() {
-            let kmer = match dir {
-                Dir::Left => next_kmer.rc(),
-                Dir::Right => next_kmer,
-            };
-
-            edge_seq.push_back(kmer.get(K::k() - 1))
-        }
-
-        let left_extend = match l_path.last() {
-            None => l_ext,
-            Some(&(_, Dir::Left)) => l_ext,
-            Some(&(_, Dir::Right)) => l_ext.complement(),
-        };
-
-        let right_extend = match r_path.last() {
-            None => r_ext,
-            Some(&(_, Dir::Left)) => r_ext.complement(),
-            Some(&(_, Dir::Right)) => r_ext,
-        };
-
-        let mut edge = V::new(edge_seq.len());
-        for (idx, base) in edge_seq.iter().enumerate() {
-            edge.set_mut(idx, *base);
-        }
-        (edge, Exts::from_single_dirs(left_extend, right_extend))
-    }
-
-    /// Build the maximal line starting at kmer in direction dir, at most max_dist long.
-    ///
-    /// Also return the extensions at the end of this line.
-    /// Sub-lines break if their extensions are not available in this shard
-    #[inline(never)]
-    fn extend_sedge(&self,
-                    kmer_exts: &FxHashMap<K, Exts>,
-                    available_kmers: &mut FxLMap<K, ()>,
-                    kmer: K,
-                    start_dir: Dir,
-                    max_dist: usize)
-                    -> (Vec<(K, Dir)>, Exts) {
-        let mut current_dir = start_dir;
-        let mut current_kmer = kmer;
-        let mut path = Vec::new();
-        let mut final_exts: Exts; // must get set below
-
-        if max_dist == 0 {
-            let first_exts = kmer_exts.get(&current_kmer).expect("didn't have kmer");
-            return (path, first_exts.single_dir(start_dir));
-        }
-
-        let _ = available_kmers.remove(&kmer);
-
-        loop {
-            let ext_result =
-                self.try_extend_kmer(available_kmers, kmer_exts, current_kmer, current_dir);
-
-            match ext_result {
-                ExtMode::Unique(next_kmer, next_dir, next_ext) => {
-                    path.push((next_kmer, next_dir));
-                    available_kmers.remove(&next_kmer);
-                    current_kmer = next_kmer;
-                    current_dir = next_dir;
-                    final_exts = next_ext
-                }
-                ExtMode::Terminal(ext) => {
-                    final_exts = ext;
-                    break;
-                }
-            }
-
-            if path.len() >= max_dist {
-                break;
-            }
-        }
-
-        (path, final_exts)
+        graph
     }
 }
