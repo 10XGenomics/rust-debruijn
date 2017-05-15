@@ -2,7 +2,6 @@ use std::marker::PhantomData;
 use std::cmp::{max, min};
 use std::fmt;
 use std::hash::Hash;
-use serde::{Serialize, Deserialize};
 
 use Kmer;
 use KmerIter;

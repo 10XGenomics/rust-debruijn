@@ -1,10 +1,13 @@
 use std::marker::PhantomData;
 use fx::{FxHashMap, FxLMap, FxHasher};
 use std::collections::VecDeque;
-//use bit_set::BitSet;
+use bit_set::BitSet;
+use smallvec::SmallVec;
 
 use std::hash::BuildHasherDefault;
 use std::ops::Index;
+
+type SmallVec4<T> = SmallVec<[T; 4]>;
 
 use Mer;
 use Kmer;
@@ -114,17 +117,17 @@ impl<K: Kmer, D> DebruijnGraph<K, D> {
         Node {
             node_id: node_id,
             graph: self,
-            l_edges: self.find_edges(node_id, Dir::Left),
-            r_edges: self.find_edges(node_id, Dir::Right),
+            //l_edges: self.find_edges(node_id, Dir::Left),
+            //r_edges: self.find_edges(node_id, Dir::Right),
         }
     }
 
-    pub fn find_edges(&self, node_id: usize, dir: Dir) -> Vec<(usize, Dir, bool)> {
+    pub fn find_edges(&self, node_id: usize, dir: Dir) -> SmallVec4<(usize, Dir, bool)> {
 
         let exts = self.base.exts[node_id];
         let sequence = self.base.sequences.get(node_id);
         let kmer: K = sequence.term_kmer(dir);
-        let mut edges = Vec::new();
+        let mut edges = SmallVec4::new();
 
         for i in 0..4 {
             if exts.has_ext(dir, i) {
@@ -214,11 +217,16 @@ impl<K: Kmer, D> DebruijnGraph<K, D> {
 pub struct Node<'a, K: Kmer + 'a, D: 'a> {
     pub node_id: usize,
     pub graph: &'a DebruijnGraph<K, D>,
-    pub l_edges: Vec<(usize, Dir, bool)>,
-    pub r_edges: Vec<(usize, Dir, bool)>,
+    //pub l_edges: ExtVec<(usize, Dir, bool)>,
+    //pub r_edges: ExtVec<(usize, Dir, bool)>,
 }
 
 impl<'a, K: Kmer, D> Node<'a, K, D> {
+
+    pub fn len(&self) -> usize {
+        self.graph.base.sequences.get(self.node_id).len()
+    }
+
     pub fn sequence(&self) -> DnaStringSlice<'a> {
         self.graph.base.sequences.get(self.node_id)
     }
@@ -230,6 +238,14 @@ impl<'a, K: Kmer, D> Node<'a, K, D> {
     pub fn exts(&self) -> Exts {
         self.graph.base.exts[self.node_id]
     }
+
+    pub fn l_edges(&self) -> SmallVec4<(usize, Dir, bool)> {
+        self.graph.find_edges(self.node_id, Dir::Left)
+    }
+
+    pub fn r_edges(&self) -> SmallVec4<(usize, Dir, bool)> {
+        self.graph.find_edges(self.node_id, Dir::Left)
+    }
 }
 
 
@@ -237,6 +253,13 @@ impl<'a, K: Kmer, D> Node<'a, K, D> {
 #[derive(Copy, Clone)]
 pub enum ExtMode<K: Kmer> {
     Unique(K, Dir, Exts),
+    Terminal(Exts),
+}
+
+
+#[derive(Copy, Clone)]
+enum ExtModeNode {
+    Unique(usize, Dir, Exts),
     Terminal(Exts),
 }
 
@@ -494,5 +517,94 @@ impl<K: Kmer, V: Vmer<K>, D: Clone, B: Fn(D, D) -> bool, R: Fn(&mut D, &D)> Path
         }
 
         graph
+    }
+
+
+    /// Try to extend edge 'edge' in direction 'dir', returning:
+    /// - Unique(usize, dir, exts) if there a unique extension into a another sedge
+    /// - Terminal(exts) if there isn't -- exts denotes the neighboring kmers
+    #[inline(never)]
+    fn try_extend_node(graph: &DebruijnGraph<K,D>,
+                    available_nodes: &BitSet,
+                    node_id: usize,
+                    dir: Dir)
+                    -> ExtModeNode {
+
+        let node = graph.get_node(node_id);
+        let exts = node.exts();
+        let bases = node.sequence();
+
+        if exts.num_ext_dir(dir) != 1 || (bases.len() == K::k() && bases.is_palindrome()) {
+            ExtModeNode::Terminal(exts.single_dir(dir))
+        } else {
+            // Get the next kmer
+            let ext_base = exts.get_unique_extension(dir).expect("should be unique");
+            let end_kmer: K = bases.term_kmer(dir);
+
+            let next_kmer = end_kmer.extend(ext_base, dir);
+            let (next_node_id, next_side_incoming, rc) = match graph.find_link(next_kmer, dir) {
+                Some(e) => e,
+                None => {
+                    println!("dir: {:?}, Lmer: {:?}, exts: {:?}", dir, bases, exts);
+                    println!("end kmer: {:?}", end_kmer);
+                    println!("No kmer: {:?}", next_kmer);
+                    println!("rc: {:?}", next_kmer.min_rc());
+                    panic!(format!("No kmer: {:?}", next_kmer))
+                }
+            };
+
+            let next_node = graph.get_node(next_node_id);
+            let next_exts = node.exts();
+            let next_bases = node.sequence();
+
+            let consistent = (next_bases.len() == K::k()) ||
+                            match (dir, next_side_incoming, rc) {
+                (Dir::Left, Dir::Right, false) => true,
+                (Dir::Left, Dir::Left, true) => true,
+                (Dir::Right, Dir::Left, false) => true,
+                (Dir::Right, Dir::Right, true) => true,
+                _ => {
+                    println!("dir: {:?}, Lmer: {:?}, exts: {:?}", dir, bases, exts);
+                    println!("end kmer: {:?}", end_kmer);
+                    println!("next kmer: {:?}", next_kmer);
+                    println!("rc: {:?}", next_kmer.min_rc());
+                    println!("next bases: {:?}, next_side_incoming: {:?}, rc: {:?}",
+                            next_bases,
+                            next_side_incoming,
+                            rc);
+                    false
+                }
+            };
+            assert!(consistent);
+
+            // We can include this kmer in the line if:
+            // a) it exists in the partition, and is still unused
+            // b) the kmer we go to has a unique extension back in our direction
+            // c) the new edge is not of length K and a palindrome
+
+            if !available_nodes.contains(next_node_id) || (next_bases.len() == K::k() && next_bases.is_palindrome()) {
+                // This kmer isn't in this partition, or we've already used it
+                return ExtModeNode::Terminal(exts.single_dir(dir));
+            }
+
+            // orientation of next edge
+            let next_side_outgoing = next_side_incoming.flip();
+
+            let incoming_count = next_exts.num_ext_dir(next_side_incoming);
+            let outgoing_exts = next_exts.single_dir(next_side_outgoing);
+
+            if incoming_count == 0 {
+                println!("dir: {:?}, Lmer: {:?}, exts: {:?}", dir, bases, exts);
+                println!("end kmer: {:?}", end_kmer);
+                panic!("unreachable");
+            } else if incoming_count == 1 {
+                // We have a unique path to next_kmer -- include it
+                ExtModeNode::Unique(next_node_id, next_side_outgoing, outgoing_exts)
+            } else {
+                // there's more than one path
+                // into the target kmer - don't include it
+                ExtModeNode::Terminal(exts.single_dir(dir))
+            }
+        }
     }
 }

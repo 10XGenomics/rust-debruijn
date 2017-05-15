@@ -433,6 +433,12 @@ impl<'a, K> Vmer<K> for DnaStringSlice<'a>
 
 
 impl<'a> DnaStringSlice<'a> {
+
+    pub fn is_palindrome(&self) -> bool {
+        // FIXME
+        return false;
+    }
+
     pub fn ascii(&self) -> Vec<u8> {
         let mut v = Vec::new();
         for pos in self.start..(self.start + self.length) {

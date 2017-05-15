@@ -5,6 +5,8 @@ extern crate linked_hash_map;
 #[macro_use]
 extern crate serde_derive;
 extern crate serde;
+extern crate smallvec;
+extern crate bit_set;
 
 use std::hash::Hash;
 use std::fmt;
@@ -17,7 +19,9 @@ pub mod exts;
 pub mod dir;
 pub mod paths;
 pub mod vmer;
+pub mod msp;
 mod fx;
+mod test;
 
 use dir::Dir;
 use exts::Exts;
