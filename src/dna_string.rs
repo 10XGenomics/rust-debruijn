@@ -72,7 +72,7 @@ impl<K> Vmer<K> for DnaString
     where K: Kmer
 {
     fn new(len: usize) -> Self {
-        Self::with_capacity(len)
+        Self::empty(len)
     }
 
     fn max_len() -> usize {
@@ -124,10 +124,14 @@ impl DnaString {
     }
 
     /// Create a new instance with a given capacity.
-    pub fn with_capacity(n: usize) -> Self {
+    pub fn empty(n: usize) -> Self {
+        let blocks = n * WIDTH / 64 + 1;
+        let mut storage = Vec::with_capacity(blocks);
+        for i in 0 .. blocks { storage.push(0); }
+
         DnaString {
-            storage: Vec::with_capacity(n * WIDTH / 64 + 1),
-            len: 0,
+            storage: storage,
+            len: n,
         }
     }
 
@@ -425,7 +429,7 @@ impl<'a, K> Vmer<K> for DnaStringSlice<'a>
 
     /// Get the kmer starting at position pos
     fn get_kmer(&self, pos: usize) -> K {
-        debug_assert!(self.length + pos + K::k() <= self.length);
+        debug_assert!(pos + K::k() <= self.length);
         self.dna_string.get_kmer(self.start + pos)
     }
 }
@@ -460,7 +464,7 @@ impl<'a> DnaStringSlice<'a> {
     }
 
     pub fn to_owned(&self) -> DnaString {
-        let mut be = DnaString::with_capacity(self.length);
+        let mut be = DnaString::empty(self.length);
         for pos in self.start..(self.start + self.length) {
             be.push(self.dna_string.get(pos));
         }

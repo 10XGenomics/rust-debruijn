@@ -1,3 +1,5 @@
+#![allow(dead_code)]
+
 extern crate num;
 extern crate extprim;
 extern crate rand;
@@ -7,6 +9,7 @@ extern crate serde_derive;
 extern crate serde;
 extern crate smallvec;
 extern crate bit_set;
+extern crate itertools;
 
 use std::hash::Hash;
 use std::fmt;
@@ -20,6 +23,7 @@ pub mod dir;
 pub mod paths;
 pub mod vmer;
 pub mod msp;
+pub mod filter;
 mod fx;
 mod test;
 
@@ -222,6 +226,30 @@ pub trait Kmer: Sized + Copy + Mer + PartialEq + PartialOrd + Eq + Ord + Hash {
             s.push(bits_to_base(self.get(pos)))
         }
         s
+    }
+
+    /// Generate all kmers from string
+    fn kmers_from_string(str: &[u8]) -> Vec<Self> {
+        let mut r = Vec::new();
+
+        if str.len() < Self::k() {
+            return r;
+        }
+
+        let mut k0 = Self::empty();
+
+        for i in 0..Self::k() {
+            k0.set_mut(i, str[i]);
+        }
+
+        r.push(k0.clone());
+
+        for i in Self::k()..str.len() {
+            k0 = k0.extend_right(str[i]);
+            r.push(k0.clone());
+        }
+
+        r
     }
 }
 
@@ -435,6 +463,51 @@ impl<'a, K: Kmer, D: Mer> Iterator for KmerIter<'a, K, D> {
         }
     }
 }
+
+/// Iterate over the Kmers of a sequence efficiently
+pub struct KmerExtsIter<'a, K: Kmer, D>
+    where D: 'a
+{
+    bases: &'a D,
+    exts: Exts,
+    kmer: K,
+    pos: usize,
+}
+
+impl<'a, K: Kmer, D: Mer> Iterator for KmerExtsIter<'a, K, D> {
+    type Item = (K, Exts);
+
+    fn next(&mut self) -> Option<(K,Exts)> {
+        if self.pos <= self.bases.len() {
+
+            let next_base = self.bases.get(self.pos);
+
+            let cur_left = 
+                if self.pos == K::k() {
+                    self.exts
+                } else {
+                    Exts::mk_left(self.bases.get(self.pos - K::k() - 1))
+                };
+
+            let cur_right = 
+                if self.pos < self.bases.len() {
+                    Exts::mk_right(next_base)
+                } else {
+                    self.exts
+                };
+            
+            let cur_exts = Exts::merge(cur_left, cur_right);
+
+            let retval = self.kmer;
+            self.kmer = self.kmer.extend_right(next_base);
+            self.pos = self.pos + 1;
+            Some((retval, cur_exts))
+        } else {
+            None
+        }
+    }
+}
+
 
 
 #[cfg(test)]

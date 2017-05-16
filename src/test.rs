@@ -1,11 +1,7 @@
 //! Generate random genomes (with lots of re-used sustrings), reassemble them, and check sanity
-/*
-use Mer;
+
 use Kmer;
-use dna_string::{DnaString, DnaStringSlice};
 use vmer::Vmer;
-use Dir;
-use Exts;
 
 use std::cmp::{min, max};
 use rand::{self, Rng};
@@ -116,15 +112,20 @@ pub fn random_contigs() -> Vec<Vec<u8>> {
 #[cfg(test)]
 mod tests {
 
-    use {Kmer, Dir, Bsp, Exts, complement};
+    use {Kmer, Dir, Exts, complement};
     use std::collections::HashSet;
-    use path;
+    use paths;
     use std::iter::FromIterator;
     use std::hash::{Hash, SipHasher, Hasher};
     use fx::FxHashMap;
     use std::fs::{File, remove_file};
     use std::io::{BufReader, BufWriter};
     use std::ops::Sub;
+    use msp;
+    use std::marker::PhantomData;
+    use IntKmer;    
+    use dna_string::DnaString;
+    use filter;
     //use utils;
 
     use super::*;
@@ -139,10 +140,11 @@ mod tests {
     fn test_line_construction() {
         for _ in 0..5 {
             let contigs = random_contigs();
-            reassemble_contigs(contigs);
+            reassemble_contigs::<IntKmer<u64>, DnaString>(contigs);
         }
     }
 
+    /*
     #[test]
     fn test_sn_graph_round_trip()
     {
@@ -150,8 +152,7 @@ mod tests {
             check_sn_graph_round_trip(5, n2);
         }
     }
-
-
+    
     fn check_sn_graph_round_trip(n1: usize, n2: usize) {
         let mut g = debruijn::TempGraph::new(false);
 
@@ -181,6 +182,7 @@ mod tests {
         assert_eq!(g.edge_len, round_trip.edge_len);
         assert_eq!(g.sequence, round_trip.sequence);
     }
+    */
 
 
     #[test]
@@ -192,7 +194,6 @@ mod tests {
 
         let p3 = random_dna(20);
         let p4 = random_dna(20);
-
 
 
         // Simulate contigs
@@ -222,139 +223,131 @@ mod tests {
         c3.extend(palindrome2);
         c3.extend(random_dna(40));
 
-        let contigs = vec![c1, c2, c3];
-        reassemble_contigs(contigs);
+        //let contigs = vec![c1, c2, c3];
+        let contigs = vec![c1, c2];
+        reassemble_contigs::<IntKmer<u64>, DnaString>(contigs);
     }
 
     // Take some input contig, which likely form a complicated graph,
     // and test the kmer, bsp, sedge and edge construction machinery
-    fn reassemble_contigs<K:Kmer>(contigs: Vec<Vec<u8>>) {
+    fn reassemble_contigs<K:Kmer + Copy, V:Vmer<K>>(contigs: Vec<Vec<u8>>) {
         let ctg_lens: Vec<_> = contigs.iter().map(|c| c.len()).collect();
         println!("Reassembling contig sizes: {:?}", ctg_lens);
 
         // kmer vector
         let mut kmers = Vec::new();
         for c in contigs.iter() {
-            let mut _kmers = Kmer::kmers_from_string(&c[..]);
+            let mut _kmers = K::kmers_from_string(c.as_slice());
             kmers.extend(_kmers.iter().map(|k| k.min_rc()));
         }
 
         // True kmer set
         let mut kmer_set = HashSet::new();
-        kmer_set.extend(kmers);
+        kmer_set.extend(kmers.iter());
 
         // Bsps of kmers
         let P = 6;
 
-        let mut bsps = Vec::new();
+        let mut seqs: Vec<(V, Exts, u8)> = Vec::new();
         let permutation = (0..1 << (2 * P)).collect();
         for (idx, c) in contigs.iter().enumerate() {            
-            let _bsps = Bsp::msp_read(kmer::K, P, (idx*2+1) as u32, 0, &c[..], &permutation);
-            bsps.extend(_bsps.into_iter().map(|(_, b)| b));
-
-            let _bsps = Bsp::msp_read(kmer::K, P, (idx*2 + 2) as u32, 0, &c[..], &permutation);
-            bsps.extend(_bsps.into_iter().map(|(_, b)| b));
+            let msps = msp::msp_sequence::<K, V>(P, c.as_slice(), Some(&permutation));
+            seqs.extend(msps.clone().into_iter().map(|(_, e, v)| (v, e, 0u8)));
+            seqs.extend(msps.into_iter().map(|(_, e, v)| (v, e, 1u8)));
         }
 
         // kmer set from bsps
-        let mut bsp_kmers = HashSet::new();
-        for b in bsps.iter() {
-            let _kmers = b.kmers();
-            for k in _kmers {
-                bsp_kmers.insert(k.min_rc());
+        let mut msp_kmers = HashSet::new();
+        for &(ref v, _, _) in seqs.iter() {
+            for k in v.iter_kmers() {
+                msp_kmers.insert(k.min_rc());
             }
         }
 
+        // Kmer extensions from BSP match raw kmers
+        if kmer_set != msp_kmers {
+            println!("{:?}", kmer_set);
+            println!("{:?}", msp_kmers);
+        }
+
         // Raw kmers and BSP kmers match
-        assert!(kmer_set == bsp_kmers);
+        assert!(kmer_set == msp_kmers);
 
         // Check the correctness of the process_kmer_shard kmer filtering function
-        let (valid_kmers, all_kmers) = utils::process_kmer_shard(&bsps, 2);
+        let (valid_kmers, all_kmers) = filter::filter_kmers(&seqs, filter::CountFilterSet::<u8>::new(2));
         let mut process_kmer_set = HashSet::new();
-        for k in all_kmers.keys() {
+        for k in valid_kmers.keys() {
             process_kmer_set.insert(*k);
         }
         assert_eq!(process_kmer_set, kmer_set);
 
         // Full set of barcodes from valid kmers should equal 1..contigs.len()*2+1  (0 barcodes are not counted)
         let mut obs_bcs = HashSet::new();
-        for (_, bcs) in valid_kmers {
+        for (_, &(_, ref bcs)) in valid_kmers.iter() {
             for bc in bcs { obs_bcs.insert(bc); }
         }
-
-        let mut true_bcs = HashSet::new();
-        for bc in 1 .. contigs.len() * 2 + 1 {
-            true_bcs.insert(bc as u32);
-        }
-
-        assert_eq!(obs_bcs, true_bcs);
-
-
-        // Now generate and check the kmer extensions
-        let mut kmer_hash_map = FxHashMap();
-        for k in kmer_set.iter() {
-            kmer_hash_map.insert(*k, 0);
-        }
-
-        let kmer_exts = debruijn::kmer_extensions(&kmer_hash_map, &kmer_hash_map, &bsps);
-
+        
         // Every kmer should be reachable as the extension of a kmer.
         // No new kmers should be reachable
         let mut extension_kmer_set: HashSet<K> = HashSet::new();
-        for (kmer, exts) in kmer_exts.iter() {
-            for e in kmer.get_extensions(*exts, Dir::Left) {
+        for (kmer, &(exts, _)) in valid_kmers.iter() {
+            for e in kmer.get_extensions(exts, Dir::Left) {
                 extension_kmer_set.insert(e.min_rc());
             }
 
-            for e in kmer.get_extensions(*exts, Dir::Right) {
+            for e in kmer.get_extensions(exts, Dir::Right) {
                 extension_kmer_set.insert(e.min_rc());
             }
         }
 
         // Kmer extensions from BSP match raw kmers
+        if kmer_set != extension_kmer_set {
+            println!("n:{}, {:?}", kmer_set.len(), kmer_set);
+            println!("n:{}, {:?}", extension_kmer_set.len(), extension_kmer_set);
+
+            if extension_kmer_set.is_superset(&kmer_set) {
+                let invented = extension_kmer_set.sub(&kmer_set);
+                println!("Invented kmers: {:?}", invented);
+            }
+        }
+
         assert!(kmer_set == extension_kmer_set);
 
-        let mut ext_vec: Vec<(K, Exts)> = kmer_exts.clone().into_iter().collect();
-        ext_vec.sort();
-        let ext_vec_hash = hash(&ext_vec);
-        println!("ext_vec hash: {}", ext_vec_hash);
-
+        let pc: paths::PathCompression<K, V, Vec<u8>, _, _> = 
+            paths::PathCompression {
+                allow_rc: true,
+                k: PhantomData,
+                v: PhantomData,
+                d: PhantomData,
+                break_fn: |_, _| true,
+                reduce: |a:&mut Vec<u8>,b: &Vec<u8>| a.extend(b),
+            };
 
 
         // Now generate the lines for these kmers
-        let sedges = debruijn::build_sedges(&kmer_exts);
-
-        // println!("--- Sedges ---");
-        // let sdb = debruijn::SedgeDb::new(sedges.clone());
-
-        // debruijn::SedgeDb::new(sedges.clone()).print();
-
-        // println!("n edges: {:?}", sedges.len());
-        // for (buf, exts) in sedges.clone() {
-        //    println!("sedge: {:?}", buf);
-        //    println!("exts: {:?}", exts);
-        // }
+        let graph = pc.build_nodes(&valid_kmers);
 
         // Check that all the lines have valid kmers,
         // and have extensions into other valid kmers
-        for (seq, exts) in sedges.clone() {
-            let kmers = seq.kmers();
-            let sedge_set = HashSet::from_iter(kmers.iter().map(|km| km.min_rc()));
-            assert!(kmer_set.is_superset(&sedge_set));
+        for seq_id in 0 .. graph.len() {
+            let seq = graph.sequences.get(seq_id);
+            let exts = graph.exts[seq_id];
+            
+            let seq_set = HashSet::from_iter(seq.iter_kmers().map(|km: K| km.min_rc()));
+            assert!(kmer_set.is_superset(&seq_set));
 
             for l_ext in exts.get(Dir::Left) {
-                let ext_kmer = kmers.first().expect("kmer").extend_left(l_ext);
+                let f: K = seq.first_kmer();
+                let ext_kmer: K = f.extend_left(l_ext);
                 assert!(kmer_set.contains(&(ext_kmer.min_rc())));
             }
 
             for r_ext in exts.get(Dir::Right) {
-                let ext_kmer = kmers.last().expect("kmer").extend_right(r_ext);
+                let f: K = seq.last_kmer();
+                let ext_kmer: K = f.extend_right(r_ext);
                 assert!(kmer_set.contains(&(ext_kmer.min_rc())));
             }
         }
-
-        // Now upgrade the sedges into complete edges
-        let (temp_graph, _) = debruijn::build_edges(sedges, None);
 
         // let mut tot_length : usize = 0;
         // for l in temp_graph.edge_len.iter() { tot_length += *l as usize };
@@ -366,6 +359,7 @@ mod tests {
         // }
 
         // Check that all the edges and their extension contain valid kmers
+        /*
         for e in temp_graph.iter() {
             let kmers = e.sequence.kmers();
             let edge_set = HashSet::from_iter(kmers.iter().map(|km| km.min_rc()));
@@ -406,6 +400,6 @@ mod tests {
                 assert!(kmer_set.contains(&(ext_kmer.min_rc())));
             }
         }
+        */
     }
 }
-*/

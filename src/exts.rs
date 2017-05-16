@@ -29,6 +29,14 @@ impl Exts {
         Exts { val: (right.val << 4) | (left.val & 0xf) }
     }
 
+    pub fn merge(left: Exts, right: Exts) -> Exts {
+        Exts { val: left.val & 0x0f | right.val & 0xf0 }
+    }
+
+    pub fn add(&self, v: Exts) -> Exts {
+        Exts { val: self.val | v.val }
+    }
+
     pub fn set(&self, dir: Dir, pos: u8) -> Exts {
         let shift = pos +
                     match dir {
@@ -91,6 +99,18 @@ impl Exts {
     pub fn num_ext_dir(&self, dir: Dir) -> u8 {
         let e = self.dir_bits(dir);
         ((e & 1u8) >> 0) + ((e & 2u8) >> 1) + ((e & 4u8) >> 2) + ((e & 8u8) >> 3)
+    }
+
+    pub fn mk_left(base: u8) -> Exts {
+        Exts::empty().set(Dir::Left, base)
+    }
+ 
+    pub fn mk_right(base: u8) -> Exts {
+        Exts::empty().set(Dir::Right, base)
+    }
+
+    pub fn mk(left_base: u8, right_base: u8) -> Exts {
+        Exts::merge(Exts::mk_left(left_base), Exts::mk_right(right_base))
     }
 
     pub fn get_unique_extension(&self, dir: Dir) -> Option<u8> {

@@ -5,11 +5,14 @@ use std::hash::Hash;
 
 use Kmer;
 use KmerIter;
+use KmerExtsIter;
 use Mer;
 use Dir;
+use Exts;
 use IntKmer;
 use IntHelp;
 use bits_to_base;
+use base_to_bits;
 
 fn block_set(kmer: u64, pos: usize, val: u8) -> u64 {
     let offset = (31 - pos) * 2;
@@ -51,6 +54,24 @@ pub trait Vmer<K: Kmer>: Mer + PartialEq + Eq + Clone {
             kmer: self.first_kmer(),
             pos: K::k(),
         }
+    }
+
+    fn iter_kmer_exts(&self, seq_exts: Exts) -> KmerExtsIter<K, Self> {
+        KmerExtsIter {
+            bases: self,
+            exts: seq_exts,
+            kmer: self.first_kmer(),
+            pos: K::k(),
+        }
+    }
+
+    fn from_slice(seq: &[u8]) -> Self {
+        let mut vmer = Self::new(seq.len());
+        for i in 0 .. seq.len() {
+            vmer.set_mut(i, seq[i]);
+        }
+
+        vmer
     }
 }
 

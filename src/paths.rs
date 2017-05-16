@@ -17,7 +17,7 @@ use Dir;
 use Exts;
 
 
-struct PackedDnaStringSet {
+pub struct PackedDnaStringSet {
     pub sequence: DnaString,
     pub start: Vec<usize>,
     pub length: Vec<u32>,
@@ -31,7 +31,8 @@ impl<'a> PackedDnaStringSet {
             length: Vec::new(),
         }
     }
-    fn get(&'a self, i: usize) -> DnaStringSlice<'a> {
+
+    pub fn get(&'a self, i: usize) -> DnaStringSlice<'a> {
         DnaStringSlice {
             dna_string: &self.sequence,
             start: self.start[i],
@@ -39,7 +40,7 @@ impl<'a> PackedDnaStringSet {
         }
     }
 
-    fn len(&self) -> usize {
+    pub fn len(&self) -> usize {
         self.start.len()
     }
 
@@ -58,7 +59,7 @@ impl<'a> PackedDnaStringSet {
 
 
 pub struct BaseGraph<K, D> {
-    sequences: PackedDnaStringSet,
+    pub sequences: PackedDnaStringSet,
     pub exts: Vec<Exts>,
     pub data: Vec<D>,
     phantom: PhantomData<K>,
@@ -264,12 +265,12 @@ enum ExtModeNode {
 }
 
 pub struct PathCompression<K: Kmer, V: Vmer<K>, D: Clone, B: Fn(D, D) -> bool, R: Fn(&mut D, &D)> {
-    allow_rc: bool,
-    k: PhantomData<K>,
-    v: PhantomData<V>,
-    d: PhantomData<D>,
-    break_fn: B,
-    reduce: R,
+    pub allow_rc: bool,
+    pub k: PhantomData<K>,
+    pub v: PhantomData<V>,
+    pub d: PhantomData<D>,
+    pub break_fn: B,
+    pub reduce: R,
 }
 
 type Seq = Vec<u8>;

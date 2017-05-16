@@ -6,8 +6,10 @@
 use std::collections::HashSet;
 use std::iter::FromIterator;
 use std::cmp::min;
-use rand::Rng;
 use std::iter::Iterator;
+use Kmer;
+use vmer::Vmer;
+use Exts;
 
 #[inline(never)]
 fn compute_pvals(p: usize, seq: &[u8]) -> Vec<u32> {
@@ -130,6 +132,35 @@ pub fn simple_scan(k: usize,
 }
 
 
+pub fn msp_sequence<K, V>(p: usize, seq: &[u8], permutation: Option<&Vec<usize>>) -> Vec<(u32, Exts, V)> 
+    where K: Kmer, V: Vmer<K> {
+        
+        // Make sure the substrings will fit into the Vmers
+        assert!(V::max_len() >= 2*K::k() - p);
+
+        if seq.len() < K::k() {
+            return Vec::new();
+        }
+
+        // FIXME - handle permutation == None
+        //let perm = permutation.or_else(|| {
+        //    (0..1<<p).collect()
+        //});
+
+        let msp_parts = simple_scan(K::k(), p, seq, permutation.unwrap());
+
+        let mut msps = Vec::new();
+        for (shard, _, start_pos, slice_length) in msp_parts {
+            let v = V::from_slice(&seq[start_pos .. start_pos+slice_length]);
+            let exts = Exts::from_slice_bounds(seq, start_pos, slice_length);
+            msps.push((shard, exts, v));
+        }
+
+        msps
+}
+
+
+
 fn all_kmers<T>(k: usize, seq: &[T]) -> Vec<&[T]> {
     (0..(seq.len() - k + 1)).map(|i| &seq[i..i + k]).collect()
 }
@@ -147,24 +178,15 @@ fn test_all_kmers(k: usize, full_seq: &[u8], slices: Vec<(u32, usize, usize, usi
     if start_kmers != sliced_kmers {
         println!("start kmers: {:?}", start_kmers);
         println!("sliced kmers: {:?}", sliced_kmers);
-        panic!("kmer sets not equal")
+        panic!("kmer sets not equal");
     }
-}
-
-fn random_dna<R: Rng>(sz: usize, r: &mut R) -> Vec<u8> {
-    let mut vec = Vec::new();
-
-    for _ in 0..sz {
-        let v = (r.next_u32() % 4) as u8;
-        vec.push(v);
-    }
-    vec
 }
 
 
 #[cfg(test)]
 mod tests {
-    use super::all_kmers;
+    use test;
+    use super::*;
     use rand;
 
     #[test]
@@ -200,10 +222,9 @@ mod tests {
         let p = 8;
         let permutation: Vec<usize> = (0..(1 << 2 * p)).collect();
 
-        let mut rng = rand::XorShiftRng::new_unseeded();
         for _ in 0..10 {
             let k = 50usize;
-            let dna = super::random_dna(150, &mut rng);
+            let dna = test::random_dna(150);
             println!("{:?}", dna);
             let slices = super::simple_scan(k, p, &dna[..], &permutation);
             println!("Made {} slices from dna of length {:?}",
