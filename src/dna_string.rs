@@ -3,8 +3,7 @@
 // This file may not be copied, modified, or distributed
 // except according to those terms.
 
-//! A fixed-width bit encoding implementation. This allows to store a sequence of values over
-//! a reduced alphabet by packing them bit-encoded into a sequence of bytes.
+//! A 2-bit encoding of arbitrary length DNA sequences.
 
 use std::fmt;
 use Kmer;
@@ -12,10 +11,10 @@ use bits_to_base;
 use base_to_bits;
 use bits_to_ascii;
 use std::cmp::min;
-use IntHelp;
+use kmer::IntHelp;
 
 use Mer;
-use vmer::Vmer;
+use Vmer;
 
 const BLOCK_BITS: usize = 64;
 const WIDTH: usize = 2;
@@ -488,7 +487,7 @@ impl<'a> fmt::Debug for DnaStringSlice<'a> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use IntKmer;
+    use kmer::IntKmer;
     use KmerIter;
 
     #[test]

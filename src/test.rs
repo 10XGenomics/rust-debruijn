@@ -1,7 +1,7 @@
 //! Generate random genomes (with lots of re-used sustrings), reassemble them, and check sanity
 
 use Kmer;
-use vmer::Vmer;
+use Vmer;
 
 use std::cmp::{min, max};
 use rand::{self, Rng};
@@ -123,7 +123,7 @@ mod tests {
     use std::ops::Sub;
     use msp;
     use std::marker::PhantomData;
-    use IntKmer;    
+    use kmer::IntKmer;    
     use dna_string::DnaString;
     use filter;
     //use utils;

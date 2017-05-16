@@ -13,10 +13,8 @@ extern crate itertools;
 
 use std::hash::Hash;
 use std::fmt;
-use num::PrimInt;
-use num::FromPrimitive;
-use extprim::u128::u128;
 
+pub mod kmer;
 pub mod dna_string;
 pub mod exts;
 pub mod dir;
@@ -26,10 +24,6 @@ pub mod msp;
 pub mod filter;
 mod fx;
 mod test;
-
-use dir::Dir;
-use exts::Exts;
-
 
 /// Convert a 2-bit representation of a base to a char
 pub fn bits_to_ascii(c: u8) -> u8 {
@@ -65,82 +59,13 @@ pub fn bits_to_base(c: u8) -> char {
     }
 }
 
-pub trait IntHelp: PrimInt + FromPrimitive {
-    fn reverse_by_twos(&self) -> Self;
-}
-
-impl IntHelp for u128 {
-    #[inline]
-    fn reverse_by_twos(&self) -> u128 {
-        u128::from_parts(self.low64().reverse_by_twos(),
-                         self.high64().reverse_by_twos())
-    }
-}
-
-impl IntHelp for u64 {
-    #[inline]
-    fn reverse_by_twos(&self) -> u64 {
-        // swap adjacent pairs
-        let mut r = ((self & 0x3333333333333333u64) << 2) | ((self >> 2) & 0x3333333333333333u64);
-
-        // swap nibbles
-        r = ((r & 0x0F0F0F0F0F0F0F0Fu64) << 4) | ((r >> 4) & 0x0F0F0F0F0F0F0F0Fu64);
-
-        // swap bytes
-        r = ((r & 0x00FF00FF00FF00FFu64) << 8) | ((r >> 8) & 0x00FF00FF00FF00FFu64);
-
-        // swap 2 bytes
-        r = ((r & 0x0000FFFF0000FFFFu64) << 16) | ((r >> 16) & 0x0000FFFF0000FFFFu64);
-
-        // swap 4 bytes
-        r = ((r & 0x00000000FFFFFFFFu64) << 32) | ((r >> 32) & 0x00000000FFFFFFFFu64);
-
-        r
-    }
-}
-
-impl IntHelp for u32 {
-    #[inline]
-    fn reverse_by_twos(&self) -> u32 {
-        // swap adjacent pairs
-        let mut r = ((self & 0x33333333u32) << 2) | ((self >> 2) & 0x33333333u32);
-
-        // swap nibbles
-        r = ((r & 0x0F0F0F0Fu32) << 4) | ((r >> 4) & 0x0F0F0F0Fu32);
-
-        // swap bytes
-        r = ((r & 0x00FF00FFu32) << 8) | ((r >> 8) & 0x00FF00FFu32);
-
-        // swap 2 bytes
-        r = ((r & 0x0000FFFFu32) << 16) | ((r >> 16) & 0x0000FFFFu32);
-
-        r
-    }
-}
-
-impl IntHelp for u16 {
-    #[inline]
-    fn reverse_by_twos(&self) -> u16 {
-        // swap adjacent pairs
-        let mut r = ((self & 0x3333u16) << 2) | ((self >> 2) & 0x3333u16);
-
-        // swap nibbles
-        r = ((r & 0x0F0Fu16) << 4) | ((r >> 4) & 0x0F0Fu16);
-
-        // swap bytes
-        r = ((r & 0x00FFu16) << 8) | ((r >> 8) & 0x00FFu16);
-
-        r
-    }
-}
-
-
 /// The complement of a 2-bit encoded base
 pub fn complement(base: u8) -> u8 {
     (!base) & 0x3u8
 }
 
 
+/// Generic trait for interacting with DNA seqeunces
 pub trait Mer: Sized + fmt::Debug {
     fn len(&self) -> usize;
     fn get(&self, pos: usize) -> u8;
@@ -169,10 +94,15 @@ pub trait Mer: Sized + fmt::Debug {
     }
 }
 
+/// Encapsulates a Kmer sequence with statically known K.
 pub trait Kmer: Sized + Copy + Mer + PartialEq + PartialOrd + Eq + Ord + Hash {
+    /// Create a Kmer initialized to all A's
     fn empty() -> Self;
+
+    /// K value for this concrete type.
     fn k() -> usize;
 
+    /// Return the minimum of the kmer and it's reverse complement, and a flag indicating if sequence was flipped
     fn min_rc_flip(&self) -> (Self, bool) {
         let rc = self.rc();
         if *self < rc {
@@ -182,16 +112,18 @@ pub trait Kmer: Sized + Copy + Mer + PartialEq + PartialOrd + Eq + Ord + Hash {
         }
     }
 
+    // Return the minimum of the kmer and it's reverse complement
     fn min_rc(&self) -> Self {
         let rc = self.rc();
         if *self < rc { self.clone() } else { rc }
     }
 
-    /// Test if this Lmer is a rc-palindrome
+    /// Test if this Kmer and it's reverse complement are the same
     fn is_palindrome(&self) -> bool {
         self.len() % 2 == 0 && *self == self.rc()
     }
 
+    /// Create a Kmer from the first K bytes of `bytes`
     fn from_bytes(bytes: &[u8]) -> Self {
         if bytes.len() < Self::k() {
             panic!("bytes not long enough to form kmer")
@@ -253,6 +185,7 @@ pub trait Kmer: Sized + Copy + Mer + PartialEq + PartialOrd + Eq + Ord + Hash {
     }
 }
 
+/// An immutable interface to a Mer sequence.
 pub trait MerImmut: Mer + Clone {
     fn set(&self, pos: usize, val: u8) -> Self {
         let mut new = self.clone();
@@ -269,178 +202,274 @@ pub trait MerImmut: Mer + Clone {
 
 impl<T> MerImmut for T where T: Mer + Clone {}
 
-/// A fixed-length Kmer sequence.
-#[derive(Copy, Clone, PartialEq, PartialOrd, Eq, Ord, Hash, Serialize, Deserialize)]
-pub struct IntKmer<T: PrimInt + FromPrimitive + IntHelp> {
-    pub storage: T,
-}
 
-impl<T: PrimInt + FromPrimitive + Hash + IntHelp> IntKmer<T> {
-    fn msk() -> T {
-        T::one() << 1 | T::one()
+/// A DNA sequence with run-time variable length, up to a statically known maximum length
+pub trait Vmer<K: Kmer>: Mer + PartialEq + Eq + Clone {
+
+    /// Create a new sequence with length `len`, initialized to all A's
+    fn new(len: usize) -> Self;
+
+    /// Maximum sequence length that can be stored in this type
+    fn max_len() -> usize;
+
+    /// Efficiently extract a Kmer from the sequence
+    fn get_kmer(&self, pos: usize) -> K;
+
+    /// Get the first Kmer from the sequence
+    fn first_kmer(&self) -> K {
+        self.get_kmer(0)
     }
 
-    fn to_byte(v: T) -> u8 {
-        T::to_u8(&v).unwrap()
+    /// Get the last kmer in the sequence
+    fn last_kmer(&self) -> K {
+        self.get_kmer(self.len() - K::k())
     }
 
-    fn from_byte(v: u8) -> T {
-        T::from_u8(v).unwrap()
-    }
-
-    fn from_u64(v: u64) -> T {
-        T::from_u64(v).unwrap()
-    }
-
-    pub fn from_bytes(bytes: &Vec<u8>) -> Vec<Self> {
-        let mut r = Vec::new();
-
-        let mut k0 = Self::empty();
-
-        for i in 0..Self::k() {
-            k0.set_mut(i, bytes[i])
-        }
-
-        r.push(k0);
-
-        for i in 1..(bytes.len() - Self::k() + 1) {
-            k0 = k0.clone().extend_right(bytes[Self::k() + i - 1]);
-            r.push(k0);
-        }
-        r
-    }
-
-    fn addr(&self, pos: usize) -> usize {
-        let top_base = Self::k() - 1;
-        let bitpos = (top_base - pos) * 2;
-        bitpos
-    }
-
-    fn _k() -> usize {
-        // 4 bases per byte
-        std::mem::size_of::<T>() * 4
-    }
-
-    fn _bits() -> usize {
-        std::mem::size_of::<T>() * 8
-    }
-
-    fn top_mask(n_bases: usize) -> T {
-        if n_bases > 0 {
-            // first pos bases
-            let one = T::one();
-            ((one << (n_bases * 2)) - one) << (Self::_bits() - n_bases * 2)
-        } else {
-            T::zero()
+    /// Get the terminal kmer of the sequence, on the side of the sequence given by dir
+    fn term_kmer(&self, dir: Dir) -> K {
+        match dir {
+            Dir::Left => self.first_kmer(),
+            Dir::Right => self.last_kmer(),
         }
     }
 
-    fn bottom_mask(n_bases: usize) -> T {
-        if n_bases > 0 {
-            // first pos bases
-            let one = T::one();
-            ((one << (n_bases * 2)) - one)
-        } else {
-            T::zero()
+    /// Iterate over the kmers in the sequence
+    fn iter_kmers(&self) -> KmerIter<K, Self> {
+        KmerIter {
+            bases: self,
+            kmer: self.first_kmer(),
+            pos: K::k(),
         }
+    }
+
+    /// Iterate over the kmers and their extensions, given the extension of the whole sequence
+    fn iter_kmer_exts(&self, seq_exts: Exts) -> KmerExtsIter<K, Self> {
+        KmerExtsIter {
+            bases: self,
+            exts: seq_exts,
+            kmer: self.first_kmer(),
+            pos: K::k(),
+        }
+    }
+
+    /// Create a Vmer from a sequence of bytes
+    fn from_slice(seq: &[u8]) -> Self {
+        let mut vmer = Self::new(seq.len());
+        for i in 0 .. seq.len() {
+            vmer.set_mut(i, seq[i]);
+        }
+
+        vmer
     }
 }
 
 
-impl<T: PrimInt + FromPrimitive + Hash + IntHelp> Mer for IntKmer<T> {
-    fn len(&self) -> usize {
-        Self::_k()
+/// Direction of motion in a DeBruijn graph
+#[derive(Copy, Clone, Debug)]
+pub enum Dir {
+    Left,
+    Right,
+}
+
+impl Dir {
+    /// Return a fresh Dir with the opposite direction
+    pub fn flip(&self) -> Dir {
+        match *self {
+            Dir::Left => Dir::Right,
+            Dir::Right => Dir::Left,
+        }
     }
 
-    /// Get the letter at the given position.
-    fn get(&self, pos: usize) -> u8 {
-        let bit = self.addr(pos);
-        Self::to_byte((self.storage >> bit & Self::msk()))
+    /// Return a fresh Dir opposite direction if do_flip == True
+    pub fn cond_flip(&self, do_flip: bool) -> Dir {
+        if do_flip { self.flip() } else { *self }
     }
 
-    fn set_mut(&mut self, pos: usize, v: u8) {
-        let bit = self.addr(pos);
-        let mask = !(Self::msk() << bit);
+    /// Pick between two alternatives, depending on the direction
+    pub fn pick<T>(&self, if_left: T, if_right: T) -> T {
+        match self {
+            &Dir::Left => if_left,
+            &Dir::Right => if_right,
+        }
+    }
+}
 
-        self.storage = (self.storage & mask) | (Self::from_byte(v) << bit);
+
+/// Store single-base extensions for a DNA Debruijn graph.
+///
+/// 8 bits, 4 higher order ones represent extensions to the right, 4 lower order ones
+/// represent extensions to the left. For each direction the bits (from lower order
+/// to higher order) represent whether there exists an extension with each of the
+/// letters A, C, G, T. So overall the bits are:
+///  right   left
+/// T G C A T G C A
+#[derive(Eq, PartialEq, Copy, Clone, Ord, PartialOrd, Hash)]
+pub struct Exts {
+    pub val: u8,
+}
+
+impl Exts {
+    pub fn new(val: u8) -> Self {
+        Exts { val: val }
     }
 
-    /// Set a slice of bases in the kmer, using the packed representation in value.
-    /// Sets n_bases, starting at pos. Bases must always be packed into the upper-most
-    /// bits of the value.
-    fn set_slice_mut(&mut self, pos: usize, n_bases: usize, value: u64) {
-        debug_assert!(pos + n_bases <= Self::k());
+    pub fn empty() -> Exts {
+        Exts { val: 0u8 }
+    }
 
-        let v_shift = if Self::_bits() < 64 {
-            value >> (64 - Self::_bits())
+    pub fn from_single_dirs(left: Exts, right: Exts) -> Exts {
+        Exts { val: (right.val << 4) | (left.val & 0xf) }
+    }
+
+    pub fn merge(left: Exts, right: Exts) -> Exts {
+        Exts { val: left.val & 0x0f | right.val & 0xf0 }
+    }
+
+    pub fn add(&self, v: Exts) -> Exts {
+        Exts { val: self.val | v.val }
+    }
+
+    pub fn set(&self, dir: Dir, pos: u8) -> Exts {
+        let shift = pos +
+                    match dir {
+                        Dir::Right => 4,
+                        Dir::Left => 0,
+                    };
+
+        let new_val = self.val | (1u8 << shift);
+        Exts { val: new_val }
+    }
+
+    #[inline]
+    fn dir_bits(&self, dir: Dir) -> u8 {
+        match dir {
+            Dir::Right => self.val >> 4,
+            Dir::Left => self.val & 0xf,
+        }
+    }
+
+    pub fn get(&self, dir: Dir) -> Vec<u8> {
+        let bits = self.dir_bits(dir);
+        let mut v = Vec::new();
+        for i in 0..4 {
+            if bits & (1 << i) > 0 {
+                v.push(i);
+            }
+        }
+
+        v
+    }
+
+    pub fn has_ext(&self, dir: Dir, base: u8) -> bool {
+        let bits = self.dir_bits(dir);
+        (bits & (1 << base)) > 0
+    }
+
+    pub fn from_slice_bounds(src: &[u8], start: usize, length: usize) -> Exts {
+        let l_extend = if start > 0 {
+            1u8 << (src[start - 1])
         } else {
-            value
+            0u8
+        };
+        let r_extend = if start + length < src.len() {
+            1u8 << src[start + length]
+        } else {
+            0u8
         };
 
-        let v = if Self::_bits() > 64 {
-            Self::from_u64(v_shift) << (Self::_bits() - 64)
+        Exts { val: (r_extend << 4) | l_extend }
+    }
+
+    pub fn num_exts_l(&self) -> u8 {
+        self.num_ext_dir(Dir::Left)
+    }
+
+    pub fn num_exts_r(&self) -> u8 {
+        self.num_ext_dir(Dir::Right)
+    }
+
+    pub fn num_ext_dir(&self, dir: Dir) -> u8 {
+        let e = self.dir_bits(dir);
+        ((e & 1u8) >> 0) + ((e & 2u8) >> 1) + ((e & 4u8) >> 2) + ((e & 8u8) >> 3)
+    }
+
+    pub fn mk_left(base: u8) -> Exts {
+        Exts::empty().set(Dir::Left, base)
+    }
+ 
+    pub fn mk_right(base: u8) -> Exts {
+        Exts::empty().set(Dir::Right, base)
+    }
+
+    pub fn mk(left_base: u8, right_base: u8) -> Exts {
+        Exts::merge(Exts::mk_left(left_base), Exts::mk_right(right_base))
+    }
+
+    pub fn get_unique_extension(&self, dir: Dir) -> Option<u8> {
+        if self.num_ext_dir(dir) != 1 {
+            None
         } else {
-            Self::from_u64(v_shift)
-        };
+            let e = self.dir_bits(dir);
+            for i in 0..4 {
+                if (e & (1 << i)) > 0 {
+                    return Some(i);
+                }
+            }
 
-        let top_mask = Self::top_mask(pos);
-        let bottom_mask = Self::bottom_mask(Self::k() - (pos + n_bases));
-        let mask = top_mask | bottom_mask;
-
-        let value_slide = v >> (2 * pos);
-
-        self.storage = (self.storage & mask) | (value_slide & !mask);
+            None
+        }
     }
 
-    /// Return the reverse complement of this kmer
-    fn rc(&self) -> Self {
-        // not bits to get complement, then reverse order
-        let new = !self.storage.reverse_by_twos();
-
-        // FIXME - deal with case when the kmer doesn't fill the bits
-        //let up_shift = 2 * (64 - Self::k());
-        //let down_shift = 64 - up_shift;
-        //let u2 = new >> down_shift;
-
-        IntKmer { storage: new }
+    pub fn single_dir(&self, dir: Dir) -> Exts {
+        match dir {
+            Dir::Right => Exts { val: self.val >> 4 },
+            Dir::Left => Exts { val: self.val & 0xfu8 },
+        }
     }
 
-    /// Shift the base v into the left end of the kmer
-    fn extend_left(&self, v: u8) -> Self {
-        let new = self.storage >> 2 | (Self::from_byte(v) << (Self::k() - 1) * 2);
-        IntKmer { storage: new }
+    /// Complement the extension bases for each direction
+    pub fn complement(&self) -> Exts {
+        let v = self.val;
+
+        // swap bits
+        let mut r = (v & 0x55u8) << 1 | ((v >> 1) & 0x55u8);
+
+        // swap pairs
+        r = (r & 0x33u8) << 2 | ((r >> 2) & 0x33u8);
+        Exts { val: r }
     }
 
-    fn extend_right(&self, v: u8) -> Self {
-        let new = self.storage << 2;
-        let mut kmer = IntKmer { storage: new };
-        kmer.set_mut(Self::k() - 1, v);
-        kmer
-    }
-}
-
-impl<T: PrimInt + FromPrimitive + Hash + IntHelp> Kmer for IntKmer<T> {
-    fn empty() -> Self {
-        IntKmer { storage: T::zero() }
+    pub fn reverse(&self) -> Exts {
+        let v = self.val;
+        let r = (v & 0xf) << 4 | (v >> 4);
+        Exts { val: r }
     }
 
-    fn k() -> usize {
-        Self::_k()
+    pub fn rc(&self) -> Exts {
+        self.reverse().complement()
     }
 }
 
-impl<T: PrimInt + FromPrimitive + Hash + IntHelp> fmt::Debug for IntKmer<T> {
+impl fmt::Debug for Exts {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let mut s = String::new();
-        for pos in 0..Self::k() {
-            s.push(bits_to_base(self.get(pos)))
+
+        for b in self.get(Dir::Left) {
+            s.push(bits_to_base(b));
+        }
+        s.push('|');
+
+        for b in self.get(Dir::Right) {
+            s.push(bits_to_base(b));
         }
 
         write!(f, "{}", s)
     }
 }
 
-/// Iterate over the Kmers of a sequence efficiently
+
+
+/// Iterate over the `Kmer`s of a DNA sequence efficiently
 pub struct KmerIter<'a, K: Kmer, D>
     where D: 'a
 {
@@ -464,7 +493,7 @@ impl<'a, K: Kmer, D: Mer> Iterator for KmerIter<'a, K, D> {
     }
 }
 
-/// Iterate over the Kmers of a sequence efficiently
+/// Iterate over the `(Kmer, Exts)` tuples of a sequence and it's extensions efficiently
 pub struct KmerExtsIter<'a, K: Kmer, D>
     where D: 'a
 {
@@ -509,196 +538,3 @@ impl<'a, K: Kmer, D: Mer> Iterator for KmerExtsIter<'a, K, D> {
 }
 
 
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use rand::{self, Rng};
-    use extprim::u128::u128;
-
-    use vmer::Lmer;
-    use vmer::Vmer;
-
-    use KmerIter;
-
-    fn check_kmer<T: Kmer>() {
-        let K = T::k();
-
-        let km = random_kmer::<T>();
-
-        let rc = km.rc();
-        let double_rc = rc.rc();
-        assert!(km == double_rc);
-
-        for i in 0..K {
-            assert!(km.get(i) == (3 - rc.get(K - 1 - i)))
-        }
-
-
-        for i in 0..K {
-            // Get and set
-            let km2 = km.set(i, 0);
-            assert!(km2.get(i) == 0);
-        }
-
-        let mut copy_kmer = T::empty();
-        for i in 0..K {
-            copy_kmer = copy_kmer.set(i, km.get(i));
-        }
-        assert!(km == copy_kmer);
-
-
-        // Extend right
-        let nb = random_base();
-        let ext_r = km.extend_right(nb);
-        assert!(ext_r.get(K - 1) == nb);
-        assert!(km.get(1) == ext_r.get(0));
-
-        // Extend Left
-        let nb = random_base();
-        let ext_l = km.extend_left(nb);
-        assert!(ext_l.get(0) == nb);
-        assert!(ext_l.get(1) == km.get(0));
-
-        // Shift twice
-        let l_base = random_base();
-        let r_base = random_base();
-        let ts = km.set(0, l_base).set(K - 1, r_base);
-
-        let double_shift = ts.extend_left(0).extend_right(r_base);
-        assert!(ts == double_shift)
-    }
-
-
-    fn check_vmer<V: Vmer<T>, T: Kmer>() {
-
-        let vm = random_vmer::<V, T>();
-        let l = vm.len();
-
-        let rc = vm.rc();
-
-        for i in 0..l {
-
-            if vm.get(i) != (3 - rc.get(l - 1 - i)) {
-                println!("km: {:?}, rc: {:?}", vm, rc);
-            }
-
-            assert!(vm.get(i) == (3 - rc.get(l - 1 - i)))
-        }
-
-
-        let double_rc = rc.rc();
-        assert!(vm == double_rc);
-
-        for i in 0..l {
-            // Get and set
-            let vm2 = vm.set(i, 0);
-            assert!(vm2.get(i) == 0);
-        }
-
-        let mut copy_vmer = V::new(l);
-        for i in 0..l {
-            copy_vmer = copy_vmer.set(i, vm.get(i));
-        }
-        assert!(vm == copy_vmer);
-
-
-        let kmers: Vec<T> = vm.iter_kmers().collect();
-        assert_eq!(kmers.len(), vm.len() - T::k() + 1);
-
-        for (pos, kmer) in kmers.iter().enumerate() {
-            for i in 0..T::k() {
-                assert_eq!(kmer.get(i), vm.get(i + pos))
-            }
-        }
-
-        assert!(vm.last_kmer() == kmers[kmers.len() - 1]);
-    }
-
-
-    pub fn random_vmer<V: Vmer<T>, T: Kmer>() -> V {
-        let mut r = rand::thread_rng();
-        let len = r.gen_range(T::k(), V::max_len());
-
-        let mut vmer = V::new(len);
-        for pos in 0..len {
-            let b = (r.next_u64() % 4) as u8;
-            vmer = vmer.set(pos, b);
-        }
-        vmer
-    }
-
-
-
-    pub fn random_kmer<T: Kmer>() -> T {
-        let mut r = rand::thread_rng();
-        let mut kmer = T::empty();
-        for pos in 0..T::k() {
-            let b = (r.next_u64() % 4) as u8;
-            kmer = kmer.set(pos, b);
-        }
-        kmer
-    }
-
-    pub fn random_base() -> u8 {
-        let mut r = rand::thread_rng();
-        (r.next_u64() % 4) as u8
-    }
-
-
-    #[test]
-    fn test_lmer_3_kmer_64() {
-        for _ in 0..10000 {
-            check_vmer::<Lmer<IntKmer<u128>, [u64; 3]>, IntKmer<u128>>();
-        }
-    }
-
-    #[test]
-    fn test_lmer_3_kmer_32() {
-        for _ in 0..10000 {
-            check_vmer::<Lmer<IntKmer<u64>, [u64; 3]>, IntKmer<u64>>();
-        }
-    }
-
-    #[test]
-    fn test_lmer_2_kmer_32() {
-        for _ in 0..10000 {
-            check_vmer::<Lmer<IntKmer<u64>, [u64; 3]>, IntKmer<u64>>();
-        }
-    }
-
-    #[test]
-    fn test_lmer_1_kmer_16() {
-        for _ in 0..10000 {
-            check_vmer::<Lmer<IntKmer<u32>, [u64; 1]>, IntKmer<u32>>();
-        }
-    }
-
-    #[test]
-    fn test_kmer_64() {
-        for _ in 0..10000 {
-            check_kmer::<IntKmer<u128>>();
-        }
-    }
-
-    #[test]
-    fn test_kmer_32() {
-        for _ in 0..10000 {
-            check_kmer::<IntKmer<u64>>();
-        }
-    }
-
-    #[test]
-    fn test_kmer_16() {
-        for _ in 0..10000 {
-            check_kmer::<IntKmer<u32>>();
-        }
-    }
-
-    #[test]
-    fn test_kmer_8() {
-        for _ in 0..10000 {
-            check_kmer::<IntKmer<u16>>();
-        }
-    }
-}

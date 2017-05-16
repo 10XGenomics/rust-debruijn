@@ -1,3 +1,5 @@
+//! Variable-length DNA strings packed into fixed-size structs.
+
 use std::marker::PhantomData;
 use std::cmp::{max, min};
 use std::fmt;
@@ -5,12 +7,11 @@ use std::hash::Hash;
 
 use Kmer;
 use KmerIter;
+use Vmer;
 use KmerExtsIter;
 use Mer;
 use Dir;
-use Exts;
-use IntKmer;
-use IntHelp;
+use kmer::{IntHelp, IntKmer};
 use bits_to_base;
 use base_to_bits;
 
@@ -25,56 +26,6 @@ fn block_get(kmer: u64, pos: usize) -> u8 {
     let offset = (31 - pos) * 2;
     ((kmer >> offset) & 3) as u8
 }
-
-pub trait Vmer<K: Kmer>: Mer + PartialEq + Eq + Clone {
-    fn new(len: usize) -> Self;
-    fn max_len() -> usize;
-
-    fn get_kmer(&self, pos: usize) -> K;
-
-    fn first_kmer(&self) -> K {
-        self.get_kmer(0)
-    }
-
-    fn last_kmer(&self) -> K {
-        self.get_kmer(self.len() - K::k())
-    }
-
-    /// Get the terminal kmer of the sequence, on the side of the sequence given by dir
-    fn term_kmer(&self, dir: Dir) -> K {
-        match dir {
-            Dir::Left => self.first_kmer(),
-            Dir::Right => self.last_kmer(),
-        }
-    }
-
-    fn iter_kmers(&self) -> KmerIter<K, Self> {
-        KmerIter {
-            bases: self,
-            kmer: self.first_kmer(),
-            pos: K::k(),
-        }
-    }
-
-    fn iter_kmer_exts(&self, seq_exts: Exts) -> KmerExtsIter<K, Self> {
-        KmerExtsIter {
-            bases: self,
-            exts: seq_exts,
-            kmer: self.first_kmer(),
-            pos: K::k(),
-        }
-    }
-
-    fn from_slice(seq: &[u8]) -> Self {
-        let mut vmer = Self::new(seq.len());
-        for i in 0 .. seq.len() {
-            vmer.set_mut(i, seq[i]);
-        }
-
-        vmer
-    }
-}
-
 
 /// Store a variable-length DNA sequence in a packed 2-bit encoding, up 92bp in length
 /// The length of the sequence is stored in the lower 8 bits of storage

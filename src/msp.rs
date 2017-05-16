@@ -1,4 +1,4 @@
-//! Compute the MSP of a string
+//! Methods for minimum substring partitioning of a DNA string
 //!
 //! simple_scan method is based on:
 //! Li, Yang. "MSPKmerCounter: a fast and memory efficient approach for k-mer counting." arXiv preprint arXiv:1505.06550 (2015).
@@ -8,7 +8,7 @@ use std::iter::FromIterator;
 use std::cmp::min;
 use std::iter::Iterator;
 use Kmer;
-use vmer::Vmer;
+use Vmer;
 use Exts;
 
 #[inline(never)]

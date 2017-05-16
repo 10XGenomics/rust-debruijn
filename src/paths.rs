@@ -1,3 +1,5 @@
+//! Compute path-compressed De Bruijn graphs from kmers or intermediate sized De Bruijn graph fragments
+
 use std::marker::PhantomData;
 use fx::{FxHashMap, FxLMap, FxHasher};
 use std::collections::VecDeque;
@@ -11,10 +13,10 @@ type SmallVec4<T> = SmallVec<[T; 4]>;
 
 use Mer;
 use Kmer;
-use dna_string::{DnaString, DnaStringSlice};
-use vmer::Vmer;
+use Vmer;
 use Dir;
 use Exts;
+use dna_string::{DnaString, DnaStringSlice};
 
 
 pub struct PackedDnaStringSet {
@@ -252,7 +254,7 @@ impl<'a, K: Kmer, D> Node<'a, K, D> {
 
 
 #[derive(Copy, Clone)]
-pub enum ExtMode<K: Kmer> {
+enum ExtMode<K: Kmer> {
     Unique(K, Dir, Exts),
     Terminal(Exts),
 }

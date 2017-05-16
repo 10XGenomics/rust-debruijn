@@ -1,10 +1,12 @@
+//! Methods for filtering observed kmers before De Bruijn graph construction, and summarizing 'color' annotations.
+
 use std::mem;
 use itertools::Itertools;
 use std::marker::PhantomData;
 
 use Kmer;
 use Exts;
-use vmer::Vmer;
+use Vmer;
 use fx::FxHashMap;
 use fx::FxHashSet;
 
