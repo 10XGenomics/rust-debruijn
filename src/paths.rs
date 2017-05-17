@@ -266,14 +266,6 @@ enum ExtModeNode {
     Terminal(Exts),
 }
 
-pub struct PathCompression<K: Kmer, V: Vmer<K>, D: Clone, B: Fn(D, D) -> bool, R: Fn(&mut D, &D)> {
-    pub allow_rc: bool,
-    pub k: PhantomData<K>,
-    pub v: PhantomData<V>,
-    pub d: PhantomData<D>,
-    pub break_fn: B,
-    pub reduce: R,
-}
 
 type Seq = Vec<u8>;
 
@@ -289,9 +281,64 @@ pub trait BuildGraph<K: Kmer, V: Vmer<K>, D> {
 }
 
 
+/// Customize the path-compression process. Implementing this trait lets the user
+/// control how the per-kmer data (of type `D`) is summarized into a per-path
+/// summary data (of type `DS`). It also let's the user introduce new breaks into
+/// paths by inspecting in the per-kmer data of a proposed with `join_test_kmer`
+/// function.
+pub trait CompressionSpec<D> {
+    fn reduce(&self, path_object: D, kmer_object: &D) -> D;
+    fn join_test(&self, d1: &D, d2: &D) -> bool;
+}
+
+/// Simple implementation of `CompressionSpec` that lets you provide that data reduction function as a closure
+pub struct SimpleCompress<D, F> {
+    func: F,
+    d: PhantomData<D>,
+}
+
+impl<D, F> SimpleCompress<D, F> {
+    pub fn new(func: F) -> SimpleCompress<D, F> {
+        SimpleCompress {
+            func: func,
+            d: PhantomData,
+        }
+    }
+}
+
+impl<D, F> CompressionSpec<D> for SimpleCompress<D,F> 
+    where for<'r> F: Fn(D, &'r D) -> D {
+    fn reduce(&self, d: D, other: &D) -> D {
+        (self.func)(d, other)
+    }
+
+    fn join_test(&self, _: &D, _: &D) -> bool {
+        true
+    }
+}
+
+
+pub struct PathCompression<K: Kmer, V: Vmer<K>, D, S: CompressionSpec<D>> {
+    allow_rc: bool,
+    k: PhantomData<K>,
+    v: PhantomData<V>,
+    d: PhantomData<D>,
+    spec: S,
+}
 
 /// Compression of paths in Debruijn graph
-impl<K: Kmer, V: Vmer<K>, D: Clone, B: Fn(D, D) -> bool, R: Fn(&mut D, &D)> PathCompression<K, V, D, B, R> {
+impl<K: Kmer, V: Vmer<K>, D: Clone, S: CompressionSpec<D>> PathCompression<K, V, D, S> {
+
+    pub fn new(allow_rc: bool, spec: S) -> Self {
+        PathCompression {
+            allow_rc: allow_rc,
+            spec: spec,
+            k: PhantomData,
+            v: PhantomData,
+            d: PhantomData
+        }
+    }
+
     /// Attempt to extend kmer v in direction dir. Return:
     ///  - Unique(nextKmer, nextDir) if a single unique extension
     ///    is possible.  nextDir indicates the direction to extend nextMker
@@ -303,7 +350,10 @@ impl<K: Kmer, V: Vmer<K>, D: Clone, B: Fn(D, D) -> bool, R: Fn(&mut D, &D)> Path
                        v: K,
                        dir: Dir)
                        -> ExtMode<K> {
-        let exts = kmer_exts.get(&v).expect("didn't have kmer").0;
+
+        // metadata of start kmer
+        let &(exts, ref kmer_data) = kmer_exts.get(&v).expect("didn't have kmer");
+
         if exts.num_ext_dir(dir) != 1 || v == v.rc() {
             ExtMode::Terminal(exts.single_dir(dir))
         } else {
@@ -334,13 +384,16 @@ impl<K: Kmer, V: Vmer<K>, D: Clone, B: Fn(D, D) -> bool, R: Fn(&mut D, &D)> Path
             // Direction we're approaching the new kmer from
             let new_incoming_dir = dir.flip().cond_flip(do_flip);
             let next_kmer_r = kmer_exts.get(&next_kmer).expect("must have kmer");
-            let next_kmer_exts = next_kmer_r.0;
+            let &(next_kmer_exts, ref next_kmer_data) = next_kmer_r;
             let incoming_count = next_kmer_exts.num_ext_dir(new_incoming_dir);
             let outgoing_exts = next_kmer_exts.single_dir(new_incoming_dir.flip());
 
+            // Test if the spec let's us combine these into the same path
+            let can_join = self.spec.join_test(kmer_data, next_kmer_data);
+
             if incoming_count == 0 && !is_palindrome {
                 panic!("unreachable");
-            } else if incoming_count == 1 && !is_palindrome {
+            } else if can_join && incoming_count == 1 && !is_palindrome {
                 // We have a unique path to next_kmer -- include it
                 ExtMode::Unique(next_kmer, next_dir, outgoing_exts)
             } else {
@@ -353,7 +406,6 @@ impl<K: Kmer, V: Vmer<K>, D: Clone, B: Fn(D, D) -> bool, R: Fn(&mut D, &D)> Path
 
 
     /// Build the maximal line starting at kmer in direction dir, at most max_dist long.
-    ///
     /// Also return the extensions at the end of this line.
     /// Sub-lines break if their extensions are not available in this shard
     #[inline(never)]
@@ -441,8 +493,8 @@ impl<K: Kmer, V: Vmer<K>, D: Clone, B: Fn(D, D) -> bool, R: Fn(&mut D, &D)> Path
             edge_seq.push_front(kmer.get(0));
 
             // Reduce the data object
-            let &(_, ref data) = kmer_exts.get(&next_kmer).expect("kmer");
-            (self.reduce)(&mut node_data, data);
+            let &(_, ref kmer_data) = kmer_exts.get(&next_kmer).expect("kmer");
+            node_data = self.spec.reduce(node_data, kmer_data)
         }
 
         let left_extend = match path.last() {
@@ -469,8 +521,8 @@ impl<K: Kmer, V: Vmer<K>, D: Clone, B: Fn(D, D) -> bool, R: Fn(&mut D, &D)> Path
 
             edge_seq.push_back(kmer.get(K::k() - 1));
 
-            let &(_, ref data) = kmer_exts.get(&next_kmer).expect("kmer");
-            (self.reduce)(&mut node_data, data)
+            let &(_, ref kmer_data) = kmer_exts.get(&next_kmer).expect("kmer");
+            node_data = self.spec.reduce(node_data, kmer_data)
         }
 
         let right_extend = match path.last() {

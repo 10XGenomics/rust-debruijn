@@ -114,7 +114,7 @@ mod tests {
 
     use {Kmer, Dir, Exts, complement};
     use std::collections::HashSet;
-    use paths;
+    use paths::{self, SimpleCompress, PathCompression};
     use std::iter::FromIterator;
     use std::hash::{Hash, SipHasher, Hasher};
     use fx::FxHashMap;
@@ -126,6 +126,7 @@ mod tests {
     use kmer::IntKmer;    
     use dna_string::DnaString;
     use filter;
+
     //use utils;
 
     use super::*;
@@ -313,16 +314,8 @@ mod tests {
 
         assert!(kmer_set == extension_kmer_set);
 
-        let pc: paths::PathCompression<K, V, Vec<u8>, _, _> = 
-            paths::PathCompression {
-                allow_rc: true,
-                k: PhantomData,
-                v: PhantomData,
-                d: PhantomData,
-                break_fn: |_, _| true,
-                reduce: |a:&mut Vec<u8>,b: &Vec<u8>| a.extend(b),
-            };
-
+        let spec = SimpleCompress::new(|mut d1:Vec<_>, d2: &Vec<_>| { d1.extend(d2); d1 });
+        let pc: PathCompression<K,V,_,_> = PathCompression::new(true, spec);
 
         // Now generate the lines for these kmers
         let graph = pc.build_nodes(&valid_kmers);
