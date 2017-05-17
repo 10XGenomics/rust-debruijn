@@ -16,8 +16,6 @@ use std::fmt;
 
 pub mod kmer;
 pub mod dna_string;
-pub mod exts;
-pub mod dir;
 pub mod paths;
 pub mod vmer;
 pub mod msp;
