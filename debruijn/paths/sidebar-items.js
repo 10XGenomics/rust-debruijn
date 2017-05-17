@@ -1,0 +1,1 @@
+initSidebarItems({"struct":[["BaseGraph",""],["DebruijnGraph",""],["Node",""],["PackedDnaStringSet",""],["PathCompression",""]],"trait":[["BuildGraph",""]]});

@@ -1,0 +1,1 @@
+initSidebarItems({"struct":[["Lmer","Store a variable-length DNA sequence in a packed 2-bit encoding, up 92bp in length The length of the sequence is stored in the lower 8 bits of storage"]],"trait":[["Array","Types that can be used as the backing store for a SmallVec"]]});

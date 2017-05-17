@@ -1,0 +1,1 @@
+initSidebarItems({"fn":[["filter_kmers","Read a shard and determine the valid kmers Low memory implementation that should consume < 4G of temporary memory To reduce memory consumption, set track_bcs to false to forget about BC lists."]],"struct":[["CountFilterSet",""]],"trait":[["KmerSummarizer",""]]});
