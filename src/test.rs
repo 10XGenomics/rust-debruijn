@@ -314,7 +314,7 @@ mod tests {
 
         assert!(kmer_set == extension_kmer_set);
 
-        let spec = SimpleCompress::new(|mut d1:Vec<_>, d2: &Vec<_>| { d1.extend(d2); d1 });
+        let spec = SimpleCompress::new(|d1:Vec<_>, d2: &Vec<_>| { d1.extend(d2); d1 });
         let pc: PathCompression<K,V,_,_> = PathCompression::new(true, spec);
 
         // Now generate the lines for these kmers

@@ -5,9 +5,15 @@ use fx::{FxHashMap, FxLMap, FxHasher};
 use std::collections::VecDeque;
 use bit_set::BitSet;
 use smallvec::SmallVec;
+use std::iter::FromIterator;
+use std::collections::HashSet;
+use std::io::Write;
+use std::fs::File;
+use std::path::PathBuf;
 
 use std::hash::BuildHasherDefault;
 use std::ops::Index;
+use std::f32;
 
 type SmallVec4<T> = SmallVec<[T; 4]>;
 
@@ -116,6 +122,10 @@ pub struct DebruijnGraph<K, D> {
 }
 
 impl<K: Kmer, D> DebruijnGraph<K, D> {
+    pub fn len(&self) -> usize {
+        self.base.len()
+    }
+
     pub fn get_node<'a>(&'a self, node_id: usize) -> Node<'a, K, D> {
         Node {
             node_id: node_id,
@@ -213,6 +223,144 @@ impl<K: Kmer, D> DebruijnGraph<K, D> {
 
         return None;
     }
+
+    pub fn max_path<F, F2>(&self, score: F, solid_path: F2) -> Vec<(usize, Dir)>
+        where F: Fn(&D) -> f32, F2: Fn(&D) -> bool {
+
+        let mut best_node = 0;
+        let mut best_score = f32::MIN;
+        for i in 0..self.len() {
+            let node = self.get_node(i);
+            let node_score = score(node.data());
+
+            if node_score > best_score {
+                best_node = i;
+                best_score = node_score;
+            }
+        }
+
+        let oscore = |state| {
+            match state  {
+                None => 0.0,
+                Some((id, _)) => score(&self.get_node(id).data()),
+            }
+        };
+
+        let osolid_path = |state| {
+            match state  {
+                None => false,
+                Some((id, _)) => solid_path(&self.get_node(id).data()),
+            }
+        };
+
+
+        // Now expand in each direction, greedily taking the best path. Stop if we hit a node we've
+        // already put into the path
+        let mut used_nodes = HashSet::new();
+        let mut path = VecDeque::new();
+
+        // Start w/ initial state
+        used_nodes.insert(best_node);
+        path.push_front((best_node, Dir::Left));
+
+        for init in [(best_node, Dir::Left, false), (best_node, Dir::Right, true)].iter() {
+
+            let &(start_node, dir, do_flip) = init;
+            let mut current = (start_node, dir);
+
+            loop {
+                let mut next = None;
+                let (cur_id, incoming_dir) = current;
+
+                let mut solid_paths = 0;
+                for (id, dir, _) in self.get_node(cur_id).edges(incoming_dir.flip()) {
+                    let cand = Some((id, dir));
+                    if osolid_path(cand) {
+                        solid_paths += 1;
+                    }
+
+                    if oscore(cand) > oscore(next) {
+                        next = cand;
+                    }
+                }
+
+                if solid_paths > 1 {
+                    break;
+                }
+
+                match next {
+                    Some((next_id, next_incoming)) if !used_nodes.contains(&next_id) => {
+
+                        if do_flip {
+                            path.push_front((next_id, next_incoming.flip()));
+                        } else {
+                            path.push_back((next_id, next_incoming));
+                        }
+
+                        used_nodes.insert(next_id);
+                        current = (next_id, next_incoming);
+                    },
+                    _ => break,
+                }
+            }
+        }
+
+        Vec::from_iter(path)
+    }
+
+
+    pub fn sequence_of_path(&self, path: &Vec<(usize, Dir)>) -> DnaString {
+        let mut seq = DnaString::new();
+
+        for (idx, &(node_id, dir)) in path.iter().enumerate() {
+            let start = if idx == 0 { 0 } else { K::k() - 1 };
+
+            let node_seq = match dir {
+                Dir::Left => self.get_node(node_id).sequence(),
+                Dir::Right => self.get_node(node_id).sequence().rc(),
+            };
+
+            for p in start..node_seq.len() {
+                seq.push(node_seq.get(p))
+            }
+        }
+
+        seq
+    }
+
+
+    fn node_to_dot<F: Fn(&D) -> String>(&self, node: &Node<K,D>, node_label: &F, f: &mut Write) {
+
+        let label = node_label(node.data());
+        writeln!(f, "n{} [label=\"{}\",style=filled]", node.node_id, label).unwrap();
+
+
+        for (id, incoming_dir, _) in node.l_edges() {
+            let color = match incoming_dir { Dir::Left => "blue", Dir::Right => "red"};
+            writeln!(f, "n{} -> n{} [color={}]", id, node.node_id, color).unwrap();
+        }
+
+        for (id, incoming_dir, _) in node.r_edges() {
+            let color = match incoming_dir { Dir::Left => "blue", Dir::Right => "red"};
+            writeln!(f, "n{} -> n{} [color={}]", node.node_id, id, color).unwrap();
+        }
+    }
+
+
+    /// Write the POA to a dot file.
+    pub fn to_dot<F: Fn(&D) -> String>(&self, path: PathBuf, node_label: &F) {
+
+        let mut f = File::create(path).expect("couldn't open file");
+
+        writeln!(&mut f, "digraph {{").unwrap();
+        for i in 0..self.len() {
+            self.node_to_dot(&self.get_node(i), node_label, &mut f);
+        }
+        writeln!(&mut f, "}}").unwrap();
+    }
+
+
+
 }
 
 
@@ -247,7 +395,11 @@ impl<'a, K: Kmer, D> Node<'a, K, D> {
     }
 
     pub fn r_edges(&self) -> SmallVec4<(usize, Dir, bool)> {
-        self.graph.find_edges(self.node_id, Dir::Left)
+        self.graph.find_edges(self.node_id, Dir::Right)
+    }
+
+    pub fn edges(&self, dir: Dir) -> SmallVec4<(usize, Dir, bool)> {
+        self.graph.find_edges(self.node_id, dir)
     }
 }
 
