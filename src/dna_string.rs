@@ -124,7 +124,7 @@ impl DnaString {
 
     /// Create a new instance with a given capacity.
     pub fn empty(n: usize) -> Self {
-        let blocks = n * WIDTH / 64 + 1;
+        let blocks = (n*WIDTH >> 6) + (if n*WIDTH & 0x3F > 0 { 1 } else { 0 });
         let mut storage = Vec::with_capacity(blocks);
         for i in 0 .. blocks { storage.push(0); }
 
@@ -179,7 +179,7 @@ impl DnaString {
     /// Append a value.
     pub fn push(&mut self, value: u8) {
         let (block, bit) = self.addr(self.len);
-        if bit == 0 {
+        if bit == 0 && block >= self.storage.len() {
             self.storage.push(0);
         }
         self.set_by_addr(block, bit, value);
@@ -286,37 +286,25 @@ impl DnaString {
         self.len == 0
     }
 
-    /// Get the prefix of a given size.
-    pub fn pref(&self, k: usize) -> DnaString {
+    /// Get the length `k` prefix of the DnaString
+    pub fn prefix(&self, k: usize) -> DnaStringSlice {
         assert!(k <= self.len, "Prefix size exceeds number of elements.");
-        if k == 0 {
-            return DnaString::new();
-        }
-        // Get position of k-th element (element with index k - 1)
-        let (block, bitpos) = self.addr(k - 1);
-        // We need to keep the first block-1 elements of the storage vector
-        // plus the first bitpos positions of the block-th element.
-        let mut new_storage: Vec<u64> = self.storage.iter().take(block + 1).cloned().collect();
-        // zero-out all bits after bitpos
-        if bitpos + WIDTH < 64 {
-            new_storage[block] &= (1 << (bitpos + WIDTH)) - 1;
-        }
-        DnaString {
-            storage: new_storage,
-            len: k,
+        DnaStringSlice {
+            dna_string: self,
+            start: 0,
+            length: k
         }
     }
 
-    pub fn suf(&self, k: usize) -> DnaString {
+    /// Get the length `k` suffix of the DnaString
+    pub fn suffix(&self, k: usize) -> DnaStringSlice {
         assert!(k <= self.len, "Suffix size exceeds number of elements.");
-        // There's a faster way but involves shifting bits down from "higher" blocks...
-        // let (block, bitpos) = self.addr(self.len - k);
-        let values: Vec<u8> = self.iter().skip(self.len - k).collect();
-        let mut dna_string = DnaString::new();
-        for v in values {
-            dna_string.push(v);
+
+        DnaStringSlice {
+            dna_string: self,
+            start: self.len() - k,
+            length: k,
         }
-        dna_string
     }
 
     pub fn reverse(&self) -> DnaString {
@@ -349,7 +337,6 @@ impl fmt::Debug for DnaString {
         write!(f, "{}", s)
     }
 }
-
 
 /// Iterator over values of a DnaStringoded sequence (values will be unpacked into bytes).
 pub struct DnaStringIter<'a> {
@@ -464,8 +451,8 @@ impl<'a> DnaStringSlice<'a> {
 
     pub fn to_owned(&self) -> DnaString {
         let mut be = DnaString::empty(self.length);
-        for pos in self.start..(self.start + self.length) {
-            be.push(self.dna_string.get(pos));
+        for pos in 0 .. self.length {
+            be.set_mut(pos, self.dna_string.get(self.start + pos));
         }
 
         be
@@ -488,7 +475,6 @@ impl<'a> fmt::Debug for DnaStringSlice<'a> {
 mod tests {
     use super::*;
     use kmer::IntKmer;
-    use KmerIter;
 
     #[test]
     fn test_dna_string() {
@@ -543,22 +529,22 @@ mod tests {
     }
 
     #[test]
-    fn test_pref() {
+    fn test_prefix() {
         let in_values: Vec<u8> = vec![2, 20];
         let mut dna_string = DnaString::new();
         dna_string.push_bytes(&in_values, 8);
         // Contents should be 00010100 00000010
 
-        let pref_dna_string = dna_string.pref(0);
-        assert_eq!(pref_dna_string.storage.len(), 0);
+        let pref_dna_string = dna_string.prefix(0).to_owned();
+        assert_eq!(pref_dna_string.len(), 0);
 
-        let pref_dna_string = dna_string.pref(8);
+        let pref_dna_string = dna_string.prefix(8).to_owned();
         assert_eq!(pref_dna_string, dna_string);
 
-        let pref_dna_string = dna_string.pref(4);
+        let pref_dna_string = dna_string.prefix(4).to_owned();
         assert_eq!(pref_dna_string.storage, [2]);
 
-        let pref_dna_string = dna_string.pref(6);
+        let pref_dna_string = dna_string.prefix(6).to_owned();
         assert_eq!(pref_dna_string.storage, [1026]);
         let values: Vec<u8> = pref_dna_string.iter().collect();
         assert_eq!(values, [2, 0, 0, 0, 0, 1]);
@@ -566,29 +552,29 @@ mod tests {
         dna_string.push_bytes(&in_values, 8);
         dna_string.push_bytes(&in_values, 8);
 
-        let pref_dna_string = dna_string.pref(17);
+        let pref_dna_string = dna_string.prefix(17).to_owned();
         let values: Vec<u8> = pref_dna_string.iter().collect();
         assert_eq!(values, [2, 0, 0, 0, 0, 1, 1, 0, 2, 0, 0, 0, 0, 1, 1, 0, 2]);
     }
 
     #[test]
-    fn test_suf() {
+    fn test_suffix() {
         let in_values: Vec<u8> = vec![2, 20];
         let mut dna_string = DnaString::new();
         dna_string.push_bytes(&in_values, 8);
         // Contents should be 00010100 00000010
 
-        let suf_dna_string = dna_string.suf(0);
-        assert_eq!(suf_dna_string.storage.len(), 0);
+        let suf_dna_string = dna_string.suffix(0).to_owned();
+        assert_eq!(suf_dna_string.len(), 0);
 
-        let suf_dna_string = dna_string.suf(8);
+        let suf_dna_string = dna_string.suffix(8).to_owned();
         assert_eq!(suf_dna_string, dna_string);
 
-        let suf_dna_string = dna_string.suf(4);
+        let suf_dna_string = dna_string.suffix(4).to_owned();
         assert_eq!(suf_dna_string.storage, [20]);
 
         // 000101000000 64+256
-        let suf_dna_string = dna_string.suf(6);
+        let suf_dna_string = dna_string.suffix(6).to_owned();
         assert_eq!(suf_dna_string.storage, [320]);
         let values: Vec<u8> = suf_dna_string.iter().collect();
         assert_eq!(values, [0, 0, 0, 1, 1, 0]);
@@ -596,7 +582,7 @@ mod tests {
         dna_string.push_bytes(&in_values, 8);
         dna_string.push_bytes(&in_values, 8);
 
-        let suf_dna_string = dna_string.suf(17);
+        let suf_dna_string = dna_string.suffix(17).to_owned();
         let values: Vec<u8> = suf_dna_string.iter().collect();
         assert_eq!(values, [0, 2, 0, 0, 0, 0, 1, 1, 0, 2, 0, 0, 0, 0, 1, 1, 0]);
     }

@@ -65,17 +65,29 @@ pub fn complement(base: u8) -> u8 {
 
 /// Generic trait for interacting with DNA seqeunces
 pub trait Mer: Sized + fmt::Debug {
+    /// Length of DNA sequence
     fn len(&self) -> usize;
+
+    /// Get 2-bit encoded base at position `pos`
     fn get(&self, pos: usize) -> u8;
 
+    /// Set base at `pos` to 2-bit encoded base `val`
     fn set_mut(&mut self, pos: usize, val: u8);
-    fn set_slice_mut(&mut self, pos: usize, nbases: usize, bits: u64);
 
+    /// Set `nbases` positions in the sequence, starting at `pos`.
+    /// Values must  be packed into the upper-most bits of `value`.
+    fn set_slice_mut(&mut self, pos: usize, nbases: usize, value: u64);
+
+    /// Return a new object containing the reverse complement of the sequence
     fn rc(&self) -> Self;
 
+    /// Add the base `v` to the left side of the sequence, and remove the rightmost base
     fn extend_left(&self, v: u8) -> Self;
+
+    /// Add the base `v` to the right side of the sequence, and remove the leftmost base
     fn extend_right(&self, v: u8) -> Self;
 
+    /// Add the base `v` to the side of sequence given by `dir`, and remove a base at the opposite side
     fn extend(&self, v: u8, dir: Dir) -> Self {
         match dir {
             Dir::Left => self.extend_left(v),
@@ -83,6 +95,7 @@ pub trait Mer: Sized + fmt::Debug {
         }
     }
 
+    /// Generate all the extension of this sequence given by `exts` in direction `Dir`
     fn get_extensions(&self, exts: Exts, dir: Dir) -> Vec<Self> {
         let ext_bases = exts.get(dir);
         ext_bases

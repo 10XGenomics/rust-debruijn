@@ -187,7 +187,6 @@ fn test_all_kmers(k: usize, full_seq: &[u8], slices: Vec<(u32, usize, usize, usi
 mod tests {
     use test;
     use super::*;
-    use rand;
 
     #[test]
     fn test1() {

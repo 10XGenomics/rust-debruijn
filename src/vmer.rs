@@ -6,14 +6,10 @@ use std::fmt;
 use std::hash::Hash;
 
 use Kmer;
-use KmerIter;
 use Vmer;
-use KmerExtsIter;
 use Mer;
-use Dir;
 use kmer::{IntHelp, IntKmer};
 use bits_to_base;
-use base_to_bits;
 
 fn block_set(kmer: u64, pos: usize, val: u8) -> u64 {
     let offset = (31 - pos) * 2;

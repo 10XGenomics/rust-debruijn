@@ -118,11 +118,8 @@ mod tests {
     use std::iter::FromIterator;
     use std::hash::{Hash, SipHasher, Hasher};
     use fx::FxHashMap;
-    use std::fs::{File, remove_file};
-    use std::io::{BufReader, BufWriter};
     use std::ops::Sub;
     use msp;
-    use std::marker::PhantomData;
     use kmer::IntKmer;    
     use dna_string::DnaString;
     use filter;
@@ -314,7 +311,7 @@ mod tests {
 
         assert!(kmer_set == extension_kmer_set);
 
-        let spec = SimpleCompress::new(|d1:Vec<_>, d2: &Vec<_>| { d1.extend(d2); d1 });
+        let spec = SimpleCompress::new(|mut d1:Vec<_>, d2: &Vec<_>| { d1.extend(d2); d1 });
         let pc: PathCompression<K,V,_,_> = PathCompression::new(true, spec);
 
         // Now generate the lines for these kmers
