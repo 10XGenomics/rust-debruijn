@@ -6,10 +6,14 @@ authors = ["Patrick Marks <patrick@10xgenomics.com>"]
 [dependencies]
 serde = "*"
 serde_derive = "*"
-num = "*"
 extprim = "*"
 rand = "*"
 linked-hash-map = "*"
 smallvec = "*"
 bit-set = "0.4.0"
 itertools = ">=0.6"
+
+[dependencies.num]
+version = "*"
+default-features = false 
+features = ["serde"]

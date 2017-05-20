@@ -272,7 +272,7 @@ mod tests {
         assert!(kmer_set == msp_kmers);
 
         // Check the correctness of the process_kmer_shard kmer filtering function
-        let (valid_kmers, all_kmers) = filter::filter_kmers(&seqs, filter::CountFilterSet::<u8>::new(2));
+        let (valid_kmers, _) = filter::filter_kmers(&seqs, filter::CountFilterSet::<u8>::new(2));
         let mut process_kmer_set = HashSet::new();
         for k in valid_kmers.keys() {
             process_kmer_set.insert(*k);

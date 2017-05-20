@@ -495,7 +495,11 @@ impl<'a, K: Kmer, D: Mer> Iterator for KmerIter<'a, K, D> {
     fn next(&mut self) -> Option<K> {
         if self.pos <= self.bases.len() {
             let retval = self.kmer;
-            self.kmer = self.kmer.extend_right(self.bases.get(self.pos));
+
+            if self.pos < self.bases.len(){
+                self.kmer = self.kmer.extend_right(self.bases.get(self.pos));
+            }
+            
             self.pos = self.pos + 1;
             Some(retval)
         } else {
@@ -520,7 +524,12 @@ impl<'a, K: Kmer, D: Mer> Iterator for KmerExtsIter<'a, K, D> {
     fn next(&mut self) -> Option<(K,Exts)> {
         if self.pos <= self.bases.len() {
 
-            let next_base = self.bases.get(self.pos);
+            let next_base = 
+                if self.pos < self.bases.len() {
+                    self.bases.get(self.pos)
+                } else {
+                    0u8
+                };
 
             let cur_left = 
                 if self.pos == K::k() {
