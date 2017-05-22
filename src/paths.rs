@@ -386,7 +386,7 @@ impl<K: Kmer, D:Debug> DebruijnGraph<K, D> {
     fn node_to_dot<F: Fn(&D) -> String>(&self, node: &Node<K,D>, node_label: &F, f: &mut Write) {
 
         let label = node_label(node.data());
-        writeln!(f, "n{} [label=\"id:{} len:{}  {}\",style=filled]", node.node_id, node.sequence().len(), node.node_id, label).unwrap();
+        writeln!(f, "n{} [label=\"id:{} len:{}  {}\",style=filled]", node.node_id, node.node_id, node.sequence().len(), label).unwrap();
 
 
         for (id, incoming_dir, _) in node.l_edges() {
@@ -401,7 +401,7 @@ impl<K: Kmer, D:Debug> DebruijnGraph<K, D> {
     }
 
 
-    /// Write the POA to a dot file.
+    /// Write the graph to a dot file.
     pub fn to_dot<F: Fn(&D) -> String>(&self, path: PathBuf, node_label: &F) {
 
         let mut f = File::create(path).expect("couldn't open file");
@@ -414,7 +414,35 @@ impl<K: Kmer, D:Debug> DebruijnGraph<K, D> {
     }
 
 
+    fn node_to_gfa(&self, node: &Node<K,D>, w: &mut Write) {
+        writeln!(w, "S\t{}\t{}", node.node_id, node.sequence().to_dna_string()).unwrap();
 
+        for (target, dir, _) in node.l_edges() {
+            if target > node.node_id as usize {
+                let to_dir = match dir { Dir::Left => "+", Dir::Right => "-" };
+                writeln!(w, "L\t{}\t{}\t{}\t{}\t{}M", node.node_id, "-", target, to_dir, K::k()-1).unwrap();
+            }
+        }
+
+        for (target, dir, _) in node.r_edges() {
+            if target > node.node_id as usize {
+                let to_dir = match dir { Dir::Left => "+", Dir::Right => "-" };
+                writeln!(w, "L\t{}\t{}\t{}\t{}\t{}M", node.node_id, "+", target, to_dir, K::k()-1).unwrap();
+            }
+        }
+    }
+
+    /// Write the graph to GFA format
+    pub fn to_gfa(&self, gfa_out: PathBuf)
+    {
+        let mut wtr = File::create(gfa_out).unwrap();
+        writeln!(wtr, "H\tVN:Z:debruijn-rs").unwrap();
+
+        for i in 0 .. self.len() {
+            let n = self.get_node(i);
+            self.node_to_gfa(&n, &mut wtr);
+        }
+    }
 }
 
 
