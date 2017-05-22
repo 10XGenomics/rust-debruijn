@@ -28,4 +28,4 @@ Low-memory De Bruijn graph construction & path compression libraries.
 
 
 ### Pathing
-Is there a good (potentially configurable) algorithm / heuristics for increasing the K of a graph by utilizing 1) full read lengths, and 2) read pairs
+Is there a good (potentially configurable) algorithm / heuristics for increasing the K of a graph by utilizing 1) full read lengths, and 2) read pairs.
