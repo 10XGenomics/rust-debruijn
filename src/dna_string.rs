@@ -168,6 +168,12 @@ impl DnaString {
         dna
     }
 
+    pub fn to_bytes(&self) -> Vec<u8> {
+        let mut bytes = Vec::new();
+        bytes.extend(self.iter());
+        bytes
+    }
+
     pub fn to_ascii_vec(&self) -> Vec<u8> {
         let mut res = Vec::new();
         for v in self.iter() {
@@ -292,7 +298,8 @@ impl DnaString {
         DnaStringSlice {
             dna_string: self,
             start: 0,
-            length: k
+            length: k,
+            is_rc: false,
         }
     }
 
@@ -304,6 +311,7 @@ impl DnaString {
             dna_string: self,
             start: self.len() - k,
             length: k,
+            is_rc: false,
         }
     }
 
@@ -365,6 +373,7 @@ pub struct DnaStringSlice<'a> {
     pub dna_string: &'a DnaString,
     pub start: usize,
     pub length: usize,
+    pub is_rc: bool,
 }
 
 
@@ -375,7 +384,11 @@ impl<'a> Mer for DnaStringSlice<'a> {
 
     /// Get the value at position `i`.
     fn get(&self, i: usize) -> u8 {
-        self.dna_string.get(i + self.start)
+        if !self.is_rc {
+            self.dna_string.get(i + self.start)
+        } else {
+            ::complement(self.dna_string.get(self.start + self.length - 1 - i))
+        }
     }
 
     /// Set the value as position `i`.
@@ -390,7 +403,12 @@ impl<'a> Mer for DnaStringSlice<'a> {
     }
 
     fn rc(&self) -> DnaStringSlice<'a> {
-        unimplemented!();
+        DnaStringSlice{ 
+            dna_string: self.dna_string,
+            start: self.start,
+            length: self.length, 
+            is_rc: !self.is_rc 
+        }
     }
 
     fn extend_left(&self, _: u8) -> Self {

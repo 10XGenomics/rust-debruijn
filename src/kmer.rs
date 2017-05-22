@@ -27,6 +27,8 @@ impl IntHelp for u128 {
     }
 }
 
+pub type Kmer64 = IntKmer<u128>;
+
 impl IntHelp for u64 {
     #[inline]
     fn reverse_by_twos(&self) -> u64 {

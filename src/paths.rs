@@ -10,6 +10,7 @@ use std::collections::HashSet;
 use std::io::Write;
 use std::fs::File;
 use std::path::PathBuf;
+use std::fmt::{self, Debug};
 
 use std::hash::BuildHasherDefault;
 use std::ops::Index;
@@ -45,6 +46,7 @@ impl<'a> PackedDnaStringSet {
             dna_string: &self.sequence,
             start: self.start[i],
             length: self.length[i] as usize,
+            is_rc: false,
         }
     }
 
@@ -121,7 +123,7 @@ pub struct DebruijnGraph<K, D> {
     right_order: Vec<u32>,
 }
 
-impl<K: Kmer, D> DebruijnGraph<K, D> {
+impl<K: Kmer, D:Debug> DebruijnGraph<K, D> {
     pub fn len(&self) -> usize {
         self.base.len()
     }
@@ -224,6 +226,53 @@ impl<K: Kmer, D> DebruijnGraph<K, D> {
         return None;
     }
 
+    /// Remove non-existent extensions that may be created due to filtered kmers
+    pub fn fix_exts(&mut self, valid_nodes: Option<&BitSet>)
+    {
+        for i in 0 .. self.len() {
+            let valid_exts = self.get_valid_exts(i, valid_nodes);
+            self.base.exts[i] = valid_exts;
+        }
+    }
+
+    pub fn get_valid_exts(&self, node_id: usize, valid_nodes: Option<&BitSet>) -> Exts
+    {
+        let mut new_exts = Exts::empty();
+        let node = self.get_node(node_id);
+        let exts = node.exts();
+        let l_kmer: K = node.sequence().first_kmer();
+        let r_kmer: K = node.sequence().last_kmer();
+
+        let check_node = |id| {
+            match valid_nodes {
+                Some(ref bs) => bs.contains(id),
+                None => true,
+            }
+        };
+
+        for i in 0..4
+        {
+            if exts.has_ext(Dir::Left, i) {
+                match self.find_link(l_kmer.extend_left(i), Dir::Left) {
+                    Some((target, _, _)) if check_node(target) => 
+                        new_exts = new_exts.set(Dir::Left, i),
+                    _ => (),
+                }
+            }
+
+            if exts.has_ext(Dir::Right, i) {
+                match self.find_link(r_kmer.extend_right(i), Dir::Right) {
+                    Some((target, _, _)) if check_node(target) =>
+                        new_exts = new_exts.set(Dir::Right, i),
+                    _ => (),
+                }
+            }
+        }
+
+        new_exts
+    }
+
+
     pub fn max_path<F, F2>(&self, score: F, solid_path: F2) -> Vec<(usize, Dir)>
         where F: Fn(&D) -> f32, F2: Fn(&D) -> bool {
 
@@ -267,13 +316,17 @@ impl<K: Kmer, D> DebruijnGraph<K, D> {
 
             let &(start_node, dir, do_flip) = init;
             let mut current = (start_node, dir);
+            println!("start: {:?}", current);
 
             loop {
                 let mut next = None;
                 let (cur_id, incoming_dir) = current;
+                let node = self.get_node(cur_id);
+                let edges = node.edges(incoming_dir.flip());
+                println!("{:?}", node);
 
                 let mut solid_paths = 0;
-                for (id, dir, _) in self.get_node(cur_id).edges(incoming_dir.flip()) {
+                for (id, dir, _) in edges {
                     let cand = Some((id, dir));
                     if osolid_path(cand) {
                         solid_paths += 1;
@@ -305,6 +358,7 @@ impl<K: Kmer, D> DebruijnGraph<K, D> {
             }
         }
 
+        println!("path:{:?}", path);
         Vec::from_iter(path)
     }
 
@@ -332,7 +386,7 @@ impl<K: Kmer, D> DebruijnGraph<K, D> {
     fn node_to_dot<F: Fn(&D) -> String>(&self, node: &Node<K,D>, node_label: &F, f: &mut Write) {
 
         let label = node_label(node.data());
-        writeln!(f, "n{} [label=\"{}\",style=filled]", node.node_id, label).unwrap();
+        writeln!(f, "n{} [label=\"id:{} len:{}  {}\",style=filled]", node.node_id, node.sequence().len(), node.node_id, label).unwrap();
 
 
         for (id, incoming_dir, _) in node.l_edges() {
@@ -372,7 +426,7 @@ pub struct Node<'a, K: Kmer + 'a, D: 'a> {
     //pub r_edges: ExtVec<(usize, Dir, bool)>,
 }
 
-impl<'a, K: Kmer, D> Node<'a, K, D> {
+impl<'a, K: Kmer, D: Debug> Node<'a, K, D> {
 
     pub fn len(&self) -> usize {
         self.graph.base.sequences.get(self.node_id).len()
@@ -403,6 +457,12 @@ impl<'a, K: Kmer, D> Node<'a, K, D> {
     }
 }
 
+
+impl<'a, K: Kmer, D> fmt::Debug for Node<'a, K, D> where D:Debug {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "Node: {}, Seq: {}, Exts:{:?}, Data: {:?}", self.node_id, self.sequence().to_string(), self.exts(), self.data())
+    }
+}
 
 
 #[derive(Copy, Clone)]
@@ -479,7 +539,7 @@ pub struct PathCompression<K: Kmer, V: Vmer<K>, D, S: CompressionSpec<D>> {
 }
 
 /// Compression of paths in Debruijn graph
-impl<K: Kmer, V: Vmer<K>, D: Clone, S: CompressionSpec<D>> PathCompression<K, V, D, S> {
+impl<K: Kmer, V: Vmer<K>, D: Clone + Debug, S: CompressionSpec<D>> PathCompression<K, V, D, S> {
 
     pub fn new(allow_rc: bool, spec: S) -> Self {
         PathCompression {
@@ -491,6 +551,11 @@ impl<K: Kmer, V: Vmer<K>, D: Clone, S: CompressionSpec<D>> PathCompression<K, V,
         }
     }
 
+    fn get_kmer_data<'a>(&self, kmer: &K, kmer_exts: &'a Vec<(K, (Exts, D))>) -> &'a (Exts, D) {
+        let pos = kmer_exts.binary_search_by_key(kmer, |x| x.0).expect("couldn't find kmer");
+        &kmer_exts[pos].1
+    }
+
     /// Attempt to extend kmer v in direction dir. Return:
     ///  - Unique(nextKmer, nextDir) if a single unique extension
     ///    is possible.  nextDir indicates the direction to extend nextMker
@@ -498,21 +563,22 @@ impl<K: Kmer, V: Vmer<K>, D: Clone, S: CompressionSpec<D>> PathCompression<K, V,
     /// - Term(ext) no unique extension possible, indicating the extensions at this end of the line
     fn try_extend_kmer(&self,
                        available_kmers: &FxLMap<K, ()>,
-                       kmer_exts: &FxHashMap<K, (Exts, D)>,
-                       v: K,
+                       kmer_exts: &Vec<(K, (Exts, D))>,
+                       kmer: K,
                        dir: Dir)
                        -> ExtMode<K> {
 
         // metadata of start kmer
-        let &(exts, ref kmer_data) = kmer_exts.get(&v).expect("didn't have kmer");
 
-        if exts.num_ext_dir(dir) != 1 || v == v.rc() {
+        let &(exts, ref kmer_data) = self.get_kmer_data(&kmer, kmer_exts);
+
+        if exts.num_ext_dir(dir) != 1 || kmer == kmer.rc() {
             ExtMode::Terminal(exts.single_dir(dir))
         } else {
             // Get the next kmer
             let ext_base = exts.get_unique_extension(dir).expect("should be unique");
 
-            let mut next_kmer = v.extend(ext_base, dir);
+            let mut next_kmer = kmer.extend(ext_base, dir);
             let mut do_flip = false;
 
             if self.allow_rc {
@@ -535,7 +601,7 @@ impl<K: Kmer, V: Vmer<K>, D: Clone, S: CompressionSpec<D>> PathCompression<K, V,
 
             // Direction we're approaching the new kmer from
             let new_incoming_dir = dir.flip().cond_flip(do_flip);
-            let next_kmer_r = kmer_exts.get(&next_kmer).expect("must have kmer");
+            let next_kmer_r = self.get_kmer_data(&next_kmer, kmer_exts);
             let &(next_kmer_exts, ref next_kmer_data) = next_kmer_r;
             let incoming_count = next_kmer_exts.num_ext_dir(new_incoming_dir);
             let outgoing_exts = next_kmer_exts.single_dir(new_incoming_dir.flip());
@@ -562,7 +628,7 @@ impl<K: Kmer, V: Vmer<K>, D: Clone, S: CompressionSpec<D>> PathCompression<K, V,
     /// Sub-lines break if their extensions are not available in this shard
     #[inline(never)]
     fn extend_kmer(&self,
-                   kmer_exts: &FxHashMap<K, (Exts, D)>,
+                   kmer_exts: &Vec<(K, (Exts, D))>,
                    available_kmers: &mut FxLMap<K, ()>,
                    kmer: K,
                    start_dir: Dir,
@@ -577,7 +643,7 @@ impl<K: Kmer, V: Vmer<K>, D: Clone, S: CompressionSpec<D>> PathCompression<K, V,
         let mut final_exts: Exts; // must get set below
 
         if max_dist == 0 {
-            let first_exts = kmer_exts.get(&current_kmer).expect("didn't have kmer").0;
+            let first_exts = self.get_kmer_data(&current_kmer, kmer_exts).0;
             return first_exts.single_dir(start_dir);
         }
 
@@ -613,7 +679,7 @@ impl<K: Kmer, V: Vmer<K>, D: Clone, S: CompressionSpec<D>> PathCompression<K, V,
     /// Build the edge surrounding a kmer
     #[inline(never)]
     fn build_node(&self,
-                  kmer_exts: &FxHashMap<K, (Exts, D)>,
+                  kmer_exts: &Vec<(K, (Exts, D))>,
                   available_kmers: &mut FxLMap<K, ()>,
                   seed: K,
                   path: &mut Vec<(K, Dir)>,
@@ -626,7 +692,7 @@ impl<K: Kmer, V: Vmer<K>, D: Clone, S: CompressionSpec<D>> PathCompression<K, V,
             edge_seq.push_back(seed.get(i));
         }
 
-        let mut node_data = kmer_exts.get(&seed).expect("must have kmer").1.clone();
+        let mut node_data = self.get_kmer_data(&seed, kmer_exts).1.clone();
 
         let l_ext = self.extend_kmer(kmer_exts,
                                     available_kmers,
@@ -645,7 +711,7 @@ impl<K: Kmer, V: Vmer<K>, D: Clone, S: CompressionSpec<D>> PathCompression<K, V,
             edge_seq.push_front(kmer.get(0));
 
             // Reduce the data object
-            let &(_, ref kmer_data) = kmer_exts.get(&next_kmer).expect("kmer");
+            let &(_, ref kmer_data) = self.get_kmer_data(&next_kmer, kmer_exts);
             node_data = self.spec.reduce(node_data, kmer_data)
         }
 
@@ -673,7 +739,7 @@ impl<K: Kmer, V: Vmer<K>, D: Clone, S: CompressionSpec<D>> PathCompression<K, V,
 
             edge_seq.push_back(kmer.get(K::k() - 1));
 
-            let &(_, ref kmer_data) = kmer_exts.get(&next_kmer).expect("kmer");
+            let &(_, ref kmer_data) = self.get_kmer_data(&next_kmer, kmer_exts);
             node_data = self.spec.reduce(node_data, kmer_data)
         }
 
@@ -692,12 +758,11 @@ impl<K: Kmer, V: Vmer<K>, D: Clone, S: CompressionSpec<D>> PathCompression<K, V,
 
     /// Build all sedges until all kmers are exhausted
     #[inline(never)]
-    pub fn build_nodes(&self, kmer_exts: &FxHashMap<K, (Exts, D)>) -> BaseGraph<K,D> {
+    pub fn build_nodes(&self, kmer_exts: &Vec<(K, (Exts, D))>) -> BaseGraph<K,D> {
 
         let h = BuildHasherDefault::<FxHasher>::default();
-        let mut available_kmers: FxLMap<K, ()> = FxLMap::with_capacity_and_hasher(kmer_exts.len(),
-                                                                                  h);
-        available_kmers.extend(kmer_exts.keys().map(|k| (k.clone(), ())));
+        let mut available_kmers: FxLMap<K, ()> = FxLMap::with_capacity_and_hasher(kmer_exts.len(), h);
+        available_kmers.extend(kmer_exts.iter().map(|&(k, _)| (k.clone(), ())));
 
         // Path-compressed De Bruijn graph will be created here
         let mut graph = BaseGraph::new();

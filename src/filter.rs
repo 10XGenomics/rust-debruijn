@@ -4,6 +4,7 @@ use std::mem;
 use itertools::Itertools;
 use std::marker::PhantomData;
 
+use Dir;
 use Kmer;
 use Exts;
 use Vmer;
@@ -77,10 +78,10 @@ impl<D> KmerSummarizer<D, Vec<D>> for CountFilterSet<D> {
 /// To reduce memory consumption, set track_bcs to false to forget about BC lists.
 #[inline(never)]
 pub fn filter_kmers<K:Kmer, V:Vmer<K>, D1: Clone, DS, S: KmerSummarizer<D1,DS>>(seqs: &Vec<(V, Exts, D1)>, summarizer: S) ->
- (FxHashMap<K, (Exts, DS)>, FxHashSet<K>) {
+ (Vec<(K, (Exts, DS))>, Vec<K>) {
 
-    let mut all_kmers: FxHashSet<K> = FxHashSet();
-    let mut valid_kmers: FxHashMap<K, (Exts, DS)> = FxHashMap();
+    let mut all_kmers = Vec::new();
+    let mut valid_kmers = Vec::new();
 
     // Estimate memory consumed by Kmer vectors, and set iteration count appropriately
     let input_kmers: usize = seqs.iter().map(|&(ref vmer, _, _)| vmer.len() - K::k() + 1).sum();
@@ -127,13 +128,48 @@ pub fn filter_kmers<K:Kmer, V:Vmer<K>, D1: Clone, DS, S: KmerSummarizer<D1,DS>>(
 
             for (kmer, kmer_obs_iter) in &kmer_vec.into_iter().group_by(|elt| elt.0) {
                 let (is_valid, exts, summary_data) = summarizer.summarize(kmer_obs_iter);
-                all_kmers.insert(kmer);
-                if is_valid {valid_kmers.insert(kmer, (exts, summary_data)); }
+                all_kmers.push(kmer);
+                if is_valid {valid_kmers.push((kmer, (exts, summary_data))); }
             }
         }
     }
+
+    valid_kmers.sort_by_key(|x| x.0);
+    all_kmers.sort();
+    fix_exts(&mut valid_kmers, &all_kmers);
 
     //info!("Total Sequences: {}, Total kmers observed: {}, Unique Kmers observed: {}. Kmers accepted: {}", seqs.len(), total_kmers, unique_kmers, final_kmers.len());
     (valid_kmers, all_kmers)
 }
 
+/// Remove extensions in valid_kmers that point to censored kmers. A censored kmer
+/// exists in all_kmers but not valid_kmers. We know that we can delete these extensions.
+/// In sharded kmer processing, we will have extensions to kmers in other shards. We don't
+/// know whether these are censored until later, so we retain the extension.
+pub fn fix_exts<K: Kmer, D>(valid_kmers: &mut Vec<(K, (Exts, D))>, all_kmers: &Vec<K>) {
+
+    for idx in 0 .. valid_kmers.len() {
+        let mut new_exts = Exts::empty();
+        let kmer = valid_kmers[idx].0;
+        let exts = (valid_kmers[idx].1).0;
+
+        for dir in [Dir::Left, Dir::Right].iter() {
+            for i in 0..4
+            {
+                if exts.has_ext(*dir, i) {
+                    let ext_kmer = kmer.extend(i, *dir);
+                    let kmer_observed = all_kmers.binary_search(&ext_kmer).is_ok();
+                    let kmer_valid = valid_kmers.binary_search_by_key(&ext_kmer, |d| d.0).is_ok();
+
+                    let censored = kmer_observed && !kmer_valid;
+
+                    if !censored {
+                        new_exts = new_exts.set(*dir, i);
+                    }
+                }
+            }
+        }
+
+        (valid_kmers[idx].1).0 = new_exts;
+    }
+}

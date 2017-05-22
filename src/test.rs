@@ -274,21 +274,21 @@ mod tests {
         // Check the correctness of the process_kmer_shard kmer filtering function
         let (valid_kmers, _) = filter::filter_kmers(&seqs, filter::CountFilterSet::<u8>::new(2));
         let mut process_kmer_set = HashSet::new();
-        for k in valid_kmers.keys() {
-            process_kmer_set.insert(*k);
+        for k in valid_kmers.iter().map(|x| x.0) {
+            process_kmer_set.insert(k);
         }
         assert_eq!(process_kmer_set, kmer_set);
 
         // Full set of barcodes from valid kmers should equal 1..contigs.len()*2+1  (0 barcodes are not counted)
         let mut obs_bcs = HashSet::new();
-        for (_, &(_, ref bcs)) in valid_kmers.iter() {
+        for &(_, (_, ref bcs)) in valid_kmers.iter() {
             for bc in bcs { obs_bcs.insert(bc); }
         }
         
         // Every kmer should be reachable as the extension of a kmer.
         // No new kmers should be reachable
         let mut extension_kmer_set: HashSet<K> = HashSet::new();
-        for (kmer, &(exts, _)) in valid_kmers.iter() {
+        for &(kmer, (exts, _)) in valid_kmers.iter() {
             for e in kmer.get_extensions(exts, Dir::Left) {
                 extension_kmer_set.insert(e.min_rc());
             }
