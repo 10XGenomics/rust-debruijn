@@ -63,7 +63,7 @@ pub fn complement(base: u8) -> u8 {
 }
 
 
-/// Generic trait for interacting with DNA seqeunces
+/// Generic trait for interacting with DNA sequences
 pub trait Mer: Sized + fmt::Debug {
     /// Length of DNA sequence
     fn len(&self) -> usize;
@@ -106,7 +106,7 @@ pub trait Mer: Sized + fmt::Debug {
 }
 
 /// Encapsulates a Kmer sequence with statically known K.
-pub trait Kmer: Sized + Copy + Mer + PartialEq + PartialOrd + Eq + Ord + Hash {
+pub trait Kmer: Mer + Sized + Copy + PartialEq + PartialOrd + Eq + Ord + Hash {
     /// Create a Kmer initialized to all A's
     fn empty() -> Self;
 
