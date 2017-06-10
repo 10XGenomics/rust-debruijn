@@ -1,5 +1,16 @@
 #![allow(dead_code)]
 
+//! # debruijn-rs: a De Bruijn graph for DNA seqeunces in Rust.
+//! This library provides tools for efficiently construction de bruijn graphs
+//! from DNA sequences, tracking arbitrary metadata associated with kmers in the
+//! graph, and performing path-compression of unbranched graph paths to improve
+//! speed and reduce memory consumption.
+
+//! All the data structures in debruijn-rs are specialized to the alphabet {'A', 'C', 'G', 'T'},
+//! and use 2-bit packed encoding of base-pairs into integer types, and efficient methods for
+//! reverse complement, enumerating kmers from longer sequences, and transfering data between
+//! sequences. 
+
 extern crate num;
 extern crate extprim;
 extern crate rand;
