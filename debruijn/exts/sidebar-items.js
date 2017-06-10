@@ -1,1 +1,0 @@
-initSidebarItems({"struct":[["Exts","Store single-base extensions for a DNA Debruijn graph."]]});

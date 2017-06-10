@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="generator" content="rustdoc">
-    <meta name="description" content="Source to the Rust file `/Users/patrick/.cargo/registry/src/github.com-1ecc6299db9ec823/rustc-serialize-0.3.23/src/base64.rs`.">
+    <meta name="description" content="Source to the Rust file `/Users/patrick/.cargo/registry/src/github.com-1ecc6299db9ec823/rustc-serialize-0.3.24/src/base64.rs`.">
     <meta name="keywords" content="rust, rustlang, rust-lang">
 
     <title>base64.rs.html -- source</title>
@@ -531,6 +531,7 @@
 <span id="486">486</span>
 <span id="487">487</span>
 <span id="488">488</span>
+<span id="489">489</span>
 </pre><pre class="rust ">
 <span class="comment">// Copyright 2012-2014 The Rust Project Developers. See the COPYRIGHT</span>
 <span class="comment">// file at the top-level directory of this distribution and at</span>
@@ -864,26 +865,27 @@
 }
 
 <span class="doccomment">/// Base64 decoding lookup table, generated using:</span>
-<span class="doccomment">/// ```rust</span>
-<span class="doccomment">///     let mut ch = 0u8;</span>
-<span class="doccomment">///     loop {</span>
-<span class="doccomment">///         let code = match ch {</span>
-<span class="doccomment">///             b&#39;A&#39;...b&#39;Z&#39; =&gt; ch - 0x41,</span>
-<span class="doccomment">///             b&#39;a&#39;...b&#39;z&#39; =&gt; ch - 0x47,</span>
-<span class="doccomment">///             b&#39;0&#39;...b&#39;9&#39; =&gt; ch + 0x04,</span>
-<span class="doccomment">///             b&#39;+&#39; | b&#39;-&#39; =&gt; 0x3E,</span>
-<span class="doccomment">///             b&#39;/&#39; | b&#39;_&#39; =&gt; 0x3F,</span>
-<span class="doccomment">///             b&#39;=&#39; =&gt; 0xFE,</span>
-<span class="doccomment">///             b&#39;\r&#39; | b&#39;\n&#39; =&gt; 0xFD,</span>
-<span class="doccomment">///             _ =&gt; 0xFF,</span>
-<span class="doccomment">///         };</span>
-<span class="doccomment">///         print!(&quot;0x{:02X}, &quot;, code);</span>
-<span class="doccomment">///         if ch % 16  == 15 { println!(&quot;&quot;); }</span>
-<span class="doccomment">///         else if ch == 0xFF { break; }</span>
-<span class="doccomment">///         ch += 1;</span>
-<span class="doccomment">///     }</span>
-<span class="doccomment">///     println!(&quot;&quot;);</span>
+<span class="doccomment">///</span>
+<span class="doccomment">/// ```</span>
+<span class="doccomment">/// let mut ch = 0u8;</span>
+<span class="doccomment">/// for ch in 0..255 {</span>
+<span class="doccomment">///     let mut ch = ch as u8;</span>
+<span class="doccomment">///     let code = match ch {</span>
+<span class="doccomment">///         b&#39;A&#39;...b&#39;Z&#39; =&gt; ch - 0x41,</span>
+<span class="doccomment">///         b&#39;a&#39;...b&#39;z&#39; =&gt; ch - 0x47,</span>
+<span class="doccomment">///         b&#39;0&#39;...b&#39;9&#39; =&gt; ch + 0x04,</span>
+<span class="doccomment">///         b&#39;+&#39; | b&#39;-&#39; =&gt; 0x3E,</span>
+<span class="doccomment">///         b&#39;/&#39; | b&#39;_&#39; =&gt; 0x3F,</span>
+<span class="doccomment">///         b&#39;=&#39; =&gt; 0xFE,</span>
+<span class="doccomment">///         b&#39;\r&#39; | b&#39;\n&#39; =&gt; 0xFD,</span>
+<span class="doccomment">///         _ =&gt; 0xFF,</span>
+<span class="doccomment">///     };</span>
+<span class="doccomment">///     print!(&quot;0x{:02X}, &quot;, code);</span>
+<span class="doccomment">///     if ch % 16  == 15 { println!(&quot;&quot;); }</span>
+<span class="doccomment">///     else if ch == 0xFF { break; }</span>
+<span class="doccomment">///     ch += 1;</span>
 <span class="doccomment">/// }</span>
+<span class="doccomment">/// println!(&quot;&quot;);</span>
 <span class="doccomment">/// ```</span>
 <span class="kw">const</span> <span class="ident">DECODE_TABLE</span>: [<span class="ident">u8</span>; <span class="number">256</span>] <span class="op">=</span> [
     <span class="number">0xFF</span>, <span class="number">0xFF</span>, <span class="number">0xFF</span>, <span class="number">0xFF</span>, <span class="number">0xFF</span>, <span class="number">0xFF</span>, <span class="number">0xFF</span>, <span class="number">0xFF</span>, <span class="number">0xFF</span>, <span class="number">0xFF</span>, <span class="number">0xFD</span>, <span class="number">0xFF</span>, <span class="number">0xFF</span>, <span class="number">0xFD</span>, <span class="number">0xFF</span>, <span class="number">0xFF</span>,
@@ -925,7 +927,7 @@
 
     <span class="attribute">#[<span class="ident">test</span>]</span>
     <span class="kw">fn</span> <span class="ident">test_to_base64_crlf_line_break</span>() {
-        <span class="macro">assert</span><span class="macro">!</span>(<span class="op">!</span>[<span class="number">08</span>; <span class="number">1000</span>].<span class="ident">to_base64</span>(<span class="ident">Config</span> {<span class="ident">line_length</span>: <span class="prelude-val">None</span>, ..<span class="ident">STANDARD</span>})
+        <span class="macro">assert</span><span class="macro">!</span>(<span class="op">!</span>[<span class="number">0</span>; <span class="number">1000</span>].<span class="ident">to_base64</span>(<span class="ident">Config</span> {<span class="ident">line_length</span>: <span class="prelude-val">None</span>, ..<span class="ident">STANDARD</span>})
                               .<span class="ident">contains</span>(<span class="string">&quot;\r\n&quot;</span>));
         <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="string">b&quot;foobar&quot;</span>.<span class="ident">to_base64</span>(<span class="ident">Config</span> {<span class="ident">line_length</span>: <span class="prelude-val">Some</span>(<span class="number">4</span>),
                                                ..<span class="ident">STANDARD</span>}),
@@ -934,7 +936,7 @@
 
     <span class="attribute">#[<span class="ident">test</span>]</span>
     <span class="kw">fn</span> <span class="ident">test_to_base64_lf_line_break</span>() {
-        <span class="macro">assert</span><span class="macro">!</span>(<span class="op">!</span>[<span class="number">08</span>; <span class="number">1000</span>].<span class="ident">to_base64</span>(<span class="ident">Config</span> {<span class="ident">line_length</span>: <span class="prelude-val">None</span>,
+        <span class="macro">assert</span><span class="macro">!</span>(<span class="op">!</span>[<span class="number">0</span>; <span class="number">1000</span>].<span class="ident">to_base64</span>(<span class="ident">Config</span> {<span class="ident">line_length</span>: <span class="prelude-val">None</span>,
                                                  <span class="ident">newline</span>: <span class="ident">Newline</span>::<span class="ident">LF</span>,
                                                  ..<span class="ident">STANDARD</span>})
                               .<span class="ident">contains</span>(<span class="string">&quot;\n&quot;</span>));

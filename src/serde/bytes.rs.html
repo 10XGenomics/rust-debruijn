@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="generator" content="rustdoc">
-    <meta name="description" content="Source to the Rust file `/Users/patrick/.cargo/registry/src/github.com-1ecc6299db9ec823/serde-0.9.13/src/bytes.rs`.">
+    <meta name="description" content="Source to the Rust file `/Users/patrick/.cargo/registry/src/github.com-1ecc6299db9ec823/serde-0.8.23/src/bytes.rs`.">
     <meta name="keywords" content="rust, rustlang, rust-lang">
 
     <title>bytes.rs.html -- source</title>
@@ -295,87 +295,8 @@
 <span id="250">250</span>
 <span id="251">251</span>
 <span id="252">252</span>
-<span id="253">253</span>
-<span id="254">254</span>
-<span id="255">255</span>
-<span id="256">256</span>
-<span id="257">257</span>
-<span id="258">258</span>
-<span id="259">259</span>
-<span id="260">260</span>
-<span id="261">261</span>
-<span id="262">262</span>
-<span id="263">263</span>
-<span id="264">264</span>
-<span id="265">265</span>
-<span id="266">266</span>
-<span id="267">267</span>
-<span id="268">268</span>
-<span id="269">269</span>
-<span id="270">270</span>
-<span id="271">271</span>
-<span id="272">272</span>
-<span id="273">273</span>
-<span id="274">274</span>
-<span id="275">275</span>
-<span id="276">276</span>
-<span id="277">277</span>
-<span id="278">278</span>
-<span id="279">279</span>
-<span id="280">280</span>
-<span id="281">281</span>
-<span id="282">282</span>
-<span id="283">283</span>
-<span id="284">284</span>
-<span id="285">285</span>
-<span id="286">286</span>
-<span id="287">287</span>
-<span id="288">288</span>
-<span id="289">289</span>
-<span id="290">290</span>
-<span id="291">291</span>
-<span id="292">292</span>
-<span id="293">293</span>
-<span id="294">294</span>
-<span id="295">295</span>
-<span id="296">296</span>
-<span id="297">297</span>
-<span id="298">298</span>
-<span id="299">299</span>
-<span id="300">300</span>
-<span id="301">301</span>
-<span id="302">302</span>
-<span id="303">303</span>
-<span id="304">304</span>
-<span id="305">305</span>
-<span id="306">306</span>
-<span id="307">307</span>
-<span id="308">308</span>
-<span id="309">309</span>
-<span id="310">310</span>
-<span id="311">311</span>
-<span id="312">312</span>
-<span id="313">313</span>
-<span id="314">314</span>
-<span id="315">315</span>
 </pre><pre class="rust ">
-<span class="doccomment">//! Wrapper types to enable optimized handling of `&amp;[u8]` and `Vec&lt;u8&gt;`.</span>
-<span class="doccomment">//!</span>
-<span class="doccomment">//! Without specialization, Rust forces us to treat `&amp;[u8]` just like any other</span>
-<span class="doccomment">//! slice and `Vec&lt;u8&gt;` just like any other vector. In reality this particular</span>
-<span class="doccomment">//! slice and vector can often be serialized and deserialized in a more</span>
-<span class="doccomment">//! efficient, compact representation in many formats.</span>
-<span class="doccomment">//!</span>
-<span class="doccomment">//! When working with such a format, you can opt into specialized handling of</span>
-<span class="doccomment">//! `&amp;[u8]` by wrapping it in `bytes::Bytes` and `Vec&lt;u8&gt;` by wrapping it in</span>
-<span class="doccomment">//! `bytes::ByteBuf`.</span>
-<span class="doccomment">//!</span>
-<span class="doccomment">//! Rust support for specialization is being tracked in</span>
-<span class="doccomment">//! [rust-lang/rust#31844][specialization]. Once it lands in the stable compiler</span>
-<span class="doccomment">//! we will be deprecating these wrapper types in favor of optimizing `&amp;[u8]`</span>
-<span class="doccomment">//! and `Vec&lt;u8&gt;` out of the box.</span>
-<span class="doccomment">//!</span>
-<span class="doccomment">//! [specialization]: https://github.com/rust-lang/rust/issues/31844</span>
+<span class="doccomment">//! Helper module to enable serializing bytes more efficiently</span>
 
 <span class="kw">use</span> <span class="ident">core</span>::{<span class="ident">ops</span>, <span class="ident">fmt</span>, <span class="ident">char</span>, <span class="ident">iter</span>, <span class="ident">slice</span>};
 <span class="kw">use</span> <span class="ident">core</span>::<span class="ident">fmt</span>::<span class="ident">Write</span>;
@@ -383,36 +304,14 @@
 <span class="kw">use</span> <span class="ident">ser</span>;
 
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">any</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;std&quot;</span>, <span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;collections&quot;</span>))]</span>
-<span class="kw">pub</span> <span class="kw">use</span> <span class="self">self</span>::<span class="ident">bytebuf</span>::<span class="ident">ByteBuf</span>;
-
-<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">any</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;std&quot;</span>, <span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;collections&quot;</span>))]</span>
-<span class="attribute">#[<span class="ident">doc</span>(<span class="ident">hidden</span>)]</span> <span class="comment">// does anybody need this?</span>
-<span class="kw">pub</span> <span class="kw">use</span> <span class="self">self</span>::<span class="ident">bytebuf</span>::<span class="ident">ByteBufVisitor</span>;
+<span class="kw">pub</span> <span class="kw">use</span> <span class="self">self</span>::<span class="ident">bytebuf</span>::{<span class="ident">ByteBuf</span>, <span class="ident">ByteBufVisitor</span>};
 
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;collections&quot;</span>)]</span>
 <span class="kw">use</span> <span class="ident">collections</span>::<span class="ident">Vec</span>;
 
 <span class="comment">///////////////////////////////////////////////////////////////////////////////</span>
 
-<span class="doccomment">/// Wraps a `&amp;[u8]` in order to serialize in an efficient way. Does not support</span>
-<span class="doccomment">/// deserialization.</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// ```rust</span>
-<span class="doccomment">/// # #[macro_use] extern crate serde_derive;</span>
-<span class="doccomment">/// # extern crate serde;</span>
-<span class="doccomment">/// # use std::net::IpAddr;</span>
-<span class="doccomment">/// #</span>
-<span class="doccomment">/// use serde::bytes::Bytes;</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// # #[allow(dead_code)]</span>
-<span class="doccomment">/// #[derive(Serialize)]</span>
-<span class="doccomment">/// struct Packet&lt;&#39;a&gt; {</span>
-<span class="doccomment">///     destination: IpAddr,</span>
-<span class="doccomment">///     payload: Bytes&lt;&#39;a&gt;,</span>
-<span class="doccomment">/// }</span>
-<span class="doccomment">/// #</span>
-<span class="doccomment">/// # fn main() {}</span>
-<span class="doccomment">/// ```</span>
+<span class="doccomment">/// `Bytes` wraps a `&amp;[u8]` in order to serialize into a byte array.</span>
 <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Clone</span>, <span class="ident">Copy</span>, <span class="ident">Eq</span>, <span class="ident">Hash</span>, <span class="ident">PartialEq</span>, <span class="ident">PartialOrd</span>, <span class="ident">Ord</span>)]</span>
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">Bytes</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span> {
     <span class="ident">bytes</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a</span> [<span class="ident">u8</span>],
@@ -421,7 +320,9 @@
 <span class="kw">impl</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span> <span class="ident">Bytes</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span> {
     <span class="doccomment">/// Wrap an existing `&amp;[u8]`.</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new</span>(<span class="ident">bytes</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a</span> [<span class="ident">u8</span>]) <span class="op">-&gt;</span> <span class="self">Self</span> {
-        <span class="ident">Bytes</span> { <span class="ident">bytes</span>: <span class="ident">bytes</span> }
+        <span class="ident">Bytes</span> {
+            <span class="ident">bytes</span>: <span class="ident">bytes</span>,
+        }
     }
 }
 
@@ -457,14 +358,12 @@
 <span class="kw">impl</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span> <span class="ident">ops</span>::<span class="ident">Deref</span> <span class="kw">for</span> <span class="ident">Bytes</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span> {
     <span class="kw">type</span> <span class="ident">Target</span> <span class="op">=</span> [<span class="ident">u8</span>];
 
-    <span class="kw">fn</span> <span class="ident">deref</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-&gt;</span> <span class="kw-2">&amp;</span>[<span class="ident">u8</span>] {
-        <span class="self">self</span>.<span class="ident">bytes</span>
-    }
+    <span class="kw">fn</span> <span class="ident">deref</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-&gt;</span> <span class="kw-2">&amp;</span>[<span class="ident">u8</span>] { <span class="self">self</span>.<span class="ident">bytes</span> }
 }
 
 <span class="kw">impl</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span> <span class="ident">ser</span>::<span class="ident">Serialize</span> <span class="kw">for</span> <span class="ident">Bytes</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span> {
     <span class="attribute">#[<span class="ident">inline</span>]</span>
-    <span class="kw">fn</span> <span class="ident">serialize</span><span class="op">&lt;</span><span class="ident">S</span><span class="op">&gt;</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">serializer</span>: <span class="ident">S</span>) <span class="op">-&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">S</span>::<span class="prelude-val">Ok</span>, <span class="ident">S</span>::<span class="ident">Error</span><span class="op">&gt;</span>
+    <span class="kw">fn</span> <span class="ident">serialize</span><span class="op">&lt;</span><span class="ident">S</span><span class="op">&gt;</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">serializer</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">S</span>) <span class="op">-&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">S</span>::<span class="ident">Error</span><span class="op">&gt;</span>
         <span class="kw">where</span> <span class="ident">S</span>: <span class="ident">ser</span>::<span class="ident">Serializer</span>
     {
         <span class="ident">serializer</span>.<span class="ident">serialize_bytes</span>(<span class="self">self</span>.<span class="ident">bytes</span>)
@@ -475,7 +374,6 @@
 
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">any</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;std&quot;</span>, <span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;collections&quot;</span>))]</span>
 <span class="kw">mod</span> <span class="ident">bytebuf</span> {
-    <span class="kw">use</span> <span class="ident">core</span>::<span class="ident">cmp</span>;
     <span class="kw">use</span> <span class="ident">core</span>::<span class="ident">ops</span>;
     <span class="kw">use</span> <span class="ident">core</span>::<span class="ident">fmt</span>;
     <span class="kw">use</span> <span class="ident">core</span>::<span class="ident">fmt</span>::<span class="ident">Write</span>;
@@ -486,25 +384,7 @@
     <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;collections&quot;</span>)]</span>
     <span class="kw">use</span> <span class="ident">collections</span>::{<span class="ident">String</span>, <span class="ident">Vec</span>};
 
-    <span class="doccomment">/// Wraps a `Vec&lt;u8&gt;` in order to serialize and deserialize in an efficient</span>
-    <span class="doccomment">/// way.</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// ```rust</span>
-    <span class="doccomment">/// # #[macro_use] extern crate serde_derive;</span>
-    <span class="doccomment">/// # extern crate serde;</span>
-    <span class="doccomment">/// # use std::net::IpAddr;</span>
-    <span class="doccomment">/// #</span>
-    <span class="doccomment">/// use serde::bytes::ByteBuf;</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// # #[allow(dead_code)]</span>
-    <span class="doccomment">/// #[derive(Serialize, Deserialize)]</span>
-    <span class="doccomment">/// struct Packet {</span>
-    <span class="doccomment">///     destination: IpAddr,</span>
-    <span class="doccomment">///     payload: ByteBuf,</span>
-    <span class="doccomment">/// }</span>
-    <span class="doccomment">/// #</span>
-    <span class="doccomment">/// # fn main() {}</span>
-    <span class="doccomment">/// ```</span>
+    <span class="doccomment">/// `ByteBuf` wraps a `Vec&lt;u8&gt;` and serializes as a byte array.</span>
     <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Clone</span>, <span class="ident">Default</span>, <span class="ident">Eq</span>, <span class="ident">Hash</span>, <span class="ident">PartialEq</span>, <span class="ident">PartialOrd</span>, <span class="ident">Ord</span>)]</span>
     <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">ByteBuf</span> {
         <span class="ident">bytes</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span>,
@@ -523,7 +403,9 @@
 
         <span class="doccomment">/// Wrap existing bytes in a `ByteBuf`.</span>
         <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">from</span><span class="op">&lt;</span><span class="ident">T</span>: <span class="ident">Into</span><span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;&gt;</span><span class="op">&gt;</span>(<span class="ident">bytes</span>: <span class="ident">T</span>) <span class="op">-&gt;</span> <span class="self">Self</span> {
-            <span class="ident">ByteBuf</span> { <span class="ident">bytes</span>: <span class="ident">bytes</span>.<span class="ident">into</span>() }
+            <span class="ident">ByteBuf</span> {
+                <span class="ident">bytes</span>: <span class="ident">bytes</span>.<span class="ident">into</span>(),
+            }
         }
     }
 
@@ -576,19 +458,15 @@
     <span class="kw">impl</span> <span class="ident">ops</span>::<span class="ident">Deref</span> <span class="kw">for</span> <span class="ident">ByteBuf</span> {
         <span class="kw">type</span> <span class="ident">Target</span> <span class="op">=</span> [<span class="ident">u8</span>];
 
-        <span class="kw">fn</span> <span class="ident">deref</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-&gt;</span> <span class="kw-2">&amp;</span>[<span class="ident">u8</span>] {
-            <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">bytes</span>[..]
-        }
+        <span class="kw">fn</span> <span class="ident">deref</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-&gt;</span> <span class="kw-2">&amp;</span>[<span class="ident">u8</span>] { <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">bytes</span>[..] }
     }
 
     <span class="kw">impl</span> <span class="ident">ops</span>::<span class="ident">DerefMut</span> <span class="kw">for</span> <span class="ident">ByteBuf</span> {
-        <span class="kw">fn</span> <span class="ident">deref_mut</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>) <span class="op">-&gt;</span> <span class="kw-2">&amp;</span><span class="kw-2">mut</span> [<span class="ident">u8</span>] {
-            <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>.<span class="ident">bytes</span>[..]
-        }
+        <span class="kw">fn</span> <span class="ident">deref_mut</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>) <span class="op">-&gt;</span> <span class="kw-2">&amp;</span><span class="kw-2">mut</span> [<span class="ident">u8</span>] { <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>.<span class="ident">bytes</span>[..] }
     }
 
     <span class="kw">impl</span> <span class="ident">ser</span>::<span class="ident">Serialize</span> <span class="kw">for</span> <span class="ident">ByteBuf</span> {
-        <span class="kw">fn</span> <span class="ident">serialize</span><span class="op">&lt;</span><span class="ident">S</span><span class="op">&gt;</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">serializer</span>: <span class="ident">S</span>) <span class="op">-&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">S</span>::<span class="prelude-val">Ok</span>, <span class="ident">S</span>::<span class="ident">Error</span><span class="op">&gt;</span>
+        <span class="kw">fn</span> <span class="ident">serialize</span><span class="op">&lt;</span><span class="ident">S</span><span class="op">&gt;</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">serializer</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">S</span>) <span class="op">-&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">S</span>::<span class="ident">Error</span><span class="op">&gt;</span>
             <span class="kw">where</span> <span class="ident">S</span>: <span class="ident">ser</span>::<span class="ident">Serializer</span>
         {
             <span class="ident">serializer</span>.<span class="ident">serialize_bytes</span>(<span class="self">self</span>)
@@ -601,53 +479,51 @@
     <span class="kw">impl</span> <span class="ident">de</span>::<span class="ident">Visitor</span> <span class="kw">for</span> <span class="ident">ByteBufVisitor</span> {
         <span class="kw">type</span> <span class="ident">Value</span> <span class="op">=</span> <span class="ident">ByteBuf</span>;
 
-        <span class="kw">fn</span> <span class="ident">expecting</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">formatter</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">fmt</span>::<span class="ident">Formatter</span>) <span class="op">-&gt;</span> <span class="ident">fmt</span>::<span class="prelude-ty">Result</span> {
-            <span class="ident">formatter</span>.<span class="ident">write_str</span>(<span class="string">&quot;byte array&quot;</span>)
-        }
-
         <span class="attribute">#[<span class="ident">inline</span>]</span>
-        <span class="kw">fn</span> <span class="ident">visit_unit</span><span class="op">&lt;</span><span class="ident">E</span><span class="op">&gt;</span>(<span class="self">self</span>) <span class="op">-&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">ByteBuf</span>, <span class="ident">E</span><span class="op">&gt;</span>
-            <span class="kw">where</span> <span class="ident">E</span>: <span class="ident">de</span>::<span class="ident">Error</span>
+        <span class="kw">fn</span> <span class="ident">visit_unit</span><span class="op">&lt;</span><span class="ident">E</span><span class="op">&gt;</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>) <span class="op">-&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">ByteBuf</span>, <span class="ident">E</span><span class="op">&gt;</span>
+            <span class="kw">where</span> <span class="ident">E</span>: <span class="ident">de</span>::<span class="ident">Error</span>,
         {
             <span class="prelude-val">Ok</span>(<span class="ident">ByteBuf</span>::<span class="ident">new</span>())
         }
 
         <span class="attribute">#[<span class="ident">inline</span>]</span>
-        <span class="kw">fn</span> <span class="ident">visit_seq</span><span class="op">&lt;</span><span class="ident">V</span><span class="op">&gt;</span>(<span class="self">self</span>, <span class="kw-2">mut</span> <span class="ident">visitor</span>: <span class="ident">V</span>) <span class="op">-&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">ByteBuf</span>, <span class="ident">V</span>::<span class="ident">Error</span><span class="op">&gt;</span>
-            <span class="kw">where</span> <span class="ident">V</span>: <span class="ident">de</span>::<span class="ident">SeqVisitor</span>
+        <span class="kw">fn</span> <span class="ident">visit_seq</span><span class="op">&lt;</span><span class="ident">V</span><span class="op">&gt;</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="kw-2">mut</span> <span class="ident">visitor</span>: <span class="ident">V</span>) <span class="op">-&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">ByteBuf</span>, <span class="ident">V</span>::<span class="ident">Error</span><span class="op">&gt;</span>
+            <span class="kw">where</span> <span class="ident">V</span>: <span class="ident">de</span>::<span class="ident">SeqVisitor</span>,
         {
-            <span class="kw">let</span> <span class="ident">len</span> <span class="op">=</span> <span class="ident">cmp</span>::<span class="ident">min</span>(<span class="ident">visitor</span>.<span class="ident">size_hint</span>().<span class="number">0</span>, <span class="number">4096</span>);
+            <span class="kw">let</span> (<span class="ident">len</span>, _) <span class="op">=</span> <span class="ident">visitor</span>.<span class="ident">size_hint</span>();
             <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">values</span> <span class="op">=</span> <span class="ident">Vec</span>::<span class="ident">with_capacity</span>(<span class="ident">len</span>);
 
             <span class="kw">while</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">value</span>) <span class="op">=</span> <span class="macro">try</span><span class="macro">!</span>(<span class="ident">visitor</span>.<span class="ident">visit</span>()) {
                 <span class="ident">values</span>.<span class="ident">push</span>(<span class="ident">value</span>);
             }
 
+            <span class="macro">try</span><span class="macro">!</span>(<span class="ident">visitor</span>.<span class="ident">end</span>());
+
             <span class="prelude-val">Ok</span>(<span class="ident">ByteBuf</span>::<span class="ident">from</span>(<span class="ident">values</span>))
         }
 
         <span class="attribute">#[<span class="ident">inline</span>]</span>
-        <span class="kw">fn</span> <span class="ident">visit_bytes</span><span class="op">&lt;</span><span class="ident">E</span><span class="op">&gt;</span>(<span class="self">self</span>, <span class="ident">v</span>: <span class="kw-2">&amp;</span>[<span class="ident">u8</span>]) <span class="op">-&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">ByteBuf</span>, <span class="ident">E</span><span class="op">&gt;</span>
-            <span class="kw">where</span> <span class="ident">E</span>: <span class="ident">de</span>::<span class="ident">Error</span>
+        <span class="kw">fn</span> <span class="ident">visit_bytes</span><span class="op">&lt;</span><span class="ident">E</span><span class="op">&gt;</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">v</span>: <span class="kw-2">&amp;</span>[<span class="ident">u8</span>]) <span class="op">-&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">ByteBuf</span>, <span class="ident">E</span><span class="op">&gt;</span>
+            <span class="kw">where</span> <span class="ident">E</span>: <span class="ident">de</span>::<span class="ident">Error</span>,
         {
             <span class="prelude-val">Ok</span>(<span class="ident">ByteBuf</span>::<span class="ident">from</span>(<span class="ident">v</span>))
         }
 
         <span class="attribute">#[<span class="ident">inline</span>]</span>
-        <span class="kw">fn</span> <span class="ident">visit_byte_buf</span><span class="op">&lt;</span><span class="ident">E</span><span class="op">&gt;</span>(<span class="self">self</span>, <span class="ident">v</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span>) <span class="op">-&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">ByteBuf</span>, <span class="ident">E</span><span class="op">&gt;</span>
-            <span class="kw">where</span> <span class="ident">E</span>: <span class="ident">de</span>::<span class="ident">Error</span>
+        <span class="kw">fn</span> <span class="ident">visit_byte_buf</span><span class="op">&lt;</span><span class="ident">E</span><span class="op">&gt;</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">v</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span>) <span class="op">-&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">ByteBuf</span>, <span class="ident">E</span><span class="op">&gt;</span>
+            <span class="kw">where</span> <span class="ident">E</span>: <span class="ident">de</span>::<span class="ident">Error</span>,
         {
             <span class="prelude-val">Ok</span>(<span class="ident">ByteBuf</span>::<span class="ident">from</span>(<span class="ident">v</span>))
         }
 
-        <span class="kw">fn</span> <span class="ident">visit_str</span><span class="op">&lt;</span><span class="ident">E</span><span class="op">&gt;</span>(<span class="self">self</span>, <span class="ident">v</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>) <span class="op">-&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">ByteBuf</span>, <span class="ident">E</span><span class="op">&gt;</span>
-            <span class="kw">where</span> <span class="ident">E</span>: <span class="ident">de</span>::<span class="ident">Error</span>
+        <span class="kw">fn</span> <span class="ident">visit_str</span><span class="op">&lt;</span><span class="ident">E</span><span class="op">&gt;</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">v</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>) <span class="op">-&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">ByteBuf</span>, <span class="ident">E</span><span class="op">&gt;</span>
+            <span class="kw">where</span> <span class="ident">E</span>: <span class="ident">de</span>::<span class="ident">Error</span>,
         {
             <span class="prelude-val">Ok</span>(<span class="ident">ByteBuf</span>::<span class="ident">from</span>(<span class="ident">v</span>))
         }
 
-        <span class="kw">fn</span> <span class="ident">visit_string</span><span class="op">&lt;</span><span class="ident">E</span><span class="op">&gt;</span>(<span class="self">self</span>, <span class="ident">v</span>: <span class="ident">String</span>) <span class="op">-&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">ByteBuf</span>, <span class="ident">E</span><span class="op">&gt;</span>
-            <span class="kw">where</span> <span class="ident">E</span>: <span class="ident">de</span>::<span class="ident">Error</span>
+        <span class="kw">fn</span> <span class="ident">visit_string</span><span class="op">&lt;</span><span class="ident">E</span><span class="op">&gt;</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">v</span>: <span class="ident">String</span>) <span class="op">-&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">ByteBuf</span>, <span class="ident">E</span><span class="op">&gt;</span>
+            <span class="kw">where</span> <span class="ident">E</span>: <span class="ident">de</span>::<span class="ident">Error</span>,
         {
             <span class="prelude-val">Ok</span>(<span class="ident">ByteBuf</span>::<span class="ident">from</span>(<span class="ident">v</span>))
         }
@@ -655,10 +531,10 @@
 
     <span class="kw">impl</span> <span class="ident">de</span>::<span class="ident">Deserialize</span> <span class="kw">for</span> <span class="ident">ByteBuf</span> {
         <span class="attribute">#[<span class="ident">inline</span>]</span>
-        <span class="kw">fn</span> <span class="ident">deserialize</span><span class="op">&lt;</span><span class="ident">D</span><span class="op">&gt;</span>(<span class="ident">deserializer</span>: <span class="ident">D</span>) <span class="op">-&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">ByteBuf</span>, <span class="ident">D</span>::<span class="ident">Error</span><span class="op">&gt;</span>
+        <span class="kw">fn</span> <span class="ident">deserialize</span><span class="op">&lt;</span><span class="ident">D</span><span class="op">&gt;</span>(<span class="ident">deserializer</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">D</span>) <span class="op">-&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">ByteBuf</span>, <span class="ident">D</span>::<span class="ident">Error</span><span class="op">&gt;</span>
             <span class="kw">where</span> <span class="ident">D</span>: <span class="ident">de</span>::<span class="ident">Deserializer</span>
         {
-            <span class="ident">deserializer</span>.<span class="ident">deserialize_byte_buf</span>(<span class="ident">ByteBufVisitor</span>)
+            <span class="ident">deserializer</span>.<span class="ident">deserialize_bytes</span>(<span class="ident">ByteBufVisitor</span>)
         }
     }
 }
@@ -666,9 +542,7 @@
 <span class="comment">///////////////////////////////////////////////////////////////////////////////</span>
 
 <span class="attribute">#[<span class="ident">inline</span>]</span>
-<span class="kw">fn</span> <span class="ident">escape_bytestring</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span>
-    (<span class="ident">bytes</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a</span> [<span class="ident">u8</span>])
-     <span class="op">-&gt;</span> <span class="ident">iter</span>::<span class="ident">FlatMap</span><span class="op">&lt;</span><span class="ident">slice</span>::<span class="ident">Iter</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span>, <span class="ident">u8</span><span class="op">&gt;</span>, <span class="ident">char</span>::<span class="ident">EscapeDefault</span>, <span class="kw">fn</span>(<span class="kw-2">&amp;</span><span class="ident">u8</span>) <span class="op">-&gt;</span> <span class="ident">char</span>::<span class="ident">EscapeDefault</span><span class="op">&gt;</span> {
+<span class="kw">fn</span> <span class="ident">escape_bytestring</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span>(<span class="ident">bytes</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a</span> [<span class="ident">u8</span>]) <span class="op">-&gt;</span> <span class="ident">iter</span>::<span class="ident">FlatMap</span><span class="op">&lt;</span><span class="ident">slice</span>::<span class="ident">Iter</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span>, <span class="ident">u8</span><span class="op">&gt;</span>, <span class="ident">char</span>::<span class="ident">EscapeDefault</span>, <span class="kw">fn</span>(<span class="kw-2">&amp;</span><span class="ident">u8</span>) <span class="op">-&gt;</span> <span class="ident">char</span>::<span class="ident">EscapeDefault</span><span class="op">&gt;</span> {
     <span class="kw">fn</span> <span class="ident">f</span>(<span class="ident">b</span>: <span class="kw-2">&amp;</span><span class="ident">u8</span>) <span class="op">-&gt;</span> <span class="ident">char</span>::<span class="ident">EscapeDefault</span> {
         <span class="ident">char</span>::<span class="ident">from_u32</span>(<span class="kw-2">*</span><span class="ident">b</span> <span class="kw">as</span> <span class="ident">u32</span>).<span class="ident">unwrap</span>().<span class="ident">escape_default</span>()
     }

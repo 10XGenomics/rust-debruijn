@@ -496,6 +496,8 @@
 <span id="451">451</span>
 <span id="452">452</span>
 <span id="453">453</span>
+<span id="454">454</span>
+<span id="455">455</span>
 </pre><pre class="rust ">
 <span class="doccomment">//! Represent kmers with statically know length in compact integer types</span>
 
@@ -525,6 +527,8 @@
                          <span class="self">self</span>.<span class="ident">high64</span>().<span class="ident">reverse_by_twos</span>())
     }
 }
+
+<span class="kw">pub</span> <span class="kw">type</span> <span class="ident">Kmer64</span> <span class="op">=</span> <span class="ident">IntKmer</span><span class="op">&lt;</span><span class="ident">u128</span><span class="op">&gt;</span>;
 
 <span class="kw">impl</span> <span class="ident">IntHelp</span> <span class="kw">for</span> <span class="ident">u64</span> {
     <span class="attribute">#[<span class="ident">inline</span>]</span>

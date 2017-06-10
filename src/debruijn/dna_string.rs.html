@@ -684,6 +684,10 @@
 <span id="639">639</span>
 <span id="640">640</span>
 <span id="641">641</span>
+<span id="642">642</span>
+<span id="643">643</span>
+<span id="644">644</span>
+<span id="645">645</span>
 </pre><pre class="rust ">
 <span class="comment">// Copyright 2014 Johannes Köster.</span>
 <span class="comment">// Licensed under the MIT license (http://opensource.org/licenses/MIT)</span>
@@ -811,7 +815,7 @@
 
     <span class="doccomment">/// Create a new instance with a given capacity.</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">empty</span>(<span class="ident">n</span>: <span class="ident">usize</span>) <span class="op">-&gt;</span> <span class="self">Self</span> {
-        <span class="kw">let</span> <span class="ident">blocks</span> <span class="op">=</span> <span class="ident">n</span> <span class="op">*</span> <span class="ident">WIDTH</span> <span class="op">/</span> <span class="number">64</span> <span class="op">+</span> <span class="number">1</span>;
+        <span class="kw">let</span> <span class="ident">blocks</span> <span class="op">=</span> (<span class="ident">n</span><span class="kw-2">*</span><span class="ident">WIDTH</span> <span class="op">&gt;&gt;</span> <span class="number">6</span>) <span class="op">+</span> (<span class="kw">if</span> <span class="ident">n</span><span class="kw-2">*</span><span class="ident">WIDTH</span> <span class="op">&amp;</span> <span class="number">0x3F</span> <span class="op">&gt;</span> <span class="number">0</span> { <span class="number">1</span> } <span class="kw">else</span> { <span class="number">0</span> });
         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">storage</span> <span class="op">=</span> <span class="ident">Vec</span>::<span class="ident">with_capacity</span>(<span class="ident">blocks</span>);
         <span class="kw">for</span> <span class="ident">i</span> <span class="kw">in</span> <span class="number">0</span> .. <span class="ident">blocks</span> { <span class="ident">storage</span>.<span class="ident">push</span>(<span class="number">0</span>); }
 
@@ -855,6 +859,12 @@
         <span class="ident">dna</span>
     }
 
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">to_bytes</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-&gt;</span> <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span> {
+        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">bytes</span> <span class="op">=</span> <span class="ident">Vec</span>::<span class="ident">new</span>();
+        <span class="ident">bytes</span>.<span class="ident">extend</span>(<span class="self">self</span>.<span class="ident">iter</span>());
+        <span class="ident">bytes</span>
+    }
+
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">to_ascii_vec</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-&gt;</span> <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span> {
         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">res</span> <span class="op">=</span> <span class="ident">Vec</span>::<span class="ident">new</span>();
         <span class="kw">for</span> <span class="ident">v</span> <span class="kw">in</span> <span class="self">self</span>.<span class="ident">iter</span>() {
@@ -866,7 +876,7 @@
     <span class="doccomment">/// Append a value.</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">push</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">value</span>: <span class="ident">u8</span>) {
         <span class="kw">let</span> (<span class="ident">block</span>, <span class="ident">bit</span>) <span class="op">=</span> <span class="self">self</span>.<span class="ident">addr</span>(<span class="self">self</span>.<span class="ident">len</span>);
-        <span class="kw">if</span> <span class="ident">bit</span> <span class="op">==</span> <span class="number">0</span> {
+        <span class="kw">if</span> <span class="ident">bit</span> <span class="op">==</span> <span class="number">0</span> <span class="op">&amp;&amp;</span> <span class="ident">block</span> <span class="op">&gt;=</span> <span class="self">self</span>.<span class="ident">storage</span>.<span class="ident">len</span>() {
             <span class="self">self</span>.<span class="ident">storage</span>.<span class="ident">push</span>(<span class="number">0</span>);
         }
         <span class="self">self</span>.<span class="ident">set_by_addr</span>(<span class="ident">block</span>, <span class="ident">bit</span>, <span class="ident">value</span>);
@@ -973,37 +983,27 @@
         <span class="self">self</span>.<span class="ident">len</span> <span class="op">==</span> <span class="number">0</span>
     }
 
-    <span class="doccomment">/// Get the prefix of a given size.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">pref</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">k</span>: <span class="ident">usize</span>) <span class="op">-&gt;</span> <span class="ident">DnaString</span> {
+    <span class="doccomment">/// Get the length `k` prefix of the DnaString</span>
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">prefix</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">k</span>: <span class="ident">usize</span>) <span class="op">-&gt;</span> <span class="ident">DnaStringSlice</span> {
         <span class="macro">assert</span><span class="macro">!</span>(<span class="ident">k</span> <span class="op">&lt;=</span> <span class="self">self</span>.<span class="ident">len</span>, <span class="string">&quot;Prefix size exceeds number of elements.&quot;</span>);
-        <span class="kw">if</span> <span class="ident">k</span> <span class="op">==</span> <span class="number">0</span> {
-            <span class="kw">return</span> <span class="ident">DnaString</span>::<span class="ident">new</span>();
-        }
-        <span class="comment">// Get position of k-th element (element with index k - 1)</span>
-        <span class="kw">let</span> (<span class="ident">block</span>, <span class="ident">bitpos</span>) <span class="op">=</span> <span class="self">self</span>.<span class="ident">addr</span>(<span class="ident">k</span> <span class="op">-</span> <span class="number">1</span>);
-        <span class="comment">// We need to keep the first block-1 elements of the storage vector</span>
-        <span class="comment">// plus the first bitpos positions of the block-th element.</span>
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">new_storage</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u64</span><span class="op">&gt;</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">storage</span>.<span class="ident">iter</span>().<span class="ident">take</span>(<span class="ident">block</span> <span class="op">+</span> <span class="number">1</span>).<span class="ident">cloned</span>().<span class="ident">collect</span>();
-        <span class="comment">// zero-out all bits after bitpos</span>
-        <span class="kw">if</span> <span class="ident">bitpos</span> <span class="op">+</span> <span class="ident">WIDTH</span> <span class="op">&lt;</span> <span class="number">64</span> {
-            <span class="ident">new_storage</span>[<span class="ident">block</span>] <span class="op">&amp;=</span> (<span class="number">1</span> <span class="op">&lt;&lt;</span> (<span class="ident">bitpos</span> <span class="op">+</span> <span class="ident">WIDTH</span>)) <span class="op">-</span> <span class="number">1</span>;
-        }
-        <span class="ident">DnaString</span> {
-            <span class="ident">storage</span>: <span class="ident">new_storage</span>,
-            <span class="ident">len</span>: <span class="ident">k</span>,
+        <span class="ident">DnaStringSlice</span> {
+            <span class="ident">dna_string</span>: <span class="self">self</span>,
+            <span class="ident">start</span>: <span class="number">0</span>,
+            <span class="ident">length</span>: <span class="ident">k</span>,
+            <span class="ident">is_rc</span>: <span class="bool-val">false</span>,
         }
     }
 
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">suf</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">k</span>: <span class="ident">usize</span>) <span class="op">-&gt;</span> <span class="ident">DnaString</span> {
+    <span class="doccomment">/// Get the length `k` suffix of the DnaString</span>
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">suffix</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">k</span>: <span class="ident">usize</span>) <span class="op">-&gt;</span> <span class="ident">DnaStringSlice</span> {
         <span class="macro">assert</span><span class="macro">!</span>(<span class="ident">k</span> <span class="op">&lt;=</span> <span class="self">self</span>.<span class="ident">len</span>, <span class="string">&quot;Suffix size exceeds number of elements.&quot;</span>);
-        <span class="comment">// There&#39;s a faster way but involves shifting bits down from &quot;higher&quot; blocks...</span>
-        <span class="comment">// let (block, bitpos) = self.addr(self.len - k);</span>
-        <span class="kw">let</span> <span class="ident">values</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">iter</span>().<span class="ident">skip</span>(<span class="self">self</span>.<span class="ident">len</span> <span class="op">-</span> <span class="ident">k</span>).<span class="ident">collect</span>();
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">dna_string</span> <span class="op">=</span> <span class="ident">DnaString</span>::<span class="ident">new</span>();
-        <span class="kw">for</span> <span class="ident">v</span> <span class="kw">in</span> <span class="ident">values</span> {
-            <span class="ident">dna_string</span>.<span class="ident">push</span>(<span class="ident">v</span>);
+
+        <span class="ident">DnaStringSlice</span> {
+            <span class="ident">dna_string</span>: <span class="self">self</span>,
+            <span class="ident">start</span>: <span class="self">self</span>.<span class="ident">len</span>() <span class="op">-</span> <span class="ident">k</span>,
+            <span class="ident">length</span>: <span class="ident">k</span>,
+            <span class="ident">is_rc</span>: <span class="bool-val">false</span>,
         }
-        <span class="ident">dna_string</span>
     }
 
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">reverse</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-&gt;</span> <span class="ident">DnaString</span> {
@@ -1037,7 +1037,6 @@
     }
 }
 
-
 <span class="doccomment">/// Iterator over values of a DnaStringoded sequence (values will be unpacked into bytes).</span>
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">DnaStringIter</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span> {
     <span class="ident">dna_string</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a</span> <span class="ident">DnaString</span>,
@@ -1065,6 +1064,7 @@
     <span class="kw">pub</span> <span class="ident">dna_string</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a</span> <span class="ident">DnaString</span>,
     <span class="kw">pub</span> <span class="ident">start</span>: <span class="ident">usize</span>,
     <span class="kw">pub</span> <span class="ident">length</span>: <span class="ident">usize</span>,
+    <span class="kw">pub</span> <span class="ident">is_rc</span>: <span class="ident">bool</span>,
 }
 
 
@@ -1075,7 +1075,11 @@
 
     <span class="doccomment">/// Get the value at position `i`.</span>
     <span class="kw">fn</span> <span class="ident">get</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">i</span>: <span class="ident">usize</span>) <span class="op">-&gt;</span> <span class="ident">u8</span> {
-        <span class="self">self</span>.<span class="ident">dna_string</span>.<span class="ident">get</span>(<span class="ident">i</span> <span class="op">+</span> <span class="self">self</span>.<span class="ident">start</span>)
+        <span class="kw">if</span> <span class="op">!</span><span class="self">self</span>.<span class="ident">is_rc</span> {
+            <span class="self">self</span>.<span class="ident">dna_string</span>.<span class="ident">get</span>(<span class="ident">i</span> <span class="op">+</span> <span class="self">self</span>.<span class="ident">start</span>)
+        } <span class="kw">else</span> {
+            ::<span class="ident">complement</span>(<span class="self">self</span>.<span class="ident">dna_string</span>.<span class="ident">get</span>(<span class="self">self</span>.<span class="ident">start</span> <span class="op">+</span> <span class="self">self</span>.<span class="ident">length</span> <span class="op">-</span> <span class="number">1</span> <span class="op">-</span> <span class="ident">i</span>))
+        }
     }
 
     <span class="doccomment">/// Set the value as position `i`.</span>
@@ -1090,7 +1094,12 @@
     }
 
     <span class="kw">fn</span> <span class="ident">rc</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-&gt;</span> <span class="ident">DnaStringSlice</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span> {
-        <span class="macro">unimplemented</span><span class="macro">!</span>();
+        <span class="ident">DnaStringSlice</span>{ 
+            <span class="ident">dna_string</span>: <span class="self">self</span>.<span class="ident">dna_string</span>,
+            <span class="ident">start</span>: <span class="self">self</span>.<span class="ident">start</span>,
+            <span class="ident">length</span>: <span class="self">self</span>.<span class="ident">length</span>, 
+            <span class="ident">is_rc</span>: <span class="op">!</span><span class="self">self</span>.<span class="ident">is_rc</span> 
+        }
     }
 
     <span class="kw">fn</span> <span class="ident">extend_left</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, _: <span class="ident">u8</span>) <span class="op">-&gt;</span> <span class="self">Self</span> {
@@ -1151,8 +1160,8 @@
 
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">to_owned</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-&gt;</span> <span class="ident">DnaString</span> {
         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">be</span> <span class="op">=</span> <span class="ident">DnaString</span>::<span class="ident">empty</span>(<span class="self">self</span>.<span class="ident">length</span>);
-        <span class="kw">for</span> <span class="ident">pos</span> <span class="kw">in</span> <span class="self">self</span>.<span class="ident">start</span>..(<span class="self">self</span>.<span class="ident">start</span> <span class="op">+</span> <span class="self">self</span>.<span class="ident">length</span>) {
-            <span class="ident">be</span>.<span class="ident">push</span>(<span class="self">self</span>.<span class="ident">dna_string</span>.<span class="ident">get</span>(<span class="ident">pos</span>));
+        <span class="kw">for</span> <span class="ident">pos</span> <span class="kw">in</span> <span class="number">0</span> .. <span class="self">self</span>.<span class="ident">length</span> {
+            <span class="ident">be</span>.<span class="ident">set_mut</span>(<span class="ident">pos</span>, <span class="self">self</span>.<span class="ident">dna_string</span>.<span class="ident">get</span>(<span class="self">self</span>.<span class="ident">start</span> <span class="op">+</span> <span class="ident">pos</span>));
         }
 
         <span class="ident">be</span>
@@ -1175,7 +1184,6 @@
 <span class="kw">mod</span> <span class="ident">tests</span> {
     <span class="kw">use</span> <span class="kw">super</span>::<span class="kw-2">*</span>;
     <span class="kw">use</span> <span class="ident">kmer</span>::<span class="ident">IntKmer</span>;
-    <span class="kw">use</span> <span class="ident">KmerIter</span>;
 
     <span class="attribute">#[<span class="ident">test</span>]</span>
     <span class="kw">fn</span> <span class="ident">test_dna_string</span>() {
@@ -1230,22 +1238,22 @@
     }
 
     <span class="attribute">#[<span class="ident">test</span>]</span>
-    <span class="kw">fn</span> <span class="ident">test_pref</span>() {
+    <span class="kw">fn</span> <span class="ident">test_prefix</span>() {
         <span class="kw">let</span> <span class="ident">in_values</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span> <span class="op">=</span> <span class="macro">vec</span><span class="macro">!</span>[<span class="number">2</span>, <span class="number">20</span>];
         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">dna_string</span> <span class="op">=</span> <span class="ident">DnaString</span>::<span class="ident">new</span>();
         <span class="ident">dna_string</span>.<span class="ident">push_bytes</span>(<span class="kw-2">&amp;</span><span class="ident">in_values</span>, <span class="number">8</span>);
         <span class="comment">// Contents should be 00010100 00000010</span>
 
-        <span class="kw">let</span> <span class="ident">pref_dna_string</span> <span class="op">=</span> <span class="ident">dna_string</span>.<span class="ident">pref</span>(<span class="number">0</span>);
-        <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="ident">pref_dna_string</span>.<span class="ident">storage</span>.<span class="ident">len</span>(), <span class="number">0</span>);
+        <span class="kw">let</span> <span class="ident">pref_dna_string</span> <span class="op">=</span> <span class="ident">dna_string</span>.<span class="ident">prefix</span>(<span class="number">0</span>).<span class="ident">to_owned</span>();
+        <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="ident">pref_dna_string</span>.<span class="ident">len</span>(), <span class="number">0</span>);
 
-        <span class="kw">let</span> <span class="ident">pref_dna_string</span> <span class="op">=</span> <span class="ident">dna_string</span>.<span class="ident">pref</span>(<span class="number">8</span>);
+        <span class="kw">let</span> <span class="ident">pref_dna_string</span> <span class="op">=</span> <span class="ident">dna_string</span>.<span class="ident">prefix</span>(<span class="number">8</span>).<span class="ident">to_owned</span>();
         <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="ident">pref_dna_string</span>, <span class="ident">dna_string</span>);
 
-        <span class="kw">let</span> <span class="ident">pref_dna_string</span> <span class="op">=</span> <span class="ident">dna_string</span>.<span class="ident">pref</span>(<span class="number">4</span>);
+        <span class="kw">let</span> <span class="ident">pref_dna_string</span> <span class="op">=</span> <span class="ident">dna_string</span>.<span class="ident">prefix</span>(<span class="number">4</span>).<span class="ident">to_owned</span>();
         <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="ident">pref_dna_string</span>.<span class="ident">storage</span>, [<span class="number">2</span>]);
 
-        <span class="kw">let</span> <span class="ident">pref_dna_string</span> <span class="op">=</span> <span class="ident">dna_string</span>.<span class="ident">pref</span>(<span class="number">6</span>);
+        <span class="kw">let</span> <span class="ident">pref_dna_string</span> <span class="op">=</span> <span class="ident">dna_string</span>.<span class="ident">prefix</span>(<span class="number">6</span>).<span class="ident">to_owned</span>();
         <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="ident">pref_dna_string</span>.<span class="ident">storage</span>, [<span class="number">1026</span>]);
         <span class="kw">let</span> <span class="ident">values</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">pref_dna_string</span>.<span class="ident">iter</span>().<span class="ident">collect</span>();
         <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="ident">values</span>, [<span class="number">2</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">1</span>]);
@@ -1253,29 +1261,29 @@
         <span class="ident">dna_string</span>.<span class="ident">push_bytes</span>(<span class="kw-2">&amp;</span><span class="ident">in_values</span>, <span class="number">8</span>);
         <span class="ident">dna_string</span>.<span class="ident">push_bytes</span>(<span class="kw-2">&amp;</span><span class="ident">in_values</span>, <span class="number">8</span>);
 
-        <span class="kw">let</span> <span class="ident">pref_dna_string</span> <span class="op">=</span> <span class="ident">dna_string</span>.<span class="ident">pref</span>(<span class="number">17</span>);
+        <span class="kw">let</span> <span class="ident">pref_dna_string</span> <span class="op">=</span> <span class="ident">dna_string</span>.<span class="ident">prefix</span>(<span class="number">17</span>).<span class="ident">to_owned</span>();
         <span class="kw">let</span> <span class="ident">values</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">pref_dna_string</span>.<span class="ident">iter</span>().<span class="ident">collect</span>();
         <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="ident">values</span>, [<span class="number">2</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">1</span>, <span class="number">1</span>, <span class="number">0</span>, <span class="number">2</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">1</span>, <span class="number">1</span>, <span class="number">0</span>, <span class="number">2</span>]);
     }
 
     <span class="attribute">#[<span class="ident">test</span>]</span>
-    <span class="kw">fn</span> <span class="ident">test_suf</span>() {
+    <span class="kw">fn</span> <span class="ident">test_suffix</span>() {
         <span class="kw">let</span> <span class="ident">in_values</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span> <span class="op">=</span> <span class="macro">vec</span><span class="macro">!</span>[<span class="number">2</span>, <span class="number">20</span>];
         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">dna_string</span> <span class="op">=</span> <span class="ident">DnaString</span>::<span class="ident">new</span>();
         <span class="ident">dna_string</span>.<span class="ident">push_bytes</span>(<span class="kw-2">&amp;</span><span class="ident">in_values</span>, <span class="number">8</span>);
         <span class="comment">// Contents should be 00010100 00000010</span>
 
-        <span class="kw">let</span> <span class="ident">suf_dna_string</span> <span class="op">=</span> <span class="ident">dna_string</span>.<span class="ident">suf</span>(<span class="number">0</span>);
-        <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="ident">suf_dna_string</span>.<span class="ident">storage</span>.<span class="ident">len</span>(), <span class="number">0</span>);
+        <span class="kw">let</span> <span class="ident">suf_dna_string</span> <span class="op">=</span> <span class="ident">dna_string</span>.<span class="ident">suffix</span>(<span class="number">0</span>).<span class="ident">to_owned</span>();
+        <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="ident">suf_dna_string</span>.<span class="ident">len</span>(), <span class="number">0</span>);
 
-        <span class="kw">let</span> <span class="ident">suf_dna_string</span> <span class="op">=</span> <span class="ident">dna_string</span>.<span class="ident">suf</span>(<span class="number">8</span>);
+        <span class="kw">let</span> <span class="ident">suf_dna_string</span> <span class="op">=</span> <span class="ident">dna_string</span>.<span class="ident">suffix</span>(<span class="number">8</span>).<span class="ident">to_owned</span>();
         <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="ident">suf_dna_string</span>, <span class="ident">dna_string</span>);
 
-        <span class="kw">let</span> <span class="ident">suf_dna_string</span> <span class="op">=</span> <span class="ident">dna_string</span>.<span class="ident">suf</span>(<span class="number">4</span>);
+        <span class="kw">let</span> <span class="ident">suf_dna_string</span> <span class="op">=</span> <span class="ident">dna_string</span>.<span class="ident">suffix</span>(<span class="number">4</span>).<span class="ident">to_owned</span>();
         <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="ident">suf_dna_string</span>.<span class="ident">storage</span>, [<span class="number">20</span>]);
 
         <span class="comment">// 000101000000 64+256</span>
-        <span class="kw">let</span> <span class="ident">suf_dna_string</span> <span class="op">=</span> <span class="ident">dna_string</span>.<span class="ident">suf</span>(<span class="number">6</span>);
+        <span class="kw">let</span> <span class="ident">suf_dna_string</span> <span class="op">=</span> <span class="ident">dna_string</span>.<span class="ident">suffix</span>(<span class="number">6</span>).<span class="ident">to_owned</span>();
         <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="ident">suf_dna_string</span>.<span class="ident">storage</span>, [<span class="number">320</span>]);
         <span class="kw">let</span> <span class="ident">values</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">suf_dna_string</span>.<span class="ident">iter</span>().<span class="ident">collect</span>();
         <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="ident">values</span>, [<span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">1</span>, <span class="number">1</span>, <span class="number">0</span>]);
@@ -1283,7 +1291,7 @@
         <span class="ident">dna_string</span>.<span class="ident">push_bytes</span>(<span class="kw-2">&amp;</span><span class="ident">in_values</span>, <span class="number">8</span>);
         <span class="ident">dna_string</span>.<span class="ident">push_bytes</span>(<span class="kw-2">&amp;</span><span class="ident">in_values</span>, <span class="number">8</span>);
 
-        <span class="kw">let</span> <span class="ident">suf_dna_string</span> <span class="op">=</span> <span class="ident">dna_string</span>.<span class="ident">suf</span>(<span class="number">17</span>);
+        <span class="kw">let</span> <span class="ident">suf_dna_string</span> <span class="op">=</span> <span class="ident">dna_string</span>.<span class="ident">suffix</span>(<span class="number">17</span>).<span class="ident">to_owned</span>();
         <span class="kw">let</span> <span class="ident">values</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">suf_dna_string</span>.<span class="ident">iter</span>().<span class="ident">collect</span>();
         <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="ident">values</span>, [<span class="number">0</span>, <span class="number">2</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">1</span>, <span class="number">1</span>, <span class="number">0</span>, <span class="number">2</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">1</span>, <span class="number">1</span>, <span class="number">0</span>]);
     }

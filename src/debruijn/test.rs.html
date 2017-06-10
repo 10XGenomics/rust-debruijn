@@ -438,16 +438,6 @@
 <span id="393">393</span>
 <span id="394">394</span>
 <span id="395">395</span>
-<span id="396">396</span>
-<span id="397">397</span>
-<span id="398">398</span>
-<span id="399">399</span>
-<span id="400">400</span>
-<span id="401">401</span>
-<span id="402">402</span>
-<span id="403">403</span>
-<span id="404">404</span>
-<span id="405">405</span>
 </pre><pre class="rust ">
 <span class="doccomment">//! Generate random genomes (with lots of re-used sustrings), reassemble them, and check sanity</span>
 
@@ -565,18 +555,16 @@ pub fn random_pmer() -&gt; Pmer {
 
     <span class="kw">use</span> {<span class="ident">Kmer</span>, <span class="ident">Dir</span>, <span class="ident">Exts</span>, <span class="ident">complement</span>};
     <span class="kw">use</span> <span class="ident">std</span>::<span class="ident">collections</span>::<span class="ident">HashSet</span>;
-    <span class="kw">use</span> <span class="ident">paths</span>;
+    <span class="kw">use</span> <span class="ident">paths</span>::{<span class="self">self</span>, <span class="ident">SimpleCompress</span>, <span class="ident">PathCompression</span>};
     <span class="kw">use</span> <span class="ident">std</span>::<span class="ident">iter</span>::<span class="ident">FromIterator</span>;
     <span class="kw">use</span> <span class="ident">std</span>::<span class="ident">hash</span>::{<span class="ident">Hash</span>, <span class="ident">SipHasher</span>, <span class="ident">Hasher</span>};
     <span class="kw">use</span> <span class="ident">fx</span>::<span class="ident">FxHashMap</span>;
-    <span class="kw">use</span> <span class="ident">std</span>::<span class="ident">fs</span>::{<span class="ident">File</span>, <span class="ident">remove_file</span>};
-    <span class="kw">use</span> <span class="ident">std</span>::<span class="ident">io</span>::{<span class="ident">BufReader</span>, <span class="ident">BufWriter</span>};
     <span class="kw">use</span> <span class="ident">std</span>::<span class="ident">ops</span>::<span class="ident">Sub</span>;
     <span class="kw">use</span> <span class="ident">msp</span>;
-    <span class="kw">use</span> <span class="ident">std</span>::<span class="ident">marker</span>::<span class="ident">PhantomData</span>;
     <span class="kw">use</span> <span class="ident">kmer</span>::<span class="ident">IntKmer</span>;    
     <span class="kw">use</span> <span class="ident">dna_string</span>::<span class="ident">DnaString</span>;
     <span class="kw">use</span> <span class="ident">filter</span>;
+
     <span class="comment">//use utils;</span>
 
     <span class="kw">use</span> <span class="kw">super</span>::<span class="kw-2">*</span>;
@@ -725,23 +713,23 @@ pub fn random_pmer() -&gt; Pmer {
         <span class="macro">assert</span><span class="macro">!</span>(<span class="ident">kmer_set</span> <span class="op">==</span> <span class="ident">msp_kmers</span>);
 
         <span class="comment">// Check the correctness of the process_kmer_shard kmer filtering function</span>
-        <span class="kw">let</span> (<span class="ident">valid_kmers</span>, <span class="ident">all_kmers</span>) <span class="op">=</span> <span class="ident">filter</span>::<span class="ident">filter_kmers</span>(<span class="kw-2">&amp;</span><span class="ident">seqs</span>, <span class="ident">filter</span>::<span class="ident">CountFilterSet</span>::<span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span>::<span class="ident">new</span>(<span class="number">2</span>));
+        <span class="kw">let</span> (<span class="ident">valid_kmers</span>, _) <span class="op">=</span> <span class="ident">filter</span>::<span class="ident">filter_kmers</span>(<span class="kw-2">&amp;</span><span class="ident">seqs</span>, <span class="ident">filter</span>::<span class="ident">CountFilterSet</span>::<span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span>::<span class="ident">new</span>(<span class="number">2</span>));
         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">process_kmer_set</span> <span class="op">=</span> <span class="ident">HashSet</span>::<span class="ident">new</span>();
-        <span class="kw">for</span> <span class="ident">k</span> <span class="kw">in</span> <span class="ident">valid_kmers</span>.<span class="ident">keys</span>() {
-            <span class="ident">process_kmer_set</span>.<span class="ident">insert</span>(<span class="kw-2">*</span><span class="ident">k</span>);
+        <span class="kw">for</span> <span class="ident">k</span> <span class="kw">in</span> <span class="ident">valid_kmers</span>.<span class="ident">iter</span>().<span class="ident">map</span>(<span class="op">|</span><span class="ident">x</span><span class="op">|</span> <span class="ident">x</span>.<span class="number">0</span>) {
+            <span class="ident">process_kmer_set</span>.<span class="ident">insert</span>(<span class="ident">k</span>);
         }
         <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="ident">process_kmer_set</span>, <span class="ident">kmer_set</span>);
 
         <span class="comment">// Full set of barcodes from valid kmers should equal 1..contigs.len()*2+1  (0 barcodes are not counted)</span>
         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">obs_bcs</span> <span class="op">=</span> <span class="ident">HashSet</span>::<span class="ident">new</span>();
-        <span class="kw">for</span> (_, <span class="kw-2">&amp;</span>(_, <span class="kw-2">ref</span> <span class="ident">bcs</span>)) <span class="kw">in</span> <span class="ident">valid_kmers</span>.<span class="ident">iter</span>() {
+        <span class="kw">for</span> <span class="kw-2">&amp;</span>(_, (_, <span class="kw-2">ref</span> <span class="ident">bcs</span>)) <span class="kw">in</span> <span class="ident">valid_kmers</span>.<span class="ident">iter</span>() {
             <span class="kw">for</span> <span class="ident">bc</span> <span class="kw">in</span> <span class="ident">bcs</span> { <span class="ident">obs_bcs</span>.<span class="ident">insert</span>(<span class="ident">bc</span>); }
         }
         
         <span class="comment">// Every kmer should be reachable as the extension of a kmer.</span>
         <span class="comment">// No new kmers should be reachable</span>
         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">extension_kmer_set</span>: <span class="ident">HashSet</span><span class="op">&lt;</span><span class="ident">K</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">HashSet</span>::<span class="ident">new</span>();
-        <span class="kw">for</span> (<span class="ident">kmer</span>, <span class="kw-2">&amp;</span>(<span class="ident">exts</span>, _)) <span class="kw">in</span> <span class="ident">valid_kmers</span>.<span class="ident">iter</span>() {
+        <span class="kw">for</span> <span class="kw-2">&amp;</span>(<span class="ident">kmer</span>, (<span class="ident">exts</span>, _)) <span class="kw">in</span> <span class="ident">valid_kmers</span>.<span class="ident">iter</span>() {
             <span class="kw">for</span> <span class="ident">e</span> <span class="kw">in</span> <span class="ident">kmer</span>.<span class="ident">get_extensions</span>(<span class="ident">exts</span>, <span class="ident">Dir</span>::<span class="ident">Left</span>) {
                 <span class="ident">extension_kmer_set</span>.<span class="ident">insert</span>(<span class="ident">e</span>.<span class="ident">min_rc</span>());
             }
@@ -764,16 +752,8 @@ pub fn random_pmer() -&gt; Pmer {
 
         <span class="macro">assert</span><span class="macro">!</span>(<span class="ident">kmer_set</span> <span class="op">==</span> <span class="ident">extension_kmer_set</span>);
 
-        <span class="kw">let</span> <span class="ident">pc</span>: <span class="ident">paths</span>::<span class="ident">PathCompression</span><span class="op">&lt;</span><span class="ident">K</span>, <span class="ident">V</span>, <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span>, _, _<span class="op">&gt;</span> <span class="op">=</span> 
-            <span class="ident">paths</span>::<span class="ident">PathCompression</span> {
-                <span class="ident">allow_rc</span>: <span class="bool-val">true</span>,
-                <span class="ident">k</span>: <span class="ident">PhantomData</span>,
-                <span class="ident">v</span>: <span class="ident">PhantomData</span>,
-                <span class="ident">d</span>: <span class="ident">PhantomData</span>,
-                <span class="ident">break_fn</span>: <span class="op">|</span>_, _<span class="op">|</span> <span class="bool-val">true</span>,
-                <span class="ident">reduce</span>: <span class="op">|</span><span class="ident">a</span>:<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span>,<span class="ident">b</span>: <span class="kw-2">&amp;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span><span class="op">|</span> <span class="ident">a</span>.<span class="ident">extend</span>(<span class="ident">b</span>),
-            };
-
+        <span class="kw">let</span> <span class="ident">spec</span> <span class="op">=</span> <span class="ident">SimpleCompress</span>::<span class="ident">new</span>(<span class="op">|</span><span class="kw-2">mut</span> <span class="ident">d1</span>:<span class="ident">Vec</span><span class="op">&lt;</span>_<span class="op">&gt;</span>, <span class="ident">d2</span>: <span class="kw-2">&amp;</span><span class="ident">Vec</span><span class="op">&lt;</span>_<span class="op">&gt;</span><span class="op">|</span> { <span class="ident">d1</span>.<span class="ident">extend</span>(<span class="ident">d2</span>); <span class="ident">d1</span> });
+        <span class="kw">let</span> <span class="ident">pc</span>: <span class="ident">PathCompression</span><span class="op">&lt;</span><span class="ident">K</span>,<span class="ident">V</span>,_,_<span class="op">&gt;</span> <span class="op">=</span> <span class="ident">PathCompression</span>::<span class="ident">new</span>(<span class="bool-val">true</span>, <span class="ident">spec</span>);
 
         <span class="comment">// Now generate the lines for these kmers</span>
         <span class="kw">let</span> <span class="ident">graph</span> <span class="op">=</span> <span class="ident">pc</span>.<span class="ident">build_nodes</span>(<span class="kw-2">&amp;</span><span class="ident">valid_kmers</span>);

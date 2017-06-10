@@ -48,7 +48,7 @@
                    <a id="toggle-all-docs" href="javascript:void(0)" title="collapse all docs">
                        [<span class='inner'>&#x2212;</span>]
                    </a>
-               </span><a class='srclink' href='../../src/debruijn/filter.rs.html#1-138' title='goto source code'>[src]</a></span></h1>
+               </span><a class='srclink' href='../../src/debruijn/filter.rs.html#1-175' title='goto source code'>[src]</a></span></h1>
 <div class='docblock'><p>Methods for filtering observed kmers before De Bruijn graph construction, and summarizing &#39;color&#39; annotations.</p>
 </div><h2 id='structs' class='section-header'><a href="#structs">Structs</a></h2>
 <table>
@@ -75,6 +75,16 @@
                                 <p>Read a shard and determine the valid kmers
 Low memory implementation that should consume &lt; 4G of temporary memory
 To reduce memory consumption, set track_bcs to false to forget about BC lists.</p>
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="fn" href="fn.fix_exts.html"
+                                  title='fn debruijn::filter::fix_exts'>fix_exts</a></td>
+                           <td class='docblock-short'>
+                                <p>Remove extensions in valid_kmers that point to censored kmers. A censored kmer
+exists in all_kmers but not valid_kmers. We know that we can delete these extensions.
+In sharded kmer processing, we will have extensions to kmers in other shards. We don&#39;t
+know whether these are censored until later, so we retain the extension.</p>
                            </td>
                        </tr></table></section>
     <section id='search' class="content hidden"></section>

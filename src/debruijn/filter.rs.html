@@ -182,6 +182,42 @@
 <span id="137">137</span>
 <span id="138">138</span>
 <span id="139">139</span>
+<span id="140">140</span>
+<span id="141">141</span>
+<span id="142">142</span>
+<span id="143">143</span>
+<span id="144">144</span>
+<span id="145">145</span>
+<span id="146">146</span>
+<span id="147">147</span>
+<span id="148">148</span>
+<span id="149">149</span>
+<span id="150">150</span>
+<span id="151">151</span>
+<span id="152">152</span>
+<span id="153">153</span>
+<span id="154">154</span>
+<span id="155">155</span>
+<span id="156">156</span>
+<span id="157">157</span>
+<span id="158">158</span>
+<span id="159">159</span>
+<span id="160">160</span>
+<span id="161">161</span>
+<span id="162">162</span>
+<span id="163">163</span>
+<span id="164">164</span>
+<span id="165">165</span>
+<span id="166">166</span>
+<span id="167">167</span>
+<span id="168">168</span>
+<span id="169">169</span>
+<span id="170">170</span>
+<span id="171">171</span>
+<span id="172">172</span>
+<span id="173">173</span>
+<span id="174">174</span>
+<span id="175">175</span>
 </pre><pre class="rust ">
 <span class="doccomment">//! Methods for filtering observed kmers before De Bruijn graph construction, and summarizing &#39;color&#39; annotations.</span>
 
@@ -189,6 +225,7 @@
 <span class="kw">use</span> <span class="ident">itertools</span>::<span class="ident">Itertools</span>;
 <span class="kw">use</span> <span class="ident">std</span>::<span class="ident">marker</span>::<span class="ident">PhantomData</span>;
 
+<span class="kw">use</span> <span class="ident">Dir</span>;
 <span class="kw">use</span> <span class="ident">Kmer</span>;
 <span class="kw">use</span> <span class="ident">Exts</span>;
 <span class="kw">use</span> <span class="ident">Vmer</span>;
@@ -262,10 +299,10 @@
 <span class="doccomment">/// To reduce memory consumption, set track_bcs to false to forget about BC lists.</span>
 <span class="attribute">#[<span class="ident">inline</span>(<span class="ident">never</span>)]</span>
 <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">filter_kmers</span><span class="op">&lt;</span><span class="ident">K</span>:<span class="ident">Kmer</span>, <span class="ident">V</span>:<span class="ident">Vmer</span><span class="op">&lt;</span><span class="ident">K</span><span class="op">&gt;</span>, <span class="ident">D1</span>: <span class="ident">Clone</span>, <span class="ident">DS</span>, <span class="ident">S</span>: <span class="ident">KmerSummarizer</span><span class="op">&lt;</span><span class="ident">D1</span>,<span class="ident">DS</span><span class="op">&gt;&gt;</span>(<span class="ident">seqs</span>: <span class="kw-2">&amp;</span><span class="ident">Vec</span><span class="op">&lt;</span>(<span class="ident">V</span>, <span class="ident">Exts</span>, <span class="ident">D1</span>)<span class="op">&gt;</span>, <span class="ident">summarizer</span>: <span class="ident">S</span>) <span class="op">-&gt;</span>
- (<span class="ident">FxHashMap</span><span class="op">&lt;</span><span class="ident">K</span>, (<span class="ident">Exts</span>, <span class="ident">DS</span>)<span class="op">&gt;</span>, <span class="ident">FxHashSet</span><span class="op">&lt;</span><span class="ident">K</span><span class="op">&gt;</span>) {
+ (<span class="ident">Vec</span><span class="op">&lt;</span>(<span class="ident">K</span>, (<span class="ident">Exts</span>, <span class="ident">DS</span>))<span class="op">&gt;</span>, <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">K</span><span class="op">&gt;</span>) {
 
-    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">all_kmers</span>: <span class="ident">FxHashSet</span><span class="op">&lt;</span><span class="ident">K</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">FxHashSet</span>();
-    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">valid_kmers</span>: <span class="ident">FxHashMap</span><span class="op">&lt;</span><span class="ident">K</span>, (<span class="ident">Exts</span>, <span class="ident">DS</span>)<span class="op">&gt;</span> <span class="op">=</span> <span class="ident">FxHashMap</span>();
+    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">all_kmers</span> <span class="op">=</span> <span class="ident">Vec</span>::<span class="ident">new</span>();
+    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">valid_kmers</span> <span class="op">=</span> <span class="ident">Vec</span>::<span class="ident">new</span>();
 
     <span class="comment">// Estimate memory consumed by Kmer vectors, and set iteration count appropriately</span>
     <span class="kw">let</span> <span class="ident">input_kmers</span>: <span class="ident">usize</span> <span class="op">=</span> <span class="ident">seqs</span>.<span class="ident">iter</span>().<span class="ident">map</span>(<span class="op">|</span><span class="kw-2">&amp;</span>(<span class="kw-2">ref</span> <span class="ident">vmer</span>, _, _)<span class="op">|</span> <span class="ident">vmer</span>.<span class="ident">len</span>() <span class="op">-</span> <span class="ident">K</span>::<span class="ident">k</span>() <span class="op">+</span> <span class="number">1</span>).<span class="ident">sum</span>();
@@ -312,17 +349,51 @@
 
             <span class="kw">for</span> (<span class="ident">kmer</span>, <span class="ident">kmer_obs_iter</span>) <span class="kw">in</span> <span class="kw-2">&amp;</span><span class="ident">kmer_vec</span>.<span class="ident">into_iter</span>().<span class="ident">group_by</span>(<span class="op">|</span><span class="ident">elt</span><span class="op">|</span> <span class="ident">elt</span>.<span class="number">0</span>) {
                 <span class="kw">let</span> (<span class="ident">is_valid</span>, <span class="ident">exts</span>, <span class="ident">summary_data</span>) <span class="op">=</span> <span class="ident">summarizer</span>.<span class="ident">summarize</span>(<span class="ident">kmer_obs_iter</span>);
-                <span class="ident">all_kmers</span>.<span class="ident">insert</span>(<span class="ident">kmer</span>);
-                <span class="kw">if</span> <span class="ident">is_valid</span> {<span class="ident">valid_kmers</span>.<span class="ident">insert</span>(<span class="ident">kmer</span>, (<span class="ident">exts</span>, <span class="ident">summary_data</span>)); }
+                <span class="ident">all_kmers</span>.<span class="ident">push</span>(<span class="ident">kmer</span>);
+                <span class="kw">if</span> <span class="ident">is_valid</span> {<span class="ident">valid_kmers</span>.<span class="ident">push</span>((<span class="ident">kmer</span>, (<span class="ident">exts</span>, <span class="ident">summary_data</span>))); }
             }
         }
     }
+
+    <span class="ident">valid_kmers</span>.<span class="ident">sort_by_key</span>(<span class="op">|</span><span class="ident">x</span><span class="op">|</span> <span class="ident">x</span>.<span class="number">0</span>);
+    <span class="ident">all_kmers</span>.<span class="ident">sort</span>();
+    <span class="ident">fix_exts</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">valid_kmers</span>, <span class="kw-2">&amp;</span><span class="ident">all_kmers</span>);
 
     <span class="comment">//info!(&quot;Total Sequences: {}, Total kmers observed: {}, Unique Kmers observed: {}. Kmers accepted: {}&quot;, seqs.len(), total_kmers, unique_kmers, final_kmers.len());</span>
     (<span class="ident">valid_kmers</span>, <span class="ident">all_kmers</span>)
 }
 
-</pre>
+<span class="doccomment">/// Remove extensions in valid_kmers that point to censored kmers. A censored kmer</span>
+<span class="doccomment">/// exists in all_kmers but not valid_kmers. We know that we can delete these extensions.</span>
+<span class="doccomment">/// In sharded kmer processing, we will have extensions to kmers in other shards. We don&#39;t</span>
+<span class="doccomment">/// know whether these are censored until later, so we retain the extension.</span>
+<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">fix_exts</span><span class="op">&lt;</span><span class="ident">K</span>: <span class="ident">Kmer</span>, <span class="ident">D</span><span class="op">&gt;</span>(<span class="ident">valid_kmers</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">Vec</span><span class="op">&lt;</span>(<span class="ident">K</span>, (<span class="ident">Exts</span>, <span class="ident">D</span>))<span class="op">&gt;</span>, <span class="ident">all_kmers</span>: <span class="kw-2">&amp;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">K</span><span class="op">&gt;</span>) {
+
+    <span class="kw">for</span> <span class="ident">idx</span> <span class="kw">in</span> <span class="number">0</span> .. <span class="ident">valid_kmers</span>.<span class="ident">len</span>() {
+        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">new_exts</span> <span class="op">=</span> <span class="ident">Exts</span>::<span class="ident">empty</span>();
+        <span class="kw">let</span> <span class="ident">kmer</span> <span class="op">=</span> <span class="ident">valid_kmers</span>[<span class="ident">idx</span>].<span class="number">0</span>;
+        <span class="kw">let</span> <span class="ident">exts</span> <span class="op">=</span> (<span class="ident">valid_kmers</span>[<span class="ident">idx</span>].<span class="number">1</span>).<span class="number">0</span>;
+
+        <span class="kw">for</span> <span class="ident">dir</span> <span class="kw">in</span> [<span class="ident">Dir</span>::<span class="ident">Left</span>, <span class="ident">Dir</span>::<span class="ident">Right</span>].<span class="ident">iter</span>() {
+            <span class="kw">for</span> <span class="ident">i</span> <span class="kw">in</span> <span class="number">0</span>..<span class="number">4</span>
+            {
+                <span class="kw">if</span> <span class="ident">exts</span>.<span class="ident">has_ext</span>(<span class="kw-2">*</span><span class="ident">dir</span>, <span class="ident">i</span>) {
+                    <span class="kw">let</span> <span class="ident">ext_kmer</span> <span class="op">=</span> <span class="ident">kmer</span>.<span class="ident">extend</span>(<span class="ident">i</span>, <span class="kw-2">*</span><span class="ident">dir</span>);
+                    <span class="kw">let</span> <span class="ident">kmer_observed</span> <span class="op">=</span> <span class="ident">all_kmers</span>.<span class="ident">binary_search</span>(<span class="kw-2">&amp;</span><span class="ident">ext_kmer</span>).<span class="ident">is_ok</span>();
+                    <span class="kw">let</span> <span class="ident">kmer_valid</span> <span class="op">=</span> <span class="ident">valid_kmers</span>.<span class="ident">binary_search_by_key</span>(<span class="kw-2">&amp;</span><span class="ident">ext_kmer</span>, <span class="op">|</span><span class="ident">d</span><span class="op">|</span> <span class="ident">d</span>.<span class="number">0</span>).<span class="ident">is_ok</span>();
+
+                    <span class="kw">let</span> <span class="ident">censored</span> <span class="op">=</span> <span class="ident">kmer_observed</span> <span class="op">&amp;&amp;</span> <span class="op">!</span><span class="ident">kmer_valid</span>;
+
+                    <span class="kw">if</span> <span class="op">!</span><span class="ident">censored</span> {
+                        <span class="ident">new_exts</span> <span class="op">=</span> <span class="ident">new_exts</span>.<span class="ident">set</span>(<span class="kw-2">*</span><span class="ident">dir</span>, <span class="ident">i</span>);
+                    }
+                }
+            }
+        }
+
+        (<span class="ident">valid_kmers</span>[<span class="ident">idx</span>].<span class="number">1</span>).<span class="number">0</span> <span class="op">=</span> <span class="ident">new_exts</span>;
+    }
+}</pre>
 </section>
     <section id='search' class="content hidden"></section>
 

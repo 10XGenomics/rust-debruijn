@@ -48,7 +48,7 @@
                    <a id="toggle-all-docs" href="javascript:void(0)" title="collapse all docs">
                        [<span class='inner'>&#x2212;</span>]
                    </a>
-               </span><a class='srclink' href='../../src/debruijn/paths.rs.html#1-613' title='goto source code'>[src]</a></span></h1>
+               </span><a class='srclink' href='../../src/debruijn/paths.rs.html#1-910' title='goto source code'>[src]</a></span></h1>
 <div class='docblock'><p>Compute path-compressed De Bruijn graphs from kmers or intermediate sized De Bruijn graph fragments</p>
 </div><h2 id='structs' class='section-header'><a href="#structs">Structs</a></h2>
 <table>
@@ -86,6 +86,13 @@
                            <td class='docblock-short'>
                                 
                            </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="struct" href="struct.SimpleCompress.html"
+                                  title='struct debruijn::paths::SimpleCompress'>SimpleCompress</a></td>
+                           <td class='docblock-short'>
+                                <p>Simple implementation of <code>CompressionSpec</code> that lets you provide that data reduction function as a closure</p>
+                           </td>
                        </tr></table><h2 id='traits' class='section-header'><a href="#traits">Traits</a></h2>
 <table>
                        <tr class=' module-item'>
@@ -93,6 +100,17 @@
                                   title='trait debruijn::paths::BuildGraph'>BuildGraph</a></td>
                            <td class='docblock-short'>
                                 
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="trait" href="trait.CompressionSpec.html"
+                                  title='trait debruijn::paths::CompressionSpec'>CompressionSpec</a></td>
+                           <td class='docblock-short'>
+                                <p>Customize the path-compression process. Implementing this trait lets the user
+control how the per-kmer data (of type <code>D</code>) is summarized into a per-path
+summary data (of type <code>DS</code>). It also let&#39;s the user introduce new breaks into
+paths by inspecting in the per-kmer data of a proposed with <code>join_test_kmer</code>
+function.</p>
                            </td>
                        </tr></table></section>
     <section id='search' class="content hidden"></section>

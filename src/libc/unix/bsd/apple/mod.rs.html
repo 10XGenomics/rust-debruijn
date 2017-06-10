@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="generator" content="rustdoc">
-    <meta name="description" content="Source to the Rust file `/Users/patrick/.cargo/registry/src/github.com-1ecc6299db9ec823/libc-0.2.21/src/unix/bsd/apple/mod.rs`.">
+    <meta name="description" content="Source to the Rust file `/Users/patrick/.cargo/registry/src/github.com-1ecc6299db9ec823/libc-0.2.23/src/unix/bsd/apple/mod.rs`.">
     <meta name="keywords" content="rust, rustlang, rust-lang">
 
     <title>mod.rs.html -- source</title>
@@ -1751,6 +1751,13 @@
 <span id="1706">1706</span>
 <span id="1707">1707</span>
 <span id="1708">1708</span>
+<span id="1709">1709</span>
+<span id="1710">1710</span>
+<span id="1711">1711</span>
+<span id="1712">1712</span>
+<span id="1713">1713</span>
+<span id="1714">1714</span>
+<span id="1715">1715</span>
 </pre><pre class="rust ">
 <span class="doccomment">//! Apple (ios/darwin)-specific definitions</span>
 <span class="doccomment">//!</span>
@@ -2418,6 +2425,12 @@
 
 <span class="kw">pub</span> <span class="kw">const</span> <span class="ident">F_PEOFPOSMODE</span>: ::<span class="ident">c_int</span> <span class="op">=</span> <span class="number">3</span>;
 <span class="kw">pub</span> <span class="kw">const</span> <span class="ident">F_VOLPOSMODE</span>: ::<span class="ident">c_int</span> <span class="op">=</span> <span class="number">4</span>;
+
+<span class="kw">pub</span> <span class="kw">const</span> <span class="ident">AT_FDCWD</span>: ::<span class="ident">c_int</span> <span class="op">=</span> <span class="op">-</span><span class="number">2</span>;
+<span class="kw">pub</span> <span class="kw">const</span> <span class="ident">AT_EACCESS</span>: ::<span class="ident">c_int</span> <span class="op">=</span> <span class="number">0x0010</span>;
+<span class="kw">pub</span> <span class="kw">const</span> <span class="ident">AT_SYMLINK_NOFOLLOW</span>: ::<span class="ident">c_int</span> <span class="op">=</span> <span class="number">0x0020</span>;
+<span class="kw">pub</span> <span class="kw">const</span> <span class="ident">AT_SYMLINK_FOLLOW</span>: ::<span class="ident">c_int</span> <span class="op">=</span> <span class="number">0x0040</span>;
+<span class="kw">pub</span> <span class="kw">const</span> <span class="ident">AT_REMOVEDIR</span>: ::<span class="ident">c_int</span> <span class="op">=</span> <span class="number">0x0080</span>;
 
 <span class="kw">pub</span> <span class="kw">const</span> <span class="ident">O_ACCMODE</span>: ::<span class="ident">c_int</span> <span class="op">=</span> <span class="number">3</span>;
 
@@ -3264,6 +3277,13 @@
 <span class="kw">pub</span> <span class="kw">const</span> <span class="ident">P_PID</span>: <span class="ident">idtype_t</span> <span class="op">=</span> <span class="number">1</span>;
 <span class="kw">pub</span> <span class="kw">const</span> <span class="ident">P_PGID</span>: <span class="ident">idtype_t</span> <span class="op">=</span> <span class="number">2</span>;
 
+<span class="kw">pub</span> <span class="kw">const</span> <span class="ident">XATTR_NOFOLLOW</span>: ::<span class="ident">c_int</span> <span class="op">=</span> <span class="number">0x0001</span>;
+<span class="kw">pub</span> <span class="kw">const</span> <span class="ident">XATTR_CREATE</span>: ::<span class="ident">c_int</span> <span class="op">=</span> <span class="number">0x0002</span>;
+<span class="kw">pub</span> <span class="kw">const</span> <span class="ident">XATTR_REPLACE</span>: ::<span class="ident">c_int</span> <span class="op">=</span> <span class="number">0x0004</span>;
+<span class="kw">pub</span> <span class="kw">const</span> <span class="ident">XATTR_NOSECURITY</span>: ::<span class="ident">c_int</span> <span class="op">=</span> <span class="number">0x0008</span>;
+<span class="kw">pub</span> <span class="kw">const</span> <span class="ident">XATTR_NODEFAULT</span>: ::<span class="ident">c_int</span> <span class="op">=</span> <span class="number">0x0010</span>;
+<span class="kw">pub</span> <span class="kw">const</span> <span class="ident">XATTR_SHOWCOMPRESSION</span>: ::<span class="ident">c_int</span> <span class="op">=</span> <span class="number">0x0020</span>;
+
 <span class="macro">f</span><span class="macro">!</span> {
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">WSTOPSIG</span>(<span class="ident">status</span>: ::<span class="ident">c_int</span>) <span class="op">-&gt;</span> ::<span class="ident">c_int</span> {
         <span class="ident">status</span> <span class="op">&gt;&gt;</span> <span class="number">8</span>
@@ -3413,32 +3433,26 @@
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">getpriority</span>(<span class="ident">which</span>: ::<span class="ident">c_int</span>, <span class="ident">who</span>: ::<span class="ident">id_t</span>) <span class="op">-&gt;</span> ::<span class="ident">c_int</span>;
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">setpriority</span>(<span class="ident">which</span>: ::<span class="ident">c_int</span>, <span class="ident">who</span>: ::<span class="ident">id_t</span>, <span class="ident">prio</span>: ::<span class="ident">c_int</span>) <span class="op">-&gt;</span> ::<span class="ident">c_int</span>;
 
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">openat</span>(<span class="ident">dirfd</span>: ::<span class="ident">c_int</span>, <span class="ident">pathname</span>: <span class="kw-2">*</span><span class="kw">const</span> ::<span class="ident">c_char</span>,
-                  <span class="ident">flags</span>: ::<span class="ident">c_int</span>, ...) <span class="op">-&gt;</span> ::<span class="ident">c_int</span>;
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">faccessat</span>(<span class="ident">dirfd</span>: ::<span class="ident">c_int</span>, <span class="ident">pathname</span>: <span class="kw-2">*</span><span class="kw">const</span> ::<span class="ident">c_char</span>,
-                     <span class="ident">mode</span>: ::<span class="ident">c_int</span>, <span class="ident">flags</span>: ::<span class="ident">c_int</span>) <span class="op">-&gt;</span> ::<span class="ident">c_int</span>;
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">fchmodat</span>(<span class="ident">dirfd</span>: ::<span class="ident">c_int</span>, <span class="ident">pathname</span>: <span class="kw-2">*</span><span class="kw">const</span> ::<span class="ident">c_char</span>,
-                    <span class="ident">mode</span>: ::<span class="ident">mode_t</span>, <span class="ident">flags</span>: ::<span class="ident">c_int</span>) <span class="op">-&gt;</span> ::<span class="ident">c_int</span>;
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">fchownat</span>(<span class="ident">dirfd</span>: ::<span class="ident">c_int</span>, <span class="ident">pathname</span>: <span class="kw-2">*</span><span class="kw">const</span> ::<span class="ident">c_char</span>,
-                    <span class="ident">owner</span>: ::<span class="ident">uid_t</span>, <span class="ident">group</span>: ::<span class="ident">gid_t</span>,
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">getxattr</span>(<span class="ident">path</span>: <span class="kw-2">*</span><span class="kw">const</span> ::<span class="ident">c_char</span>, <span class="ident">name</span>: <span class="kw-2">*</span><span class="kw">const</span> ::<span class="ident">c_char</span>,
+                    <span class="ident">value</span>: <span class="kw-2">*</span><span class="kw-2">mut</span> ::<span class="ident">c_void</span>, <span class="ident">size</span>: ::<span class="ident">size_t</span>, <span class="ident">position</span>: <span class="ident">u32</span>,
+                    <span class="ident">flags</span>: ::<span class="ident">c_int</span>) <span class="op">-&gt;</span> ::<span class="ident">ssize_t</span>;
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">fgetxattr</span>(<span class="ident">filedes</span>: ::<span class="ident">c_int</span>, <span class="ident">name</span>: <span class="kw-2">*</span><span class="kw">const</span> ::<span class="ident">c_char</span>,
+                     <span class="ident">value</span>: <span class="kw-2">*</span><span class="kw-2">mut</span> ::<span class="ident">c_void</span>, <span class="ident">size</span>: ::<span class="ident">size_t</span>, <span class="ident">position</span>: <span class="ident">u32</span>,
+                     <span class="ident">flags</span>: ::<span class="ident">c_int</span>) <span class="op">-&gt;</span> ::<span class="ident">ssize_t</span>;
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">setxattr</span>(<span class="ident">path</span>: <span class="kw-2">*</span><span class="kw">const</span> ::<span class="ident">c_char</span>, <span class="ident">name</span>: <span class="kw-2">*</span><span class="kw">const</span> ::<span class="ident">c_char</span>,
+                    <span class="ident">value</span>: <span class="kw-2">*</span><span class="kw">const</span> ::<span class="ident">c_void</span>, <span class="ident">size</span>: ::<span class="ident">size_t</span>, <span class="ident">position</span>: <span class="ident">u32</span>,
                     <span class="ident">flags</span>: ::<span class="ident">c_int</span>) <span class="op">-&gt;</span> ::<span class="ident">c_int</span>;
-    <span class="attribute">#[<span class="ident">cfg_attr</span>(<span class="ident">target_os</span> <span class="op">=</span> <span class="string">&quot;macos&quot;</span>, <span class="ident">link_name</span> <span class="op">=</span> <span class="string">&quot;fstatat$INODE64&quot;</span>)]</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">fstatat</span>(<span class="ident">dirfd</span>: ::<span class="ident">c_int</span>, <span class="ident">pathname</span>: <span class="kw-2">*</span><span class="kw">const</span> ::<span class="ident">c_char</span>,
-                   <span class="ident">buf</span>: <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">stat</span>, <span class="ident">flags</span>: ::<span class="ident">c_int</span>) <span class="op">-&gt;</span> ::<span class="ident">c_int</span>;
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">linkat</span>(<span class="ident">olddirfd</span>: ::<span class="ident">c_int</span>, <span class="ident">oldpath</span>: <span class="kw-2">*</span><span class="kw">const</span> ::<span class="ident">c_char</span>,
-                  <span class="ident">newdirfd</span>: ::<span class="ident">c_int</span>, <span class="ident">newpath</span>: <span class="kw-2">*</span><span class="kw">const</span> ::<span class="ident">c_char</span>,
-                  <span class="ident">flags</span>: ::<span class="ident">c_int</span>) <span class="op">-&gt;</span> ::<span class="ident">c_int</span>;
-   <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">mkdirat</span>(<span class="ident">dirfd</span>: ::<span class="ident">c_int</span>, <span class="ident">pathname</span>: <span class="kw-2">*</span><span class="kw">const</span> ::<span class="ident">c_char</span>,
-                  <span class="ident">mode</span>: ::<span class="ident">mode_t</span>) <span class="op">-&gt;</span> ::<span class="ident">c_int</span>;
-   <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">readlinkat</span>(<span class="ident">dirfd</span>: ::<span class="ident">c_int</span>, <span class="ident">pathname</span>: <span class="kw-2">*</span><span class="kw">const</span> ::<span class="ident">c_char</span>,
-                     <span class="ident">buf</span>: <span class="kw-2">*</span><span class="kw-2">mut</span> ::<span class="ident">c_char</span>, <span class="ident">bufsiz</span>: ::<span class="ident">size_t</span>) <span class="op">-&gt;</span> ::<span class="ident">ssize_t</span>;
-   <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">renameat</span>(<span class="ident">olddirfd</span>: ::<span class="ident">c_int</span>, <span class="ident">oldpath</span>: <span class="kw-2">*</span><span class="kw">const</span> ::<span class="ident">c_char</span>,
-                   <span class="ident">newdirfd</span>: ::<span class="ident">c_int</span>, <span class="ident">newpath</span>: <span class="kw-2">*</span><span class="kw">const</span> ::<span class="ident">c_char</span>)
-                   <span class="op">-&gt;</span> ::<span class="ident">c_int</span>;
-   <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">symlinkat</span>(<span class="ident">target</span>: <span class="kw-2">*</span><span class="kw">const</span> ::<span class="ident">c_char</span>, <span class="ident">newdirfd</span>: ::<span class="ident">c_int</span>,
-                    <span class="ident">linkpath</span>: <span class="kw-2">*</span><span class="kw">const</span> ::<span class="ident">c_char</span>) <span class="op">-&gt;</span> ::<span class="ident">c_int</span>;
-   <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">unlinkat</span>(<span class="ident">dirfd</span>: ::<span class="ident">c_int</span>, <span class="ident">pathname</span>: <span class="kw-2">*</span><span class="kw">const</span> ::<span class="ident">c_char</span>,
-                   <span class="ident">flags</span>: ::<span class="ident">c_int</span>) <span class="op">-&gt;</span> ::<span class="ident">c_int</span>;
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">fsetxattr</span>(<span class="ident">filedes</span>: ::<span class="ident">c_int</span>, <span class="ident">name</span>: <span class="kw-2">*</span><span class="kw">const</span> ::<span class="ident">c_char</span>,
+                     <span class="ident">value</span>: <span class="kw-2">*</span><span class="kw">const</span> ::<span class="ident">c_void</span>, <span class="ident">size</span>: ::<span class="ident">size_t</span>, <span class="ident">position</span>: <span class="ident">u32</span>,
+                     <span class="ident">flags</span>: ::<span class="ident">c_int</span>) <span class="op">-&gt;</span> ::<span class="ident">c_int</span>;
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">listxattr</span>(<span class="ident">path</span>: <span class="kw-2">*</span><span class="kw">const</span> ::<span class="ident">c_char</span>, <span class="ident">list</span>: <span class="kw-2">*</span><span class="kw-2">mut</span> ::<span class="ident">c_char</span>,
+                     <span class="ident">size</span>: ::<span class="ident">size_t</span>, <span class="ident">flags</span>: ::<span class="ident">c_int</span>) <span class="op">-&gt;</span> ::<span class="ident">ssize_t</span>;
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">flistxattr</span>(<span class="ident">filedes</span>: ::<span class="ident">c_int</span>, <span class="ident">list</span>: <span class="kw-2">*</span><span class="kw-2">mut</span> ::<span class="ident">c_char</span>,
+                      <span class="ident">size</span>: ::<span class="ident">size_t</span>, <span class="ident">flags</span>: ::<span class="ident">c_int</span>) <span class="op">-&gt;</span> ::<span class="ident">ssize_t</span>;
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">removexattr</span>(<span class="ident">path</span>: <span class="kw-2">*</span><span class="kw">const</span> ::<span class="ident">c_char</span>, <span class="ident">name</span>: <span class="kw-2">*</span><span class="kw">const</span> ::<span class="ident">c_char</span>,
+                       <span class="ident">flags</span>: ::<span class="ident">c_int</span>) <span class="op">-&gt;</span> ::<span class="ident">c_int</span>;
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">fremovexattr</span>(<span class="ident">filedes</span>: ::<span class="ident">c_int</span>, <span class="ident">name</span>: <span class="kw-2">*</span><span class="kw">const</span> ::<span class="ident">c_char</span>,
+                        <span class="ident">flags</span>: ::<span class="ident">c_int</span>) <span class="op">-&gt;</span> ::<span class="ident">c_int</span>;
 
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">initgroups</span>(<span class="ident">user</span>: <span class="kw-2">*</span><span class="kw">const</span> ::<span class="ident">c_char</span>, <span class="ident">basegroup</span>: ::<span class="ident">c_int</span>) <span class="op">-&gt;</span> ::<span class="ident">c_int</span>;
 

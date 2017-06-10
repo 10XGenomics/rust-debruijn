@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="generator" content="rustdoc">
-    <meta name="description" content="Source to the Rust file `/Users/patrick/.cargo/registry/src/github.com-1ecc6299db9ec823/syn-0.11.10/src/generics.rs`.">
+    <meta name="description" content="Source to the Rust file `/Users/patrick/.cargo/registry/src/github.com-1ecc6299db9ec823/syn-0.11.11/src/generics.rs`.">
     <meta name="keywords" content="rust, rustlang, rust-lang">
 
     <title>generics.rs.html -- source</title>
@@ -544,6 +544,18 @@
 <span id="499">499</span>
 <span id="500">500</span>
 <span id="501">501</span>
+<span id="502">502</span>
+<span id="503">503</span>
+<span id="504">504</span>
+<span id="505">505</span>
+<span id="506">506</span>
+<span id="507">507</span>
+<span id="508">508</span>
+<span id="509">509</span>
+<span id="510">510</span>
+<span id="511">511</span>
+<span id="512">512</span>
+<span id="513">513</span>
 </pre><pre class="rust ">
 <span class="kw">use</span> <span class="kw">super</span>::<span class="kw-2">*</span>;
 
@@ -640,12 +652,24 @@
     }
 }
 
+<span class="doccomment">/// A generic type parameter, e.g. `T: Into&lt;String&gt;`.</span>
 <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Clone</span>, <span class="ident">Eq</span>, <span class="ident">PartialEq</span>, <span class="ident">Hash</span>)]</span>
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">TyParam</span> {
     <span class="kw">pub</span> <span class="ident">attrs</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">Attribute</span><span class="op">&gt;</span>,
     <span class="kw">pub</span> <span class="ident">ident</span>: <span class="ident">Ident</span>,
     <span class="kw">pub</span> <span class="ident">bounds</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">TyParamBound</span><span class="op">&gt;</span>,
     <span class="kw">pub</span> <span class="ident">default</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Ty</span><span class="op">&gt;</span>,
+}
+
+<span class="kw">impl</span> <span class="ident">From</span><span class="op">&lt;</span><span class="ident">Ident</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">TyParam</span> {
+    <span class="kw">fn</span> <span class="ident">from</span>(<span class="ident">ident</span>: <span class="ident">Ident</span>) <span class="op">-&gt;</span> <span class="self">Self</span> {
+        <span class="ident">TyParam</span> {
+            <span class="ident">attrs</span>: <span class="macro">vec</span><span class="macro">!</span>[],
+            <span class="ident">ident</span>: <span class="ident">ident</span>,
+            <span class="ident">bounds</span>: <span class="macro">vec</span><span class="macro">!</span>[],
+            <span class="ident">default</span>: <span class="prelude-val">None</span>,
+        }
+    }
 }
 
 <span class="doccomment">/// The AST represents all type param bounds as types.</span>

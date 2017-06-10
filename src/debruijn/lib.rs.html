@@ -583,8 +583,50 @@
 <span id="538">538</span>
 <span id="539">539</span>
 <span id="540">540</span>
+<span id="541">541</span>
+<span id="542">542</span>
+<span id="543">543</span>
+<span id="544">544</span>
+<span id="545">545</span>
+<span id="546">546</span>
+<span id="547">547</span>
+<span id="548">548</span>
+<span id="549">549</span>
+<span id="550">550</span>
+<span id="551">551</span>
+<span id="552">552</span>
+<span id="553">553</span>
+<span id="554">554</span>
+<span id="555">555</span>
+<span id="556">556</span>
+<span id="557">557</span>
+<span id="558">558</span>
+<span id="559">559</span>
+<span id="560">560</span>
+<span id="561">561</span>
+<span id="562">562</span>
+<span id="563">563</span>
+<span id="564">564</span>
+<span id="565">565</span>
+<span id="566">566</span>
+<span id="567">567</span>
+<span id="568">568</span>
+<span id="569">569</span>
+<span id="570">570</span>
+<span id="571">571</span>
 </pre><pre class="rust ">
 <span class="attribute">#<span class="op">!</span>[<span class="ident">allow</span>(<span class="ident">dead_code</span>)]</span>
+
+<span class="doccomment">//! # debruijn-rs: a De Bruijn graph for DNA seqeunces in Rust.</span>
+<span class="doccomment">//! This library provides tools for efficiently construction de bruijn graphs</span>
+<span class="doccomment">//! from DNA sequences, tracking arbitrary metadata associated with kmers in the</span>
+<span class="doccomment">//! graph, and performing path-compression of unbranched graph paths to improve</span>
+<span class="doccomment">//! speed and reduce memory consumption.</span>
+
+<span class="doccomment">//! All the data structures in debruijn-rs are specialized to the alphabet {&#39;A&#39;, &#39;C&#39;, &#39;G&#39;, &#39;T&#39;},</span>
+<span class="doccomment">//! and use 2-bit packed encoding of base-pairs into integer types, and efficient methods for</span>
+<span class="doccomment">//! reverse complement, enumerating kmers from longer sequences, and transfering data between</span>
+<span class="doccomment">//! sequences. </span>
 
 <span class="kw">extern</span> <span class="kw">crate</span> <span class="ident">num</span>;
 <span class="kw">extern</span> <span class="kw">crate</span> <span class="ident">extprim</span>;
@@ -602,8 +644,6 @@
 
 <span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">kmer</span>;
 <span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">dna_string</span>;
-<span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">exts</span>;
-<span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">dir</span>;
 <span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">paths</span>;
 <span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">vmer</span>;
 <span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">msp</span>;
@@ -651,19 +691,31 @@
 }
 
 
-<span class="doccomment">/// Generic trait for interacting with DNA seqeunces</span>
+<span class="doccomment">/// Generic trait for interacting with DNA sequences</span>
 <span class="kw">pub</span> <span class="kw">trait</span> <span class="ident">Mer</span>: <span class="ident">Sized</span> <span class="op">+</span> <span class="ident">fmt</span>::<span class="ident">Debug</span> {
+    <span class="doccomment">/// Length of DNA sequence</span>
     <span class="kw">fn</span> <span class="ident">len</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-&gt;</span> <span class="ident">usize</span>;
+
+    <span class="doccomment">/// Get 2-bit encoded base at position `pos`</span>
     <span class="kw">fn</span> <span class="ident">get</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">pos</span>: <span class="ident">usize</span>) <span class="op">-&gt;</span> <span class="ident">u8</span>;
 
+    <span class="doccomment">/// Set base at `pos` to 2-bit encoded base `val`</span>
     <span class="kw">fn</span> <span class="ident">set_mut</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">pos</span>: <span class="ident">usize</span>, <span class="ident">val</span>: <span class="ident">u8</span>);
-    <span class="kw">fn</span> <span class="ident">set_slice_mut</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">pos</span>: <span class="ident">usize</span>, <span class="ident">nbases</span>: <span class="ident">usize</span>, <span class="ident">bits</span>: <span class="ident">u64</span>);
 
+    <span class="doccomment">/// Set `nbases` positions in the sequence, starting at `pos`.</span>
+    <span class="doccomment">/// Values must  be packed into the upper-most bits of `value`.</span>
+    <span class="kw">fn</span> <span class="ident">set_slice_mut</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">pos</span>: <span class="ident">usize</span>, <span class="ident">nbases</span>: <span class="ident">usize</span>, <span class="ident">value</span>: <span class="ident">u64</span>);
+
+    <span class="doccomment">/// Return a new object containing the reverse complement of the sequence</span>
     <span class="kw">fn</span> <span class="ident">rc</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-&gt;</span> <span class="self">Self</span>;
 
+    <span class="doccomment">/// Add the base `v` to the left side of the sequence, and remove the rightmost base</span>
     <span class="kw">fn</span> <span class="ident">extend_left</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">v</span>: <span class="ident">u8</span>) <span class="op">-&gt;</span> <span class="self">Self</span>;
+
+    <span class="doccomment">/// Add the base `v` to the right side of the sequence, and remove the leftmost base</span>
     <span class="kw">fn</span> <span class="ident">extend_right</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">v</span>: <span class="ident">u8</span>) <span class="op">-&gt;</span> <span class="self">Self</span>;
 
+    <span class="doccomment">/// Add the base `v` to the side of sequence given by `dir`, and remove a base at the opposite side</span>
     <span class="kw">fn</span> <span class="ident">extend</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">v</span>: <span class="ident">u8</span>, <span class="ident">dir</span>: <span class="ident">Dir</span>) <span class="op">-&gt;</span> <span class="self">Self</span> {
         <span class="kw">match</span> <span class="ident">dir</span> {
             <span class="ident">Dir</span>::<span class="ident">Left</span> <span class="op">=&gt;</span> <span class="self">self</span>.<span class="ident">extend_left</span>(<span class="ident">v</span>),
@@ -671,6 +723,7 @@
         }
     }
 
+    <span class="doccomment">/// Generate all the extension of this sequence given by `exts` in direction `Dir`</span>
     <span class="kw">fn</span> <span class="ident">get_extensions</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">exts</span>: <span class="ident">Exts</span>, <span class="ident">dir</span>: <span class="ident">Dir</span>) <span class="op">-&gt;</span> <span class="ident">Vec</span><span class="op">&lt;</span><span class="self">Self</span><span class="op">&gt;</span> {
         <span class="kw">let</span> <span class="ident">ext_bases</span> <span class="op">=</span> <span class="ident">exts</span>.<span class="ident">get</span>(<span class="ident">dir</span>);
         <span class="ident">ext_bases</span>
@@ -681,7 +734,7 @@
 }
 
 <span class="doccomment">/// Encapsulates a Kmer sequence with statically known K.</span>
-<span class="kw">pub</span> <span class="kw">trait</span> <span class="ident">Kmer</span>: <span class="ident">Sized</span> <span class="op">+</span> <span class="ident">Copy</span> <span class="op">+</span> <span class="ident">Mer</span> <span class="op">+</span> <span class="ident">PartialEq</span> <span class="op">+</span> <span class="ident">PartialOrd</span> <span class="op">+</span> <span class="ident">Eq</span> <span class="op">+</span> <span class="ident">Ord</span> <span class="op">+</span> <span class="ident">Hash</span> {
+<span class="kw">pub</span> <span class="kw">trait</span> <span class="ident">Kmer</span>: <span class="ident">Mer</span> <span class="op">+</span> <span class="ident">Sized</span> <span class="op">+</span> <span class="ident">Copy</span> <span class="op">+</span> <span class="ident">PartialEq</span> <span class="op">+</span> <span class="ident">PartialOrd</span> <span class="op">+</span> <span class="ident">Eq</span> <span class="op">+</span> <span class="ident">Ord</span> <span class="op">+</span> <span class="ident">Hash</span> {
     <span class="doccomment">/// Create a Kmer initialized to all A&#39;s</span>
     <span class="kw">fn</span> <span class="ident">empty</span>() <span class="op">-&gt;</span> <span class="self">Self</span>;
 
@@ -1070,7 +1123,11 @@
     <span class="kw">fn</span> <span class="ident">next</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>) <span class="op">-&gt;</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">K</span><span class="op">&gt;</span> {
         <span class="kw">if</span> <span class="self">self</span>.<span class="ident">pos</span> <span class="op">&lt;=</span> <span class="self">self</span>.<span class="ident">bases</span>.<span class="ident">len</span>() {
             <span class="kw">let</span> <span class="ident">retval</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">kmer</span>;
-            <span class="self">self</span>.<span class="ident">kmer</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">kmer</span>.<span class="ident">extend_right</span>(<span class="self">self</span>.<span class="ident">bases</span>.<span class="ident">get</span>(<span class="self">self</span>.<span class="ident">pos</span>));
+
+            <span class="kw">if</span> <span class="self">self</span>.<span class="ident">pos</span> <span class="op">&lt;</span> <span class="self">self</span>.<span class="ident">bases</span>.<span class="ident">len</span>(){
+                <span class="self">self</span>.<span class="ident">kmer</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">kmer</span>.<span class="ident">extend_right</span>(<span class="self">self</span>.<span class="ident">bases</span>.<span class="ident">get</span>(<span class="self">self</span>.<span class="ident">pos</span>));
+            }
+            
             <span class="self">self</span>.<span class="ident">pos</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">pos</span> <span class="op">+</span> <span class="number">1</span>;
             <span class="prelude-val">Some</span>(<span class="ident">retval</span>)
         } <span class="kw">else</span> {
@@ -1095,7 +1152,12 @@
     <span class="kw">fn</span> <span class="ident">next</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>) <span class="op">-&gt;</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span>(<span class="ident">K</span>,<span class="ident">Exts</span>)<span class="op">&gt;</span> {
         <span class="kw">if</span> <span class="self">self</span>.<span class="ident">pos</span> <span class="op">&lt;=</span> <span class="self">self</span>.<span class="ident">bases</span>.<span class="ident">len</span>() {
 
-            <span class="kw">let</span> <span class="ident">next_base</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">bases</span>.<span class="ident">get</span>(<span class="self">self</span>.<span class="ident">pos</span>);
+            <span class="kw">let</span> <span class="ident">next_base</span> <span class="op">=</span> 
+                <span class="kw">if</span> <span class="self">self</span>.<span class="ident">pos</span> <span class="op">&lt;</span> <span class="self">self</span>.<span class="ident">bases</span>.<span class="ident">len</span>() {
+                    <span class="self">self</span>.<span class="ident">bases</span>.<span class="ident">get</span>(<span class="self">self</span>.<span class="ident">pos</span>)
+                } <span class="kw">else</span> {
+                    <span class="number">0u8</span>
+                };
 
             <span class="kw">let</span> <span class="ident">cur_left</span> <span class="op">=</span> 
                 <span class="kw">if</span> <span class="self">self</span>.<span class="ident">pos</span> <span class="op">==</span> <span class="ident">K</span>::<span class="ident">k</span>() {

@@ -1,4 +1,5 @@
 (function() {var implementors = {};
+implementors["num"] = [];
 implementors["serde"] = [];
 
             if (window.register_implementors) {

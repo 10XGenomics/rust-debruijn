@@ -48,28 +48,24 @@
                    <a id="toggle-all-docs" href="javascript:void(0)" title="collapse all docs">
                        [<span class='inner'>&#x2212;</span>]
                    </a>
-               </span><a class='srclink' href='../src/debruijn/lib.rs.html#1-538' title='goto source code'>[src]</a></span></h1>
-<h2 id='modules' class='section-header'><a href="#modules">Modules</a></h2>
+               </span><a class='srclink' href='../src/debruijn/lib.rs.html#1-569' title='goto source code'>[src]</a></span></h1>
+<div class='docblock'>
+<h1 id='debruijn-rs-a-de-bruijn-graph-for-dna-seqeunces-in-rust' class='section-header'><a href='#debruijn-rs-a-de-bruijn-graph-for-dna-seqeunces-in-rust'>debruijn-rs: a De Bruijn graph for DNA seqeunces in Rust.</a></h1>
+<p>This library provides tools for efficiently construction de bruijn graphs
+from DNA sequences, tracking arbitrary metadata associated with kmers in the
+graph, and performing path-compression of unbranched graph paths to improve
+speed and reduce memory consumption.
+All the data structures in debruijn-rs are specialized to the alphabet {&#39;A&#39;, &#39;C&#39;, &#39;G&#39;, &#39;T&#39;},
+and use 2-bit packed encoding of base-pairs into integer types, and efficient methods for
+reverse complement, enumerating kmers from longer sequences, and transfering data between
+sequences. </p>
+</div><h2 id='modules' class='section-header'><a href="#modules">Modules</a></h2>
 <table>
-                       <tr class=' module-item'>
-                           <td><a class="mod" href="dir/index.html"
-                                  title='mod debruijn::dir'>dir</a></td>
-                           <td class='docblock-short'>
-                                <p>An enum that encodes a direction of motion in a De Bruijn graph.</p>
-                           </td>
-                       </tr>
                        <tr class=' module-item'>
                            <td><a class="mod" href="dna_string/index.html"
                                   title='mod debruijn::dna_string'>dna_string</a></td>
                            <td class='docblock-short'>
                                 <p>A 2-bit encoding of arbitrary length DNA sequences.</p>
-                           </td>
-                       </tr>
-                       <tr class=' module-item'>
-                           <td><a class="mod" href="exts/index.html"
-                                  title='mod debruijn::exts'>exts</a></td>
-                           <td class='docblock-short'>
-                                <p>A bitfield encoding the extensions that exist to the left and right of a kmer in a De Bruijn graph.</p>
                            </td>
                        </tr>
                        <tr class=' module-item'>
@@ -149,7 +145,7 @@
                            <td><a class="trait" href="trait.Mer.html"
                                   title='trait debruijn::Mer'>Mer</a></td>
                            <td class='docblock-short'>
-                                <p>Generic trait for interacting with DNA seqeunces</p>
+                                <p>Generic trait for interacting with DNA sequences</p>
                            </td>
                        </tr>
                        <tr class=' module-item'>

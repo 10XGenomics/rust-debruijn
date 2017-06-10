@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="generator" content="rustdoc">
-    <meta name="description" content="Source to the Rust file `/Users/patrick/.cargo/registry/src/github.com-1ecc6299db9ec823/rustc-serialize-0.3.23/src/lib.rs`.">
+    <meta name="description" content="Source to the Rust file `/Users/patrick/.cargo/registry/src/github.com-1ecc6299db9ec823/rustc-serialize-0.3.24/src/lib.rs`.">
     <meta name="keywords" content="rust, rustlang, rust-lang">
 
     <title>lib.rs.html -- source</title>
@@ -115,6 +115,13 @@
 <span id="70">70</span>
 <span id="71">71</span>
 <span id="72">72</span>
+<span id="73">73</span>
+<span id="74">74</span>
+<span id="75">75</span>
+<span id="76">76</span>
+<span id="77">77</span>
+<span id="78">78</span>
+<span id="79">79</span>
 </pre><pre class="rust ">
 <span class="comment">// Copyright 2012-2014 The Rust Project Developers. See the COPYRIGHT</span>
 <span class="comment">// file at the top-level directory of this distribution and at</span>
@@ -127,6 +134,13 @@
 <span class="comment">// except according to those terms.</span>
 
 <span class="doccomment">//! Support code for encoding and decoding types.</span>
+<span class="doccomment">//!</span>
+<span class="doccomment">//! &gt; **NOTE**: This crate is deprecated in favor of [`serde`]. No new feature</span>
+<span class="doccomment">//! &gt; development will happen in this crate, although bug fixes proposed through</span>
+<span class="doccomment">//! &gt; PRs will still be merged. It is very highly recommended by the Rust</span>
+<span class="doccomment">//! &gt; Library Team that you use [`serde`], not this crate.</span>
+<span class="doccomment">//!</span>
+<span class="doccomment">//! [`serde`]: https://serde.rs</span>
 <span class="doccomment">//!</span>
 <span class="doccomment">//! # Usage</span>
 <span class="doccomment">//!</span>
