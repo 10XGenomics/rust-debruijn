@@ -8,9 +8,6 @@ use Dir;
 use Kmer;
 use Exts;
 use Vmer;
-use fx::FxHashMap;
-use fx::FxHashSet;
-
 
 fn bucket<K: Kmer>(kmer: K) -> usize {
     // FIXME - make 256 mins    
@@ -77,14 +74,14 @@ impl<D> KmerSummarizer<D, Vec<D>> for CountFilterSet<D> {
 /// Low memory implementation that should consume < 4G of temporary memory
 /// To reduce memory consumption, set track_bcs to false to forget about BC lists.
 #[inline(never)]
-pub fn filter_kmers<K:Kmer, V:Vmer<K>, D1: Clone, DS, S: KmerSummarizer<D1,DS>>(seqs: &Vec<(V, Exts, D1)>, summarizer: S) ->
+pub fn filter_kmers_core<K:Kmer, V:Vmer<K>, D1: Clone, DS, S: KmerSummarizer<D1,DS>>(seqs: &Vec<(V, Exts, D1)>, summarizer: S, rc_norm: bool) ->
  (Vec<(K, (Exts, DS))>, Vec<K>) {
 
     let mut all_kmers = Vec::new();
     let mut valid_kmers = Vec::new();
 
     // Estimate memory consumed by Kmer vectors, and set iteration count appropriately
-    let input_kmers: usize = seqs.iter().map(|&(ref vmer, _, _)| vmer.len() - K::k() + 1).sum();
+    let input_kmers: usize = seqs.iter().map(|&(ref vmer, _, _)| vmer.len().saturating_sub(K::k() - 1)).sum();
     let kmer_mem = input_kmers * mem::size_of::<(K, D1)>();
     let max_mem = 4 * (10 as usize).pow(9);
     let slices = kmer_mem / max_mem + 1;
@@ -111,8 +108,14 @@ pub fn filter_kmers<K:Kmer, V:Vmer<K>, D1: Clone, DS, S: KmerSummarizer<D1,DS>>(
         //info!("Enumerating kmers...");
         for &(ref seq, seq_exts, ref d) in seqs {
             for (kmer, exts) in seq.iter_kmer_exts(seq_exts) {
-                let (min_kmer, flip) = kmer.min_rc_flip();
-                let flip_exts = if flip { exts.rc() } else { exts };
+                let (min_kmer, flip_exts) = 
+                    if rc_norm {
+                        let (min_kmer, flip) = kmer.min_rc_flip();
+                        let flip_exts = if flip { exts.rc() } else { exts };
+                        (min_kmer, flip_exts)
+                    } else {
+                        (kmer, exts)
+                    };
                 let bucket = bucket(min_kmer);
 
                 if bucket >= bucket_range.start && bucket < bucket_range.end {
@@ -140,6 +143,11 @@ pub fn filter_kmers<K:Kmer, V:Vmer<K>, D1: Clone, DS, S: KmerSummarizer<D1,DS>>(
 
     //info!("Total Sequences: {}, Total kmers observed: {}, Unique Kmers observed: {}. Kmers accepted: {}", seqs.len(), total_kmers, unique_kmers, final_kmers.len());
     (valid_kmers, all_kmers)
+}
+
+pub fn filter_kmers<K:Kmer, V:Vmer<K>, D1: Clone, DS, S: KmerSummarizer<D1,DS>>(seqs: &Vec<(V, Exts, D1)>, summarizer: S) ->  
+    (Vec<(K, (Exts, DS))>, Vec<K>) {
+        filter_kmers_core(seqs, summarizer, true)
 }
 
 /// Remove extensions in valid_kmers that point to censored kmers. A censored kmer

@@ -31,7 +31,7 @@ pub mod paths;
 pub mod vmer;
 pub mod msp;
 pub mod filter;
-mod fx;
+pub mod fx;
 mod test;
 
 /// Convert a 2-bit representation of a base to a char
@@ -257,19 +257,34 @@ pub trait Vmer<K: Kmer>: Mer + PartialEq + Eq + Clone {
 
     /// Iterate over the kmers in the sequence
     fn iter_kmers(&self) -> KmerIter<K, Self> {
+
+        let kmer = if self.len() >= K::k() {
+            self.first_kmer()
+        } else {
+            // Default kmer, will not be used
+            K::empty()
+        };
+
         KmerIter {
             bases: self,
-            kmer: self.first_kmer(),
+            kmer: kmer,
             pos: K::k(),
         }
     }
 
-    /// Iterate over the kmers and their extensions, given the extension of the whole sequence
+    /// Iterate over the kmers and their extensions, given the extensions of the whole sequence
     fn iter_kmer_exts(&self, seq_exts: Exts) -> KmerExtsIter<K, Self> {
+        let kmer = if self.len() >= K::k() {
+            self.first_kmer()
+        } else {
+            // Default kmer, will not be used
+            K::empty()
+        };
+
         KmerExtsIter {
             bases: self,
             exts: seq_exts,
-            kmer: self.first_kmer(),
+            kmer: kmer,
             pos: K::k(),
         }
     }

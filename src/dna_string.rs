@@ -122,6 +122,10 @@ impl DnaString {
         }
     }
 
+    pub fn len(&self) -> usize {
+        self.len
+    }
+
     /// Create a new instance with a given capacity.
     pub fn empty(n: usize) -> Self {
         let blocks = (n*WIDTH >> 6) + (if n*WIDTH & 0x3F > 0 { 1 } else { 0 });
@@ -147,7 +151,20 @@ impl DnaString {
         dna_string
     }
 
-    pub fn from_bytes(bytes: &Vec<u8>) -> DnaString {
+    pub fn from_acgt_bytes(bytes: &[u8]) -> DnaString {
+        let mut dna_string = DnaString {
+            storage: Vec::new(),
+            len: 0,
+        };
+
+        for b in bytes.iter() {
+            dna_string.push(base_to_bits(*b));
+        }
+
+        dna_string
+    }
+
+    pub fn from_bytes(bytes: &[u8]) -> DnaString {
         let mut dna_string = DnaString {
             storage: Vec::new(),
             len: 0,
@@ -314,6 +331,20 @@ impl DnaString {
             is_rc: false,
         }
     }
+
+    /// Get the length `k` suffix of the DnaString
+    pub fn slice(&self, start: usize, end: usize) -> DnaStringSlice {
+        assert!(start <= self.len, "coordinate exceeds number of elements.");
+        assert!(end <= self.len, "coordinate exceeds number of elements.");
+
+        DnaStringSlice {
+            dna_string: self,
+            start: start,
+            length: end - start,
+            is_rc: false,
+        }
+    }
+
 
     pub fn reverse(&self) -> DnaString {
         let values: Vec<u8> = self.iter().collect();
@@ -628,6 +659,15 @@ mod tests {
 
         let kmers: Vec<IntKmer<u64>> = dna_string.iter_kmers().collect();
         kmer_test::<IntKmer<u64>>(&kmers, &dna, &dna_string);
+    }
+
+    #[test]
+    fn test_kmers_too_short() {
+        let dna = "TGCATTAGAA".to_string();
+        let dna_string = DnaString::from_dna_string(&dna);
+
+        let kmers: Vec<IntKmer<u64>> = dna_string.iter_kmers().collect();
+        assert_eq!(kmers, vec![]);
     }
 
     fn kmer_test<K: Kmer>(kmers: &Vec<K>, dna: &String, dna_string: &DnaString) {
