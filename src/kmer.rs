@@ -86,6 +86,19 @@ impl IntHelp for u16 {
     }
 }
 
+impl IntHelp for u8 {
+    #[inline]
+    fn reverse_by_twos(&self) -> u8 {
+        // swap adjacent pairs
+        let mut r = ((self & 0x33u8) << 2) | ((self >> 2) & 0x33u8);
+
+        // swap nibbles
+        r = ((r & 0x0Fu8) << 4) | ((r >> 4) & 0x0Fu8);
+
+        r
+    }
+}
+
 
 
 /// A fixed-length Kmer sequence.
@@ -127,6 +140,33 @@ impl<T: PrimInt + FromPrimitive + Hash + IntHelp> IntKmer<T> {
             r.push(k0);
         }
         r
+    }
+
+    pub fn kmers_from_bases(bytes: &[u8]) -> Vec<Self> {
+        let mut r = Vec::new();
+
+        let mut k0 = Self::empty();
+
+        for i in 0..Self::k() {
+            k0.set_mut(i, ::base_to_bits(bytes[i]))
+        }
+
+        r.push(k0);
+
+        for i in 1..(bytes.len() - Self::k() + 1) {
+            k0 = k0.clone().extend_right(::base_to_bits(bytes[Self::k() + i - 1]));
+            r.push(k0);
+        }
+        r
+    }
+
+    pub fn kmer_from_bases(bytes: &[u8]) -> Self {
+        let mut k0 = Self::empty();
+
+        for i in 0..Self::k() {
+            k0.set_mut(i, ::base_to_bits(bytes[i]))
+        }
+        k0
     }
 
     fn addr(&self, pos: usize) -> usize {
