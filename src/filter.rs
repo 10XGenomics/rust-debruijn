@@ -53,18 +53,22 @@ impl<D> CountFilterSet<D> {
 }
 
 
-impl<D> KmerSummarizer<D, Vec<D>> for CountFilterSet<D> {
+impl<D: Ord> KmerSummarizer<D, Vec<D>> for CountFilterSet<D> {
     fn summarize<K, F: Iterator<Item=(K,Exts,D)>>(&self, items: F) -> (bool, Exts, Vec<D>) {
         let mut all_exts = Exts::empty();
         
         let mut out_data: Vec<D> = Vec::new();
         
+        let mut nobs = 0;
         for (_, exts, d) in items {
             out_data.push(d);
             all_exts = all_exts.add(exts);
+            nobs += 1;
         }
 
-        (out_data.len() as usize >= self.min_kmer_obs, all_exts, out_data)
+        out_data.sort();
+        out_data.dedup();
+        (nobs as usize >= self.min_kmer_obs, all_exts, out_data)
     }
 }
 

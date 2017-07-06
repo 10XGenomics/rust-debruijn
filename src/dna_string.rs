@@ -22,7 +22,7 @@ const WIDTH: usize = 2;
 const MASK: u64 = 0x3;
 
 /// A sequence of DnaStringoded values. This implementation is specialized to 2-bit alphabets
-#[derive(Ord, PartialOrd, Clone, PartialEq, Eq, Hash)]
+#[derive(Ord, PartialOrd, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct DnaString {
     storage: Vec<u64>,
     len: usize,

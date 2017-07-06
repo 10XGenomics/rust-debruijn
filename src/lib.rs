@@ -18,6 +18,7 @@ extern crate linked_hash_map;
 #[macro_use]
 extern crate serde_derive;
 extern crate serde;
+extern crate serde_json;
 extern crate smallvec;
 extern crate bit_set;
 extern crate itertools;
@@ -302,7 +303,7 @@ pub trait Vmer<K: Kmer>: Mer + PartialEq + Eq + Clone {
 
 
 /// Direction of motion in a DeBruijn graph
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, Serialize, Deserialize)]
 pub enum Dir {
     Left,
     Right,
@@ -340,7 +341,7 @@ impl Dir {
 /// letters A, C, G, T. So overall the bits are:
 ///  right   left
 /// T G C A T G C A
-#[derive(Eq, PartialEq, Copy, Clone, Ord, PartialOrd, Hash)]
+#[derive(Eq, PartialEq, Copy, Clone, Ord, PartialOrd, Hash, Serialize, Deserialize)]
 pub struct Exts {
     pub val: u8,
 }

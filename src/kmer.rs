@@ -15,6 +15,11 @@ use MerImmut;
 use Kmer;
 use bits_to_base;
 
+
+pub type Kmer64 = IntKmer<u128>;
+pub type Kmer32 = IntKmer<u64>;
+
+
 pub trait IntHelp: PrimInt + FromPrimitive {
     fn reverse_by_twos(&self) -> Self;
 }
@@ -27,7 +32,7 @@ impl IntHelp for u128 {
     }
 }
 
-pub type Kmer64 = IntKmer<u128>;
+
 
 impl IntHelp for u64 {
     #[inline]
@@ -116,12 +121,20 @@ impl<T: PrimInt + FromPrimitive + Hash + IntHelp> IntKmer<T> {
         T::to_u8(&v).unwrap()
     }
 
-    fn from_byte(v: u8) -> T {
+    fn t_from_byte(v: u8) -> T {
         T::from_u8(v).unwrap()
     }
 
-    fn from_u64(v: u64) -> T {
+    fn t_from_u64(v: u64) -> T {
         T::from_u64(v).unwrap()
+    }
+
+   pub fn to_u64(&self) -> u64 {
+        T::to_u64(&self.storage).unwrap()
+    }
+
+    pub fn from_u64(v: u64) -> IntKmer<T> {
+        IntKmer { storage: Self::t_from_u64(v) }
     }
 
     pub fn from_bytes(bytes: &Vec<u8>) -> Vec<Self> {
@@ -221,7 +234,7 @@ impl<T: PrimInt + FromPrimitive + Hash + IntHelp> Mer for IntKmer<T> {
         let bit = self.addr(pos);
         let mask = !(Self::msk() << bit);
 
-        self.storage = (self.storage & mask) | (Self::from_byte(v) << bit);
+        self.storage = (self.storage & mask) | (Self::t_from_byte(v) << bit);
     }
 
     /// Set a slice of bases in the kmer, using the packed representation in value.
@@ -237,9 +250,9 @@ impl<T: PrimInt + FromPrimitive + Hash + IntHelp> Mer for IntKmer<T> {
         };
 
         let v = if Self::_bits() > 64 {
-            Self::from_u64(v_shift) << (Self::_bits() - 64)
+            Self::t_from_u64(v_shift) << (Self::_bits() - 64)
         } else {
-            Self::from_u64(v_shift)
+            Self::t_from_u64(v_shift)
         };
 
         let top_mask = Self::top_mask(pos);
@@ -266,7 +279,7 @@ impl<T: PrimInt + FromPrimitive + Hash + IntHelp> Mer for IntKmer<T> {
 
     /// Shift the base v into the left end of the kmer
     fn extend_left(&self, v: u8) -> Self {
-        let new = self.storage >> 2 | (Self::from_byte(v) << (Self::k() - 1) * 2);
+        let new = self.storage >> 2 | (Self::t_from_byte(v) << (Self::k() - 1) * 2);
         IntKmer { storage: new }
     }
 

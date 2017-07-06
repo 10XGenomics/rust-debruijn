@@ -16,6 +16,9 @@ use std::hash::BuildHasherDefault;
 use std::ops::Index;
 use std::f32;
 
+use serde_json;
+use serde_json::Value;
+
 type SmallVec4<T> = SmallVec<[T; 4]>;
 
 use Mer;
@@ -25,7 +28,7 @@ use Dir;
 use Exts;
 use dna_string::{DnaString, DnaStringSlice};
 
-
+#[derive(Serialize, Deserialize)]
 pub struct PackedDnaStringSet {
     pub sequence: DnaString,
     pub start: Vec<usize>,
@@ -67,7 +70,7 @@ impl<'a> PackedDnaStringSet {
     }
 }
 
-
+#[derive(Serialize, Deserialize)]
 pub struct BaseGraph<K, D> {
     pub sequences: PackedDnaStringSet,
     pub exts: Vec<Exts>,
@@ -117,6 +120,7 @@ impl<K: Kmer, D> BaseGraph<K, D> {
     }
 }
 
+#[derive(Serialize, Deserialize)]
 pub struct DebruijnGraph<K, D> {
     base: BaseGraph<K, D>,
     left_order: Vec<u32>,
@@ -443,45 +447,119 @@ impl<K: Kmer, D:Debug> DebruijnGraph<K, D> {
             self.node_to_gfa(&n, &mut wtr);
         }
     }
+
+
+    pub fn to_json<F: Fn(&D) -> Value>(&self, fmt_func: F, path: PathBuf) where {
+        let mut f = File::create(path).expect("couldn't open file");
+
+        writeln!(&mut f, "{{\n\"nodes\": [").unwrap();
+        for i in 0 .. self.len() {
+            let node = self.get_node(i);
+            node.to_json(&fmt_func, &mut f);
+            if i == self.len() - 1 {
+                write!(&mut f, "\n").unwrap();
+            } else {
+                write!(&mut f, ",\n").unwrap();
+            }
+        }
+        writeln!(&mut f, "],").unwrap();
+
+        writeln!(&mut f, "\"links\": [").unwrap();
+        for i in 0 .. self.len() {
+            let node = self.get_node(i);
+            match node.edges_to_json(&mut f) {
+                true => {
+                    if i == self.len() - 1 {
+                        write!(&mut f, "\n").unwrap();
+                    } else {
+                        write!(&mut f, ",\n").unwrap();
+                    }
+                },
+                _ => continue,
+            }
+        }
+        writeln!(&mut f, "]\n}}").unwrap();
+    }
 }
 
 
-// Unbranched edge in the DeBruijn graph
+/// Unbranched sequence in the DeBruijn graph
 pub struct Node<'a, K: Kmer + 'a, D: 'a> {
     pub node_id: usize,
     pub graph: &'a DebruijnGraph<K, D>,
-    //pub l_edges: ExtVec<(usize, Dir, bool)>,
-    //pub r_edges: ExtVec<(usize, Dir, bool)>,
 }
 
 impl<'a, K: Kmer, D: Debug> Node<'a, K, D> {
 
+    /// Length of the sequence of this node
     pub fn len(&self) -> usize {
         self.graph.base.sequences.get(self.node_id).len()
     }
 
+    /// Sequence of the node
     pub fn sequence(&self) -> DnaStringSlice<'a> {
         self.graph.base.sequences.get(self.node_id)
     }
 
+    /// Reference to auxiliarly data associated with the node
     pub fn data(&self) -> &'a D {
         &self.graph.base.data[self.node_id]
     }
 
+    /// Extension bases from this node
     pub fn exts(&self) -> Exts {
         self.graph.base.exts[self.node_id]
     }
 
+    /// Edges leaving the left side of the node in the format
+    //// (target_node id, incoming side of target node, whether target node has is flipped)
     pub fn l_edges(&self) -> SmallVec4<(usize, Dir, bool)> {
         self.graph.find_edges(self.node_id, Dir::Left)
     }
 
+    /// Edges leaving the right side of the node in the format
+    //// (target_node id, incoming side of target node, whether target node has is flipped)
     pub fn r_edges(&self) -> SmallVec4<(usize, Dir, bool)> {
         self.graph.find_edges(self.node_id, Dir::Right)
     }
 
+    /// Edges leaving the 'dir' side of the node in the format
+    //// (target_node id, incoming side of target node, whether target node has is flipped)
     pub fn edges(&self, dir: Dir) -> SmallVec4<(usize, Dir, bool)> {
         self.graph.find_edges(self.node_id, dir)
+    }
+
+    fn to_json<F: Fn(&D) -> Value>(&self, func: &F, f: &mut Write) {
+        write!(f,
+               "{{\"id\":\"{}\",\"L\":{},\"D\":{},\"Se\":\"{:?}\"}}",
+               self.node_id,
+               self.sequence().len(),
+               (func)(self.data()),
+               self.sequence(),
+        ).unwrap();
+    }
+
+    fn edges_to_json(&self, f: &mut Write) -> bool {
+        let mut wrote = false;
+        let edges = self.r_edges();
+        for (idx, &(id, incoming_dir, _)) in edges.iter().enumerate() {
+            write!(f,
+                     "{{\"source\":\"{}\",\"target\":\"{}\",\"D\":\"{}\"}}",
+                     self.node_id,
+                     id,
+                     match incoming_dir {
+                         Dir::Left => "L",
+                         Dir::Right => "R",
+                     }
+            ).unwrap();
+
+            if idx < edges.len() - 1 {
+                write!(f, ",").unwrap();
+            }
+
+            wrote = true;
+        }
+        wrote
     }
 }
 
@@ -615,7 +693,8 @@ impl<K: Kmer, V: Vmer<K>, D: Clone + Debug, S: CompressionSpec<D>> PathCompressi
                 next_kmer = flip_rc.0;
             }
 
-            let is_palindrome = next_kmer == next_kmer.rc();
+            //let is_palindrome = next_kmer == next_kmer.rc();
+            let is_palindrome = false;
 
             let next_dir = dir.cond_flip(do_flip);
 
@@ -834,7 +913,7 @@ impl<K: Kmer, V: Vmer<K>, D: Clone + Debug, S: CompressionSpec<D>> PathCompressi
         let exts = node.exts();
         let bases = node.sequence();
 
-        if exts.num_ext_dir(dir) != 1 || (bases.len() == K::k() && bases.is_palindrome()) {
+        if exts.num_ext_dir(dir) != 1 || (bases.len() == K::k()) { // && bases.is_palindrome()) {
             ExtModeNode::Terminal(exts.single_dir(dir))
         } else {
             // Get the next kmer
@@ -882,7 +961,7 @@ impl<K: Kmer, V: Vmer<K>, D: Clone + Debug, S: CompressionSpec<D>> PathCompressi
             // b) the kmer we go to has a unique extension back in our direction
             // c) the new edge is not of length K and a palindrome
 
-            if !available_nodes.contains(next_node_id) || (next_bases.len() == K::k() && next_bases.is_palindrome()) {
+            if !available_nodes.contains(next_node_id) || (next_bases.len() == K::k()) { // && next_bases.is_palindrome()) {
                 // This kmer isn't in this partition, or we've already used it
                 return ExtModeNode::Terminal(exts.single_dir(dir));
             }

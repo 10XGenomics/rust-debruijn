@@ -23,6 +23,10 @@ fn block_get(kmer: u64, pos: usize) -> u8 {
     ((kmer >> offset) & 3) as u8
 }
 
+pub type Lmer1 = Lmer<IntKmer<u64>, [u64; 1]>;
+pub type Lmer2 = Lmer<IntKmer<u64>, [u64; 2]>;
+pub type Lmer3 = Lmer<IntKmer<u64>, [u64; 3]>;
+
 /// Store a variable-length DNA sequence in a packed 2-bit encoding, up 92bp in length
 /// The length of the sequence is stored in the lower 8 bits of storage
 #[derive(Hash, Copy, Clone, PartialEq, PartialOrd, Eq, Ord, Serialize, Deserialize)]
