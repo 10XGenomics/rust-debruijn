@@ -9,7 +9,7 @@ use std::iter::FromIterator;
 use std::collections::HashSet;
 use std::io::Write;
 use std::fs::File;
-use std::path::PathBuf;
+use std::path::Path;
 use std::fmt::{self, Debug};
 
 use std::hash::BuildHasherDefault;
@@ -406,7 +406,7 @@ impl<K: Kmer, D:Debug> DebruijnGraph<K, D> {
 
 
     /// Write the graph to a dot file.
-    pub fn to_dot<F: Fn(&D) -> String>(&self, path: PathBuf, node_label: &F) {
+    pub fn to_dot<P: AsRef<Path>, F: Fn(&D) -> String>(&self, path: P, node_label: &F) {
 
         let mut f = File::create(path).expect("couldn't open file");
 
@@ -437,7 +437,7 @@ impl<K: Kmer, D:Debug> DebruijnGraph<K, D> {
     }
 
     /// Write the graph to GFA format
-    pub fn to_gfa(&self, gfa_out: PathBuf)
+    pub fn to_gfa<P: AsRef<Path>>(&self, gfa_out: P) 
     {
         let mut wtr = File::create(gfa_out).unwrap();
         writeln!(wtr, "H\tVN:Z:debruijn-rs").unwrap();
@@ -449,7 +449,7 @@ impl<K: Kmer, D:Debug> DebruijnGraph<K, D> {
     }
 
 
-    pub fn to_json<F: Fn(&D) -> Value>(&self, fmt_func: F, path: PathBuf) where {
+    pub fn to_json<P: AsRef<Path>, F: Fn(&D) -> Value>(&self, fmt_func: F, path: P) where {
         let mut f = File::create(path).expect("couldn't open file");
 
         writeln!(&mut f, "{{\n\"nodes\": [").unwrap();
