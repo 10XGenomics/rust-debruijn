@@ -23,6 +23,8 @@ extern crate smallvec;
 extern crate bit_set;
 extern crate itertools;
 
+extern crate boomphf;
+
 use std::hash::Hash;
 use std::fmt;
 
@@ -33,6 +35,8 @@ pub mod vmer;
 pub mod msp;
 pub mod filter;
 pub mod fx;
+pub mod pufferfish;
+
 mod test;
 
 /// Convert a 2-bit representation of a base to a char

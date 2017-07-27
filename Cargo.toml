@@ -13,6 +13,8 @@ smallvec = "*"
 bit-set = "0.4.0"
 itertools = ">=0.6"
 extprim = { git = "https://github.com/kennytm/extprim.git", features=["serde"] }
+boomphf = { path = "../boomphf-rs" }
+
 
 [dependencies.num]
 version = "*"

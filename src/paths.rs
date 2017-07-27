@@ -122,7 +122,7 @@ impl<K: Kmer, D> BaseGraph<K, D> {
 
 #[derive(Serialize, Deserialize)]
 pub struct DebruijnGraph<K, D> {
-    base: BaseGraph<K, D>,
+    pub base: BaseGraph<K, D>,
     left_order: Vec<u32>,
     right_order: Vec<u32>,
 }
