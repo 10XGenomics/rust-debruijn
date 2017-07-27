@@ -449,36 +449,54 @@ impl<K: Kmer, D:Debug> DebruijnGraph<K, D> {
     }
 
 
-    pub fn to_json<P: AsRef<Path>, F: Fn(&D) -> Value>(&self, fmt_func: F, path: P) where {
-        let mut f = File::create(path).expect("couldn't open file");
+    pub fn to_json_rest<W: Write, F: Fn(&D) -> Value>(&self, fmt_func: F, mut writer: &mut W, rest: Option<Value>) {
 
-        writeln!(&mut f, "{{\n\"nodes\": [").unwrap();
+        writeln!(writer, "{{\n\"nodes\": [").unwrap();
         for i in 0 .. self.len() {
             let node = self.get_node(i);
-            node.to_json(&fmt_func, &mut f);
+            node.to_json(&fmt_func, writer);
             if i == self.len() - 1 {
-                write!(&mut f, "\n").unwrap();
+                write!(writer, "\n").unwrap();
             } else {
-                write!(&mut f, ",\n").unwrap();
+                write!(writer, ",\n").unwrap();
             }
         }
-        writeln!(&mut f, "],").unwrap();
+        writeln!(writer, "],").unwrap();
 
-        writeln!(&mut f, "\"links\": [").unwrap();
+        writeln!(writer, "\"links\": [").unwrap();
         for i in 0 .. self.len() {
             let node = self.get_node(i);
-            match node.edges_to_json(&mut f) {
+            match node.edges_to_json(writer) {
                 true => {
                     if i == self.len() - 1 {
-                        write!(&mut f, "\n").unwrap();
+                        write!(writer, "\n").unwrap();
                     } else {
-                        write!(&mut f, ",\n").unwrap();
+                        write!(writer, ",\n").unwrap();
                     }
                 },
                 _ => continue,
             }
         }
-        writeln!(&mut f, "]\n}}").unwrap();
+        writeln!(writer, "]").unwrap();
+
+        match rest {
+            Some(Value::Object(v)) => {
+                for (k,v) in v.iter() {
+                    writeln!(writer, ",");
+                    write!(writer, "\"{}\": ", k);
+                    serde_json::to_writer(&mut writer, v);
+                    writeln!(writer, "");
+                }
+            },
+            _ => { writeln!(writer, ""); }
+        }
+
+        writeln!(writer, "}}");
+    }
+
+    
+    pub fn to_json<W: Write, F: Fn(&D) -> Value, RF: Fn(&mut W) -> ()>(&self, fmt_func: F, writer: &mut W) {
+        self.to_json_rest(fmt_func, writer, None);
     }
 }
 
