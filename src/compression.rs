@@ -6,7 +6,6 @@ use smallvec::SmallVec;
 use std::fmt::Debug;
 
 use std::hash::BuildHasherDefault;
-use std::ops::Index;
 
 type SmallVec4<T> = SmallVec<[T; 4]>;
 
@@ -31,20 +30,7 @@ enum ExtModeNode {
     Terminal(Exts),
 }
 
-
 type Seq = Vec<u8>;
-
-pub trait BuildGraph<K: Kmer, V: Vmer<K>, D> {
-    // Basic progression
-    fn kmers_from_sequences(seqs: Vec<(Seq, D)>) -> Vec<(K, Exts, D)>;
-    fn spaths_from_kmers(kmers: Vec<(K, Exts, D)>) -> Vec<(V, Exts, D)>;
-    fn graph_from_spaths(spaths: Vec<(V, Exts, D)>) -> DebruijnGraph<K, D>;
-
-    // Derived methods
-    fn spaths_from_kmers_dict<I: Index<K, Output = (Exts, D)>>(kmers: I) -> Vec<(V, Exts, D)>;
-    fn build_graph<I: Index<K, Output = Exts>>(kmers: I) -> DebruijnGraph<K, D>;
-}
-
 
 /// Customize the path-compression process. Implementing this trait lets the user
 /// control how the per-kmer data (of type `D`) is summarized into a per-path
