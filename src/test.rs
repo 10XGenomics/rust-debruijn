@@ -292,7 +292,7 @@ mod tests {
 
         assert!(kmer_set == extension_kmer_set);
 
-        let spec = SimpleCompress::new(|mut d1: u16, d2: &u16| { d1 + d2 });
+        let spec = SimpleCompress::new(|mut d1: u16, d2: &u16| { d1.saturating_add(*d2) });
         let pc: PathCompression<K,_,_> = PathCompression::new(stranded, spec);
 
         // Now generate the lines for these kmers
