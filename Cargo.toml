@@ -12,7 +12,10 @@ linked-hash-map = "*"
 smallvec = "*"
 bit-set = "0.4.0"
 itertools = ">=0.6"
-extprim = "^1.4.0"
+
+[dependencies.extprim]
+version = "^1.4.0"
+features = ["serde"]
 
 [dependencies.num]
 version = "*"
