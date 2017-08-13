@@ -18,3 +18,7 @@ extprim = { git = "https://github.com/kennytm/extprim.git", features=["serde"] }
 version = "*"
 default-features = false 
 features = ["serde"]
+
+[dependencies.log]
+version = "^0.3.7"
+features = ["release_max_level_info"]

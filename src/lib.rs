@@ -23,6 +23,9 @@ extern crate smallvec;
 extern crate bit_set;
 extern crate itertools;
 
+#[macro_use]
+extern crate log;
+
 use std::hash::Hash;
 use std::fmt;
 

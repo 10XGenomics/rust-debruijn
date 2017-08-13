@@ -394,14 +394,14 @@ impl<K: Kmer, D:Debug> DebruijnGraph<K, D> {
 
             let &(start_node, dir, do_flip) = init;
             let mut current = (start_node, dir);
-            println!("start: {:?}", current);
+            debug!("start: {:?}", current);
 
             loop {
                 let mut next = None;
                 let (cur_id, incoming_dir) = current;
                 let node = self.get_node(cur_id);
                 let edges = node.edges(incoming_dir.flip());
-                println!("{:?}", node);
+                debug!("{:?}", node);
 
                 let mut solid_paths = 0;
                 for (id, dir, _) in edges {
@@ -436,7 +436,7 @@ impl<K: Kmer, D:Debug> DebruijnGraph<K, D> {
             }
         }
 
-        println!("path:{:?}", path);
+        debug!("path:{:?}", path);
         Vec::from_iter(path)
     }
 
