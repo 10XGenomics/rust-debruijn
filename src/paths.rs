@@ -354,6 +354,10 @@ impl<K: Kmer, D:Debug> DebruijnGraph<K, D> {
     pub fn max_path<F, F2>(&self, score: F, solid_path: F2) -> Vec<(usize, Dir)>
         where F: Fn(&D) -> f32, F2: Fn(&D) -> bool {
 
+        if self.len() == 0 {
+            return vec![];
+        }
+
         let mut best_node = 0;
         let mut best_score = f32::MIN;
         for i in 0..self.len() {
