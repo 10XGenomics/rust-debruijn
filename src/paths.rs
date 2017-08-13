@@ -492,8 +492,15 @@ impl<K: Kmer, D:Debug> DebruijnGraph<K, D> {
     }
 
 
-    fn node_to_gfa(&self, node: &Node<K,D>, w: &mut Write) {
-        writeln!(w, "S\t{}\t{}", node.node_id, node.sequence().to_dna_string()).unwrap();
+    fn node_to_gfa<F: (Fn(&Node<K,D>) -> String)>(&self, node: &Node<K,D>, w: &mut Write, tag_func: Option<&F>) {
+        
+        match tag_func {
+            Some(f) => {
+                let tags = (f)(node);
+                writeln!(w, "S\t{}\t{}\t{}", node.node_id, node.sequence().to_dna_string(), tags).unwrap();
+            }
+            _ => writeln!(w, "S\t{}\t{}", node.node_id, node.sequence().to_dna_string()).unwrap(),
+        }
 
         for (target, dir, _) in node.l_edges() {
             if target > node.node_id as usize {
@@ -516,9 +523,26 @@ impl<K: Kmer, D:Debug> DebruijnGraph<K, D> {
         let mut wtr = File::create(gfa_out).unwrap();
         writeln!(wtr, "H\tVN:Z:debruijn-rs").unwrap();
 
+        // Hack to generate a None value with the right type.
+        let dummy_func = |n: &Node<K,D>| { "".to_string() };
+        let mut dummy_opt = Some(&dummy_func);
+        let _ = dummy_opt.take();
+
         for i in 0 .. self.len() {
             let n = self.get_node(i);
-            self.node_to_gfa(&n, &mut wtr);
+            self.node_to_gfa(&n, &mut wtr, dummy_opt);
+        }
+    }
+
+    /// Write the graph to GFA format
+    pub fn to_gfa_with_tags<P: AsRef<Path>, F: (Fn(&Node<K,D>) -> String)>(&self, gfa_out: P, tag_func: F) 
+    {
+        let mut wtr = File::create(gfa_out).unwrap();
+        writeln!(wtr, "H\tVN:Z:debruijn-rs").unwrap();
+
+        for i in 0 .. self.len() {
+            let n = self.get_node(i);
+            self.node_to_gfa(&n, &mut wtr, Some(&tag_func));
         }
     }
 
@@ -577,6 +601,13 @@ impl<K: Kmer, D:Debug> DebruijnGraph<K, D> {
         println!("DebruijnGraph {{ len: {}, K: {} }} :", self.len(), K::k());
         for node in self.iter_nodes() {
             println!("{:?}", node);
+        }
+    }
+
+    pub fn print_with_data(&self) {
+        println!("DebruijnGraph {{ len: {}, K: {} }} :", self.len(), K::k());
+        for node in self.iter_nodes() {
+            println!("{:?} ({:?})", node, node.data());
         }
     }
 }

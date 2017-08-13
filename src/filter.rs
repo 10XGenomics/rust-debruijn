@@ -187,7 +187,7 @@ pub fn fix_exts<K: Kmer, D>(valid_kmers: &mut Vec<(K, (Exts, D))>, all_kmers: &V
 /// exists in all_kmers but not valid_kmers. We know that we can delete these extensions.
 /// In sharded kmer processing, we will have extensions to kmers in other shards. We don't
 /// know whether these are censored until later, so we retain the extension.
-pub fn fix_exts_local<K: Kmer, D>(valid_kmers: &mut Vec<(K, (Exts, D))>) {
+pub fn fix_exts_local<K: Kmer, D>(stranded: bool, valid_kmers: &mut Vec<(K, (Exts, D))>) {
 
     for idx in 0 .. valid_kmers.len() {
         let mut new_exts = Exts::empty();
@@ -198,7 +198,13 @@ pub fn fix_exts_local<K: Kmer, D>(valid_kmers: &mut Vec<(K, (Exts, D))>) {
             for i in 0..4
             {
                 if exts.has_ext(*dir, i) {
-                    let ext_kmer = kmer.extend(i, *dir);
+                    let ext_kmer = 
+                        if stranded {
+                            kmer.extend(i, *dir)
+                        } else {
+                            kmer.extend(i, *dir).min_rc()
+                        };
+                    
                     let kmer_valid = valid_kmers.binary_search_by_key(&ext_kmer, |d| d.0).is_ok();
 
                     if kmer_valid {
