@@ -1,8 +1,5 @@
 //! Represent kmers with statically know length in compact integer types
 
-use num;
-use extprim;
-
 use std;
 use std::hash::Hash;
 use std::fmt;
@@ -11,7 +8,6 @@ use num::FromPrimitive;
 use extprim::u128::u128;
 
 use Mer;
-use MerImmut;
 use Kmer;
 use bits_to_base;
 
@@ -324,6 +320,7 @@ mod tests {
     
     use Vmer;
     use KmerIter;
+    use MerImmut;
 
     fn check_kmer<T: Kmer>() {
         let K = T::k();
@@ -351,7 +348,6 @@ mod tests {
         }
         assert!(km == copy_kmer);
 
-
         // Extend right
         let nb = random_base();
         let ext_r = km.extend_right(nb);
@@ -372,7 +368,6 @@ mod tests {
         let double_shift = ts.extend_left(0).extend_right(r_base);
         assert!(ts == double_shift)
     }
-
 
     fn check_vmer<V: Vmer<T>, T: Kmer>() {
 
@@ -419,7 +414,6 @@ mod tests {
         assert!(vm.last_kmer() == kmers[kmers.len() - 1]);
     }
 
-
     pub fn random_vmer<V: Vmer<T>, T: Kmer>() -> V {
         let mut r = rand::thread_rng();
         let len = r.gen_range(T::k(), V::max_len());
@@ -431,8 +425,6 @@ mod tests {
         }
         vmer
     }
-
-
 
     pub fn random_kmer<T: Kmer>() -> T {
         let mut r = rand::thread_rng();
@@ -448,7 +440,6 @@ mod tests {
         let mut r = rand::thread_rng();
         (r.next_u64() % 4) as u8
     }
-
 
     #[test]
     fn test_lmer_3_kmer_64() {

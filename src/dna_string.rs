@@ -14,6 +14,7 @@ use std::cmp::min;
 use kmer::IntHelp;
 
 use Mer;
+use MerIter;
 use Vmer;
 
 const BLOCK_BITS: usize = 64;
@@ -45,7 +46,7 @@ impl Mer for DnaString {
         self.set_by_addr(block, bit, value);
     }
 
-    fn set_slice_mut(&mut self, pos: usize, nbases: usize, bits: u64) {
+    fn set_slice_mut(&mut self, _: usize, _: usize, _: u64) {
         unimplemented!()
     }
 
@@ -129,8 +130,7 @@ impl DnaString {
     /// Create a new instance with a given capacity.
     pub fn empty(n: usize) -> Self {
         let blocks = (n*WIDTH >> 6) + (if n*WIDTH & 0x3F > 0 { 1 } else { 0 });
-        let mut storage = Vec::with_capacity(blocks);
-        for i in 0 .. blocks { storage.push(0); }
+        let storage = vec![0; blocks];
 
         DnaString {
             storage: storage,
@@ -398,6 +398,16 @@ impl<'a> Iterator for DnaStringIter<'a> {
     }
 }
 
+impl<'a> IntoIterator for &'a DnaString {
+    type Item = u8;
+    type IntoIter = DnaStringIter<'a>;
+
+    fn into_iter(self) -> DnaStringIter<'a> {
+        self.iter()
+    }
+}
+
+
 
 #[derive(Eq, PartialEq, Clone)]
 pub struct DnaStringSlice<'a> {
@@ -474,8 +484,7 @@ impl<'a, K> Vmer<K> for DnaStringSlice<'a>
 impl<'a> DnaStringSlice<'a> {
 
     pub fn is_palindrome(&self) -> bool {
-        // FIXME
-        return false;
+        unimplemented!();
     }
 
     pub fn ascii(&self) -> Vec<u8> {
@@ -519,6 +528,17 @@ impl<'a> fmt::Debug for DnaStringSlice<'a> {
         write!(f, "{}", s)
     }
 }
+
+impl<'a> IntoIterator for &'a DnaStringSlice<'a> {
+    type Item = u8;
+    type IntoIter = MerIter<'a, DnaStringSlice<'a>>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.iter()
+    }
+}
+
+
 
 #[cfg(test)]
 mod tests {

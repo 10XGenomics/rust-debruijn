@@ -1,6 +1,6 @@
 [package]
 name = "debruijn"
-version = "0.1.0"
+version = "0.2.0"
 authors = ["Patrick Marks <patrick@10xgenomics.com>"]
 
 [dependencies]
@@ -12,11 +12,16 @@ linked-hash-map = "*"
 smallvec = "*"
 bit-set = "0.4.0"
 itertools = ">=0.6"
-extprim = { git = "https://github.com/kennytm/extprim.git", features=["serde"] }
-boomphf = { path = "../boomphf-rs" }
 
+[dependencies.extprim]
+version = "^1.4.0"
+features = ["serde"]
 
 [dependencies.num]
 version = "*"
 default-features = false 
 features = ["serde"]
+
+[dependencies.log]
+version = "^0.3.7"
+features = ["release_max_level_info"]

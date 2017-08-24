@@ -25,6 +25,9 @@ extern crate itertools;
 
 extern crate boomphf;
 
+#[macro_use]
+extern crate log;
+
 use std::hash::Hash;
 use std::fmt;
 
@@ -36,7 +39,8 @@ pub mod msp;
 pub mod filter;
 pub mod fx;
 pub mod pufferfish;
-
+pub mod compression;
+pub mod clean_graph;
 mod test;
 
 /// Convert a 2-bit representation of a base to a char
@@ -103,6 +107,14 @@ pub trait Mer: Sized + fmt::Debug {
     /// Add the base `v` to the right side of the sequence, and remove the leftmost base
     fn extend_right(&self, v: u8) -> Self;
 
+    /// Iterate over the bases in the sequence
+    fn iter<'a>(&'a self) -> MerIter<'a, Self> {
+        MerIter {
+            sequence: self,
+            i: 0,
+        }
+    }
+
     /// Add the base `v` to the side of sequence given by `dir`, and remove a base at the opposite side
     fn extend(&self, v: u8, dir: Dir) -> Self {
         match dir {
@@ -120,6 +132,41 @@ pub trait Mer: Sized + fmt::Debug {
             .collect()
     }
 }
+
+
+/// Iterator over values of a DnaStringoded sequence (values will be unpacked into bytes).
+pub struct MerIter<'a, M: 'a + Mer> {
+    sequence: &'a M,
+    i: usize,
+}
+
+impl<'a, M: 'a + Mer> Iterator for MerIter<'a, M> {
+    type Item = u8;
+
+    fn next(&mut self) -> Option<u8> {
+        if self.i < self.sequence.len() {
+            let value = self.sequence.get(self.i);
+            self.i += 1;
+            Some(value)
+        } else {
+            None
+        }
+
+    }
+}
+/*
+impl<'a, M: 'a + Mer> IntoIterator for M {
+    type Item = u8;
+    type IntoIter = MerIter<'a, M>;
+
+    fn into_iter(self) -> MerIter<'a, M> {
+        self.iter()
+    }
+}
+*/
+
+
+
 
 /// Encapsulates a Kmer sequence with statically known K.
 pub trait Kmer: Mer + Sized + Copy + PartialEq + PartialOrd + Eq + Ord + Hash {
@@ -303,6 +350,71 @@ pub trait Vmer<K: Kmer>: Mer + PartialEq + Eq + Clone {
 
         vmer
     }
+}
+
+// Note DnaBytes newtype is required to prevent various
+// Vec methods from being overridden by Mer / Vmer methods.
+#[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd)]
+struct DnaBytes(Vec<u8>);
+
+impl Mer for DnaBytes {
+
+    fn len(&self) -> usize {
+        self.0.len()
+    }
+
+    fn get(&self, pos: usize) -> u8 {
+        self.0[pos]
+    }
+    
+    /// Set base at `pos` to 2-bit encoded base `val`
+    fn set_mut(&mut self, pos: usize, val: u8) {
+        self.0[pos] = val
+    }
+
+    /// Set `nbases` positions in the sequence, starting at `pos`.
+    /// Values must  be packed into the upper-most bits of `value`.
+    fn set_slice_mut(&mut self, pos: usize, nbases: usize, value: u64) {
+        unimplemented!();
+        //for i in pos .. (pos + nbases) {
+        //
+        //}
+    }
+
+    /// Return a new object containing the reverse complement of the sequence
+    fn rc(&self) -> Self {
+        unimplemented!();
+    }
+
+    /// Add the base `v` to the left side of the sequence, and remove the rightmost base
+    fn extend_left(&self, v: u8) -> Self {
+        unimplemented!()
+    }
+
+    /// Add the base `v` to the right side of the sequence, and remove the leftmost base
+    fn extend_right(&self, v: u8) -> Self {
+        unimplemented!();
+    }
+}
+
+impl<K: Kmer> Vmer<K> for DnaBytes {
+
+    /// Create a new sequence with length `len`, initialized to all A's
+    fn new(len: usize) -> Self {
+        DnaBytes(vec![0u8; len])
+    }
+
+    /// Maximum sequence length that can be stored in this type
+    fn max_len() -> usize {
+        //usize::MAX_VALUE;
+        99999999999
+    }
+
+    /// Efficiently extract a Kmer from the sequence
+    fn get_kmer(&self, pos: usize) -> K {
+        K::from_bytes(&self.0[pos .. pos + K::k()])
+    }
+
 }
 
 
