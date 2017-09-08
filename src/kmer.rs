@@ -6,6 +6,7 @@ use std::fmt;
 use num::PrimInt;
 use num::FromPrimitive;
 use extprim::u128::u128;
+use std::marker::PhantomData;
 
 use Mer;
 use Kmer;
@@ -99,7 +100,6 @@ impl IntHelp for u8 {
         r
     }
 }
-
 
 
 /// A fixed-length Kmer sequence.
@@ -265,11 +265,7 @@ impl<T: PrimInt + FromPrimitive + Hash + IntHelp> Mer for IntKmer<T> {
         // not bits to get complement, then reverse order
         let new = !self.storage.reverse_by_twos();
 
-        // FIXME - deal with case when the kmer doesn't fill the bits
-        //let up_shift = 2 * (64 - Self::k());
-        //let down_shift = 64 - up_shift;
-        //let u2 = new >> down_shift;
-
+        // NOTE: IntKmer always fills the bits, so we don't need to shift here.
         IntKmer { storage: new }
     }
 
@@ -305,6 +301,262 @@ impl<T: PrimInt + FromPrimitive + Hash + IntHelp> fmt::Debug for IntKmer<T> {
         }
 
         write!(f, "{}", s)
+    }
+}
+
+pub trait KmerSize: Ord + Hash + Copy + fmt::Debug {
+    fn K() -> usize;
+}
+
+/// A fixed-length Kmer sequence that may not fill the bits of T
+///
+/// side:             L           R
+/// bases: 0   0   0  A  C  G  T  T
+/// bits:             H  ........ L      
+/// bit :  14  12  10 8  6  4  2  0
+///
+/// sorting the integer will give a lexicographic sorting of the corresponding string
+/// 
+
+#[derive(Copy, Clone, PartialEq, PartialOrd, Eq, Ord, Hash, Serialize, Deserialize)]
+pub struct VarIntKmer<T: PrimInt + FromPrimitive + IntHelp, KS: KmerSize> {
+    pub storage: T,
+    pub phantom: PhantomData<KS>,
+}
+
+
+impl<T: PrimInt + FromPrimitive + Hash + IntHelp, KS: KmerSize> Kmer for VarIntKmer<T, KS> {
+    fn empty() -> Self {
+        VarIntKmer { storage: T::zero(), phantom: PhantomData }
+    }
+
+    fn k() -> usize {
+        Self::_k()
+    }
+}
+
+
+impl<T: PrimInt + FromPrimitive + Hash + IntHelp, KS: KmerSize> VarIntKmer<T, KS> {
+    fn msk() -> T {
+        T::one() << 1 | T::one()
+    }
+
+    fn to_byte(v: T) -> u8 {
+        T::to_u8(&v).unwrap()
+    }
+
+    fn t_from_byte(v: u8) -> T {
+        T::from_u8(v).unwrap()
+    }
+
+    fn t_from_u64(v: u64) -> T {
+        T::from_u64(v).unwrap()
+    }
+
+   pub fn to_u64(&self) -> u64 {
+        T::to_u64(&self.storage).unwrap()
+    }
+
+    pub fn from_u64(v: u64) -> IntKmer<T> {
+        IntKmer { storage: Self::t_from_u64(v) }
+    }
+
+    pub fn from_bytes(bytes: &Vec<u8>) -> Vec<Self> {
+        let mut r = Vec::new();
+
+        let mut k0 = Self::empty();
+
+        for i in 0..Self::k() {
+            k0.set_mut(i, bytes[i])
+        }
+
+        r.push(k0);
+
+        for i in 1..(bytes.len() - Self::k() + 1) {
+            k0 = k0.clone().extend_right(bytes[Self::k() + i - 1]);
+            r.push(k0);
+        }
+        r
+    }
+
+    pub fn kmers_from_bases(bytes: &[u8]) -> Vec<Self> {
+        let mut r = Vec::new();
+
+        let mut k0 = Self::empty();
+
+        for i in 0..Self::k() {
+            k0.set_mut(i, ::base_to_bits(bytes[i]))
+        }
+
+        r.push(k0);
+
+        for i in 1..(bytes.len() - Self::k() + 1) {
+            k0 = k0.clone().extend_right(::base_to_bits(bytes[Self::k() + i - 1]));
+            r.push(k0);
+        }
+        r
+    }
+
+    pub fn kmer_from_bases(bytes: &[u8]) -> Self {
+        let mut k0 = Self::empty();
+
+        for i in 0..Self::k() {
+            k0.set_mut(i, ::base_to_bits(bytes[i]))
+        }
+        k0
+    }
+
+    fn addr(&self, pos: usize) -> usize {
+        let top_base = Self::k() - 1;
+        let bitpos = (top_base - pos) * 2;
+        bitpos
+    }
+
+    // K of this kmer
+    fn _k() -> usize {
+        KS::K()
+    }
+
+    // Bits used by this kmer
+    fn _bits() -> usize {
+        Self::_k() * 2
+    }
+
+    fn _total_bits() -> usize {
+        std::mem::size_of::<T>()*8
+    }
+
+    // mask the unused bits at the top, plus the requested number of bases
+    pub fn top_mask(n_bases: usize) -> T {
+        let unused_bits = Self::_total_bits() - Self::_bits();
+        let mask_bits = n_bases * 2 + unused_bits;
+
+        if mask_bits > 0 {
+            let one = T::one();
+            ((one << mask_bits) - one) << (Self::_total_bits() - mask_bits)
+        } else {
+            T::zero()
+        }
+    }
+
+    pub fn bottom_mask(n_bases: usize) -> T {
+        if n_bases > 0 {
+            // first pos bases
+            let one = T::one();
+            ((one << (n_bases * 2)) - one)
+        } else {
+            T::zero()
+        }
+    }
+}
+
+
+impl<T: PrimInt + FromPrimitive + Hash + IntHelp, KS: KmerSize> Mer for VarIntKmer<T, KS> {
+    fn len(&self) -> usize {
+        Self::_k()
+    }
+
+    /// Get the letter at the given position.
+    fn get(&self, pos: usize) -> u8 {
+        let bit = self.addr(pos);
+        Self::to_byte((self.storage >> bit & Self::msk()))
+    }
+
+    fn set_mut(&mut self, pos: usize, v: u8) {
+        let bit = self.addr(pos);
+        let mask = !(Self::msk() << bit);
+
+        self.storage = (self.storage & mask) | (Self::t_from_byte(v) << bit);
+    }
+
+    /// Set a slice of bases in the kmer, using the packed representation in value.
+    /// Sets n_bases, starting at pos. Incoming bases must always be packed into the upper-most
+    /// bits of the value.
+    fn set_slice_mut(&mut self, pos: usize, n_bases: usize, value: u64) {
+        debug_assert!(pos + n_bases <= Self::k());
+
+        // Move bases to the top of the smaller type
+        let v_shift = if Self::_total_bits() < 64 {
+            value >> (64 - Self::_total_bits())
+        } else {
+            value
+        };
+
+        // Move bases up to the top of this type
+        let v = if Self::_total_bits() > 64 {
+            Self::t_from_u64(v_shift) << (Self::_total_bits() - 64)
+        } else {
+            Self::t_from_u64(v_shift)
+        };
+
+        // Mask for where the bases will sit in the kmer
+        let top_mask = Self::top_mask(pos);
+        let bottom_mask = Self::bottom_mask(Self::k() - (pos + n_bases));
+        let mask = top_mask | bottom_mask;
+
+        // Move the base down to their home: position + unused high-order bits
+        let shift = (2*pos) + (Self::_total_bits() - Self::_bits());
+        let value_slide = v >> shift;
+
+        self.storage = (self.storage & mask) | (value_slide & !mask);
+    }
+
+    /// Return the reverse complement of this kmer
+    fn rc(&self) -> Self {
+        // not bits to get complement, then reverse order
+        let mut new = !self.storage.reverse_by_twos();
+
+        // deal with case when the kmer doesn't fill the bits
+        if Self::k() < std::mem::size_of::<T>() * 4 {
+            let up_shift = 2 * (std::mem::size_of::<T>() * 4 - Self::k());
+            new = new >> up_shift;
+        }
+
+        VarIntKmer { storage: new, phantom: PhantomData }
+    }
+
+    /// Shift the base v into the left end of the kmer
+    fn extend_left(&self, v: u8) -> Self {
+        let new = self.storage >> 2;
+        let mut kmer = VarIntKmer { storage: new, phantom: PhantomData };
+        kmer.set_mut(0, v);
+        kmer
+    }
+
+    fn extend_right(&self, v: u8) -> Self {
+        let new = self.storage << 2 & !Self::top_mask(0);
+        let mut kmer = VarIntKmer { storage: new, phantom: PhantomData };
+        kmer.set_mut(Self::k() - 1, v);
+        kmer
+    }
+}
+
+impl<T: PrimInt + FromPrimitive + Hash + IntHelp, KS: KmerSize> fmt::Debug for VarIntKmer<T, KS> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let mut s = String::new();
+        for pos in 0..Self::k() {
+            s.push(bits_to_base(self.get(pos)))
+        }
+
+        write!(f, "{}", s)
+    }
+}
+
+#[derive(Debug, Hash, Copy, Clone, Ord, PartialOrd, Eq, PartialEq)]
+struct K48;
+
+impl KmerSize for K48 {
+    fn K() -> usize {
+        48
+    }
+}
+
+#[derive(Debug, Hash, Copy, Clone, Ord, PartialOrd, Eq, PartialEq)]
+struct K24;
+
+impl KmerSize for K24 {
+    fn K() -> usize {
+        24
     }
 }
 
@@ -409,8 +661,14 @@ mod tests {
             for i in 0..T::k() {
                 assert_eq!(kmer.get(i), vm.get(i + pos))
             }
+
+            if vm.get_kmer(pos) != *kmer {
+                println!("didn't get same kmer: i:{}, vm: {:?} kmer_iter: {:?}, kmer_get: {:?}", pos, vm, kmer, vm.get_kmer(pos))
+            }
+            assert_eq!(vm.get_kmer(pos), *kmer);
         }
 
+        assert!(vm.first_kmer() == kmers[0]);
         assert!(vm.last_kmer() == kmers[kmers.len() - 1]);
     }
 
@@ -449,6 +707,13 @@ mod tests {
     }
 
     #[test]
+    fn test_lmer_3_kmer_48() {
+        for _ in 0..10000 {
+            check_vmer::<Lmer<VarIntKmer<u128, K48>, [u64; 3]>, VarIntKmer<u128, K48>>();
+        }
+    }
+
+    #[test]
     fn test_lmer_3_kmer_32() {
         for _ in 0..10000 {
             check_vmer::<Lmer<IntKmer<u64>, [u64; 3]>, IntKmer<u64>>();
@@ -459,6 +724,13 @@ mod tests {
     fn test_lmer_2_kmer_32() {
         for _ in 0..10000 {
             check_vmer::<Lmer<IntKmer<u64>, [u64; 3]>, IntKmer<u64>>();
+        }
+    }
+
+    #[test]
+    fn test_lmer_1_kmer_24() {
+        for _ in 0..10000 {
+            check_vmer::<Lmer<VarIntKmer<u64, K24>, [u64; 1]>, VarIntKmer<u64, K24>>();
         }
     }
 
@@ -477,9 +749,23 @@ mod tests {
     }
 
     #[test]
+    fn test_kmer_48() {
+        for _ in 0..10000 {
+            check_kmer::<VarIntKmer<u128, K48>>();
+        }
+    }
+
+    #[test]
     fn test_kmer_32() {
         for _ in 0..10000 {
             check_kmer::<IntKmer<u64>>();
+        }
+    }
+
+    #[test]
+    fn test_kmer_24() {
+        for _ in 0..10000 {
+            check_kmer::<VarIntKmer<u64, K24>>();
         }
     }
 

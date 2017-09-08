@@ -12,6 +12,7 @@ linked-hash-map = "*"
 smallvec = "*"
 bit-set = "0.4.0"
 itertools = ">=0.6"
+pdqsort = "*"
 
 [dependencies.extprim]
 version = "^1.4.0"

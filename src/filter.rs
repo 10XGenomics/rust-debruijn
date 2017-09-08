@@ -4,10 +4,12 @@ use std::mem;
 use itertools::Itertools;
 use std::marker::PhantomData;
 
+
 use Dir;
 use Kmer;
 use Exts;
 use Vmer;
+use pdqsort;
 
 fn bucket<K: Kmer>(kmer: K) -> usize {
     // FIXME - make 256 mins    
@@ -100,9 +102,9 @@ pub fn filter_kmers<K:Kmer, V:Vmer<K>, D1: Clone, DS, S: KmerSummarizer<D1,DS>>(
         start += sz;
     }
 
-    //if bucket_ranges.len() > 1 {
-    //    info!("processing {} BSPs in {} passes. Bucket ranges: {:?}", bsps.len(), bucket_ranges.len(), bucket_ranges);
-    //}
+    if bucket_ranges.len() > 1 {
+        info!("filter_kmers: {} sequences, {} kmers, {} passes", seqs.len(), input_kmers, bucket_ranges.len());
+    }
 
     for bucket_range in bucket_ranges {
 
@@ -133,7 +135,8 @@ pub fn filter_kmers<K:Kmer, V:Vmer<K>, D1: Clone, DS, S: KmerSummarizer<D1,DS>>(
         //info!("Validating kmers...");
         for mut kmer_vec in kmer_buckets {
 
-            kmer_vec.sort_by_key(|elt| elt.0);
+            pdqsort::sort_by_key(&mut kmer_vec, |elt| elt.0);
+            //kmer_vec.sort_by_key(|elt| elt.0);
 
             for (kmer, kmer_obs_iter) in &kmer_vec.into_iter().group_by(|elt| elt.0) {
                 let (is_valid, exts, summary_data) = summarizer.summarize(kmer_obs_iter);
@@ -143,11 +146,13 @@ pub fn filter_kmers<K:Kmer, V:Vmer<K>, D1: Clone, DS, S: KmerSummarizer<D1,DS>>(
         }
     }
 
-    valid_kmers.sort_by_key(|x| x.0);
-    all_kmers.sort();
-    fix_exts(&mut valid_kmers, &all_kmers);
+    pdqsort::sort_by_key(&mut valid_kmers, |x| x.0);
+    pdqsort::sort(&mut all_kmers);
+    //valid_kmers.sort_by_key(|x| x.0);
+    //all_kmers.sort();
+    fix_exts(stranded, &mut valid_kmers, &all_kmers);
 
-    //info!("Total Sequences: {}, Total kmers observed: {}, Unique Kmers observed: {}. Kmers accepted: {}", seqs.len(), total_kmers, unique_kmers, final_kmers.len());
+    info!("filter kmers: sequences: {}, kmers: {}, unique kmers: {}. valid kmers: {}", seqs.len(), input_kmers, all_kmers.len(), valid_kmers.len());
     (valid_kmers, all_kmers)
 }
 
@@ -155,7 +160,7 @@ pub fn filter_kmers<K:Kmer, V:Vmer<K>, D1: Clone, DS, S: KmerSummarizer<D1,DS>>(
 /// exists in all_kmers but not valid_kmers. We know that we can delete these extensions.
 /// In sharded kmer processing, we will have extensions to kmers in other shards. We don't
 /// know whether these are censored until later, so we retain the extension.
-pub fn fix_exts<K: Kmer, D>(valid_kmers: &mut Vec<(K, (Exts, D))>, all_kmers: &Vec<K>) {
+pub fn fix_exts<K: Kmer, D>(stranded: bool, valid_kmers: &mut Vec<(K, (Exts, D))>, all_kmers: &Vec<K>) {
 
     for idx in 0 .. valid_kmers.len() {
         let mut new_exts = Exts::empty();
@@ -166,11 +171,22 @@ pub fn fix_exts<K: Kmer, D>(valid_kmers: &mut Vec<(K, (Exts, D))>, all_kmers: &V
             for i in 0..4
             {
                 if exts.has_ext(*dir, i) {
-                    let ext_kmer = kmer.extend(i, *dir);
-                    let kmer_observed = all_kmers.binary_search(&ext_kmer).is_ok();
-                    let kmer_valid = valid_kmers.binary_search_by_key(&ext_kmer, |d| d.0).is_ok();
+                    let _ext_kmer = kmer.extend(i, *dir);
 
-                    let censored = kmer_observed && !kmer_valid;
+                    let ext_kmer = if stranded {
+                        _ext_kmer
+                    } else {
+                        _ext_kmer.min_rc()
+                    };
+
+                    let censored =
+                        if valid_kmers.binary_search_by_key(&ext_kmer, |d| d.0).is_ok() {
+                            // ext_kmer is valid. not censored
+                            false
+                        } else { 
+                            // ext_kmer is not valid. if it was in this shard, then we censor it
+                            all_kmers.binary_search(&ext_kmer).is_ok()
+                        };
 
                     if !censored {
                         new_exts = new_exts.set(*dir, i);

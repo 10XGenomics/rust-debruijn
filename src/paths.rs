@@ -11,6 +11,7 @@ use std::fs::File;
 use std::path::Path;
 use std::fmt::{self, Debug};
 use std::borrow::Borrow;
+use std::cmp::min;
 
 use std::f32;
 
@@ -18,6 +19,7 @@ use serde_json;
 use serde_json::Value;
 
 type SmallVec4<T> = SmallVec<[T; 4]>;
+type SmallVec8<T> = SmallVec<[T; 8]>;
 
 use Mer;
 use Kmer;
@@ -350,7 +352,6 @@ impl<K: Kmer, D:Debug> DebruijnGraph<K, D> {
         new_exts
     }
 
-
     pub fn max_path<F, F2>(&self, score: F, solid_path: F2) -> Vec<(usize, Dir)>
         where F: Fn(&D) -> f32, F2: Fn(&D) -> bool {
 
@@ -614,7 +615,137 @@ impl<K: Kmer, D:Debug> DebruijnGraph<K, D> {
             println!("{:?} ({:?})", node, node.data());
         }
     }
+
+
+
+    pub fn max_path_beam<F, F2>(&self, beam: usize, score: F, solid_path: F2) -> Vec<(usize, Dir)>
+        where F: Fn(&D) -> f32, F2: Fn(&D) -> bool {
+
+        if self.len() == 0 {
+            return vec![];
+        }
+
+        let mut states = Vec::new();
+
+        for i in 0..self.len() {
+            let node = self.get_node(i);
+            
+            // Initialize beam search on terminal nodes
+            if node.exts().num_exts_l() == 0 || node.exts().num_exts_r() == 0 {
+                let dir = 
+                    if node.exts().num_exts_l() > 0 { 
+                        Dir::Left
+                    } else {
+                        Dir::Right
+                    };
+
+                let status = 
+                    if node.exts().num_exts_l() == 0 && node.exts().num_exts_r() == 0 {
+                        Status::End
+                    } else {
+                        Status::Active
+                    };
+
+                let mut path = SmallVec8::new();
+                path.push((i as u32, dir));
+
+                let s = State { path, status, score: score(node.data()) };
+                states.push(s);
+            }
+        }
+
+        // Beam search until we can't find any more expansions
+        let mut active = true;
+        while active {
+            let mut new_states = Vec::new();
+            active = false;
+
+            for s in states {
+                if s.status == Status::Active {
+                    active = true;
+                    let expanded = self.expand_state(&s, &score, &solid_path);
+                    new_states.extend(expanded);
+                } else {
+                    new_states.push(s)
+                }
+            }
+
+            // workaround to sort by descending score - will panic if there are NaN scores
+            new_states.sort_by(|a, b| (-(a.score)).partial_cmp(&-(b.score)).unwrap());
+            new_states.truncate(beam);
+            states = new_states;
+        }
+
+        println!("best state: {:?}", states.first().unwrap());
+
+        for i in 1 .. min(4, states.len()) {
+            println!("i: {:?}", states[i]);
+        }
+
+        // convert back to using usize for node_id
+        states[0].path.iter().map(|&(node, dir)| (node as usize, dir)).collect()
+    }
+
+    fn expand_state<F, F2>(&self, state: &State, score: &F, solid_path: &F2) -> SmallVec4<State>
+        where F: Fn(&D) -> f32, F2: Fn(&D) -> bool  {
+
+        if state.status != Status::Active {
+            panic!("only attempt to expand active states")
+        }
+
+        let (node_id, dir) = state.path[state.path.len()-1];
+        let node = self.get_node(node_id as usize);
+        let mut new_states = SmallVec4::new();
+
+        for (next_node_id, incoming_dir, flip) in node.edges(dir) {
+            let next_node = self.get_node(next_node_id);
+            let new_score = state.score + score(next_node.data());
+
+            let new_dir = incoming_dir.flip();
+            let cycle = state.path.iter().any(|&(prev_node, _)| prev_node == (next_node_id as u32));
+
+            let status = 
+                if cycle {
+                    Status::Cycle
+                } else if next_node.edges(new_dir).len() == 0 {
+                    Status::End
+                } else {
+                    Status::Active
+                };
+
+            let mut new_path = state.path.clone();
+            new_path.push((next_node_id as u32, new_dir));
+
+            let next_state = State {
+                path: new_path,
+                score: new_score,
+                status: status,
+            };
+
+            new_states.push(next_state);
+        }
+
+        new_states
+    }
 }
+
+#[derive(Debug, Eq, PartialEq)]
+enum Status {
+    Active,
+    End,
+    Cycle,
+}
+
+#[derive(Debug)]
+struct State {
+    path: SmallVec8<(u32, Dir)>,
+    score: f32,
+    status: Status,
+}
+
+impl State {
+}
+
 
 pub struct NodeIter<'a, K: Kmer + 'a, D: Debug + 'a> {
     graph: &'a DebruijnGraph<K,D>,
