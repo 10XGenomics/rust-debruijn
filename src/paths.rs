@@ -634,9 +634,9 @@ impl<K: Kmer, D:Debug> DebruijnGraph<K, D> {
             if node.exts().num_exts_l() == 0 || node.exts().num_exts_r() == 0 {
                 let dir = 
                     if node.exts().num_exts_l() > 0 { 
-                        Dir::Left
-                    } else {
                         Dir::Right
+                    } else {
+                        Dir::Left
                     };
 
                 let status = 
@@ -676,10 +676,8 @@ impl<K: Kmer, D:Debug> DebruijnGraph<K, D> {
             states = new_states;
         }
 
-        println!("best state: {:?}", states.first().unwrap());
-
-        for i in 1 .. min(4, states.len()) {
-            println!("i: {:?}", states[i]);
+        for i in 0 .. min(5, states.len()) {
+            println!("i:{}  -- {:?}", i, states[i]);
         }
 
         // convert back to using usize for node_id
@@ -697,24 +695,23 @@ impl<K: Kmer, D:Debug> DebruijnGraph<K, D> {
         let node = self.get_node(node_id as usize);
         let mut new_states = SmallVec4::new();
 
-        for (next_node_id, incoming_dir, flip) in node.edges(dir) {
+        for (next_node_id, incoming_dir, _) in node.edges(dir.flip()) {
             let next_node = self.get_node(next_node_id);
             let new_score = state.score + score(next_node.data());
 
-            let new_dir = incoming_dir.flip();
             let cycle = state.path.iter().any(|&(prev_node, _)| prev_node == (next_node_id as u32));
 
             let status = 
                 if cycle {
                     Status::Cycle
-                } else if next_node.edges(new_dir).len() == 0 {
+                } else if next_node.edges(incoming_dir.flip()).len() == 0 {
                     Status::End
                 } else {
                     Status::Active
                 };
 
             let mut new_path = state.path.clone();
-            new_path.push((next_node_id as u32, new_dir));
+            new_path.push((next_node_id as u32, incoming_dir));
 
             let next_state = State {
                 path: new_path,

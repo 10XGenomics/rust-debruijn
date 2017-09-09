@@ -148,8 +148,6 @@ pub fn filter_kmers<K:Kmer, V:Vmer<K>, D1: Clone, DS, S: KmerSummarizer<D1,DS>>(
 
     pdqsort::sort_by_key(&mut valid_kmers, |x| x.0);
     pdqsort::sort(&mut all_kmers);
-    //valid_kmers.sort_by_key(|x| x.0);
-    //all_kmers.sort();
     fix_exts(stranded, &mut valid_kmers, &all_kmers);
 
     info!("filter kmers: sequences: {}, kmers: {}, unique kmers: {}. valid kmers: {}", seqs.len(), input_kmers, all_kmers.len(), valid_kmers.len());

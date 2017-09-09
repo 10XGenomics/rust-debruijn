@@ -14,6 +14,8 @@ use bits_to_base;
 
 
 pub type Kmer64 = IntKmer<u128>;
+pub type Kmer48 = VarIntKmer<u128, K48>;
+pub type Kmer40 = VarIntKmer<u128, K40>;
 pub type Kmer32 = IntKmer<u64>;
 
 
@@ -543,7 +545,7 @@ impl<T: PrimInt + FromPrimitive + Hash + IntHelp, KS: KmerSize> fmt::Debug for V
 }
 
 #[derive(Debug, Hash, Copy, Clone, Ord, PartialOrd, Eq, PartialEq)]
-struct K48;
+pub struct K48;
 
 impl KmerSize for K48 {
     fn K() -> usize {
@@ -551,15 +553,25 @@ impl KmerSize for K48 {
     }
 }
 
+
 #[derive(Debug, Hash, Copy, Clone, Ord, PartialOrd, Eq, PartialEq)]
-struct K24;
+pub struct K40;
+
+impl KmerSize for K40 {
+    fn K() -> usize {
+        40
+    }
+}
+
+
+#[derive(Debug, Hash, Copy, Clone, Ord, PartialOrd, Eq, PartialEq)]
+pub struct K24;
 
 impl KmerSize for K24 {
     fn K() -> usize {
         24
     }
 }
-
 
 
 #[cfg(test)]
