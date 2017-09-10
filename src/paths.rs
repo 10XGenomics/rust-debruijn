@@ -677,7 +677,7 @@ impl<K: Kmer, D:Debug> DebruijnGraph<K, D> {
         }
 
         for i in 0 .. min(5, states.len()) {
-            println!("i:{}  -- {:?}", i, states[i]);
+            trace!("i:{}  -- {:?}", i, states[i]);
         }
 
         // convert back to using usize for node_id
