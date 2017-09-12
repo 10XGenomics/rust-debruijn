@@ -654,6 +654,15 @@ impl<K: Kmer, D:Debug> DebruijnGraph<K, D> {
             }
         }
 
+        // No end nodes -- just start on the first node
+        if states.len() == 0 {
+            // Make a start
+            let node = self.get_node(0);
+            let mut path = SmallVec8::new();
+            path.push((0, Dir::Left));
+            states.push(State { path: path, status: Status::Active, score: score(node.data()) });
+        }
+
         // Beam search until we can't find any more expansions
         let mut active = true;
         while active {
