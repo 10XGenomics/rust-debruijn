@@ -9,7 +9,7 @@
 //! All the data structures in debruijn-rs are specialized to the alphabet {'A', 'C', 'G', 'T'},
 //! and use 2-bit packed encoding of base-pairs into integer types, and efficient methods for
 //! reverse complement, enumerating kmers from longer sequences, and transfering data between
-//! sequences. 
+//! sequences.
 
 extern crate num;
 extern crate extprim;
@@ -353,7 +353,7 @@ pub trait Vmer<K: Kmer>: Mer + PartialEq + Eq + Clone {
 // Note DnaBytes newtype is required to prevent various
 // Vec methods from being overridden by Mer / Vmer methods.
 #[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd)]
-struct DnaBytes(Vec<u8>);
+pub struct DnaBytes(pub Vec<u8>);
 
 impl Mer for DnaBytes {
 
@@ -364,7 +364,7 @@ impl Mer for DnaBytes {
     fn get(&self, pos: usize) -> u8 {
         self.0[pos]
     }
-    
+
     /// Set base at `pos` to 2-bit encoded base `val`
     fn set_mut(&mut self, pos: usize, val: u8) {
         self.0[pos] = val
@@ -548,7 +548,7 @@ impl Exts {
     pub fn mk_left(base: u8) -> Exts {
         Exts::empty().set(Dir::Left, base)
     }
- 
+
     pub fn mk_right(base: u8) -> Exts {
         Exts::empty().set(Dir::Right, base)
     }
@@ -640,7 +640,7 @@ impl<'a, K: Kmer, D: Mer> Iterator for KmerIter<'a, K, D> {
             if self.pos < self.bases.len(){
                 self.kmer = self.kmer.extend_right(self.bases.get(self.pos));
             }
-            
+
             self.pos = self.pos + 1;
             Some(retval)
         } else {
@@ -665,27 +665,27 @@ impl<'a, K: Kmer, D: Mer> Iterator for KmerExtsIter<'a, K, D> {
     fn next(&mut self) -> Option<(K,Exts)> {
         if self.pos <= self.bases.len() {
 
-            let next_base = 
+            let next_base =
                 if self.pos < self.bases.len() {
                     self.bases.get(self.pos)
                 } else {
                     0u8
                 };
 
-            let cur_left = 
+            let cur_left =
                 if self.pos == K::k() {
                     self.exts
                 } else {
                     Exts::mk_left(self.bases.get(self.pos - K::k() - 1))
                 };
 
-            let cur_right = 
+            let cur_right =
                 if self.pos < self.bases.len() {
                     Exts::mk_right(next_base)
                 } else {
                     self.exts
                 };
-            
+
             let cur_exts = Exts::merge(cur_left, cur_right);
 
             let retval = self.kmer;
@@ -697,5 +697,3 @@ impl<'a, K: Kmer, D: Mer> Iterator for KmerExtsIter<'a, K, D> {
         }
     }
 }
-
-
