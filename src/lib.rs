@@ -6,10 +6,16 @@
 //! graph, and performing path-compression of unbranched graph paths to improve
 //! speed and reduce memory consumption.
 
-//! All the data structures in debruijn-rs are specialized to the alphabet {'A', 'C', 'G', 'T'},
+//! All the data structures in debruijn-rs are specialized to the 4 base DNA alphabet,
 //! and use 2-bit packed encoding of base-pairs into integer types, and efficient methods for
 //! reverse complement, enumerating kmers from longer sequences, and transfering data between
 //! sequences. 
+//! 
+//! # Encodings
+//! Most methods for ingesting sequence data into the library will have a form named 'bytes',
+//! which expects bases encoded as the integers 0,1,2,3, and a separate form names 'ascii', 
+//! which expects bases encoded as the ASCII letters A,C,G,T.
+
 
 extern crate num;
 extern crate extprim;
@@ -36,9 +42,10 @@ pub mod paths;
 pub mod vmer;
 pub mod msp;
 pub mod filter;
-pub mod fx;
 pub mod compression;
 pub mod clean_graph;
+
+mod fx;
 mod test;
 
 /// Convert a 2-bit representation of a base to a char
@@ -195,7 +202,7 @@ pub trait Kmer: Mer + Sized + Copy + PartialEq + PartialOrd + Eq + Ord + Hash {
         self.len() % 2 == 0 && *self == self.rc()
     }
 
-    /// Create a Kmer from the first K bytes of `bytes`
+    /// Create a Kmer from the first K bytes of `bytes`, which must be encoded as the integers 0-4.
     fn from_bytes(bytes: &[u8]) -> Self {
         if bytes.len() < Self::k() {
             panic!("bytes not long enough to form kmer")
@@ -210,6 +217,7 @@ pub trait Kmer: Mer + Sized + Copy + PartialEq + PartialOrd + Eq + Ord + Hash {
         k0
     }
 
+   /// Create a Kmer from the first K bytes of `bytes`, which must be encoded as ASCII letters A,C,G, or T.
     fn from_ascii(bytes: &[u8]) -> Self {
         if bytes.len() < Self::k() {
             panic!("bytes not long enough to form kmer")
@@ -224,6 +232,7 @@ pub trait Kmer: Mer + Sized + Copy + PartialEq + PartialOrd + Eq + Ord + Hash {
         k0
     }
 
+    /// Return String containing Kmer sequence
     fn to_string(&self) -> String {
         let mut s = String::new();
         for pos in 0..self.len() {
@@ -232,8 +241,8 @@ pub trait Kmer: Mer + Sized + Copy + PartialEq + PartialOrd + Eq + Ord + Hash {
         s
     }
 
-    /// Generate all kmers from string
-    fn kmers_from_string(str: &[u8]) -> Vec<Self> {
+    /// Generate vector of all kmers contained in `str` encoded as 0-4.
+    fn kmers_from_bytes(str: &[u8]) -> Vec<Self> {
         let mut r = Vec::new();
 
         if str.len() < Self::k() {
@@ -250,6 +259,30 @@ pub trait Kmer: Mer + Sized + Copy + PartialEq + PartialOrd + Eq + Ord + Hash {
 
         for i in Self::k()..str.len() {
             k0 = k0.extend_right(str[i]);
+            r.push(k0.clone());
+        }
+
+        r
+    }
+
+    /// Generate vector of all kmers contained in `str`, encoded as ASCII ACGT.
+    fn kmers_from_ascii(str: &[u8]) -> Vec<Self> {
+        let mut r = Vec::new();
+
+        if str.len() < Self::k() {
+            return r;
+        }
+
+        let mut k0 = Self::empty();
+
+        for i in 0..Self::k() {
+            k0.set_mut(i, base_to_bits(str[i]));
+        }
+
+        r.push(k0.clone());
+
+        for i in Self::k()..str.len() {
+            k0 = k0.extend_right(base_to_bits(str[i]));
             r.push(k0.clone());
         }
 

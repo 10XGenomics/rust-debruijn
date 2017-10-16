@@ -222,7 +222,7 @@ mod tests {
         // kmer vector
         let mut kmers = Vec::new();
         for c in contigs.iter() {
-            let mut _kmers = K::kmers_from_string(c.as_slice());
+            let mut _kmers = K::kmers_from_bytes(&c);
             kmers.extend(_kmers.iter().map(|k| k.min_rc()));
         }
 

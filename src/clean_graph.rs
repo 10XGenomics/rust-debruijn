@@ -1,3 +1,6 @@
+// Copyright 2017 10x Genomics
+
+//! DeBruijn graph simplification routines. Currently tip-removal is implemented.
 use Kmer;
 use paths::{DebruijnGraph, Node};
 use std::marker::PhantomData;

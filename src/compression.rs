@@ -1,3 +1,6 @@
+// Copyright 2017 10x Genomics
+
+//! Create compressed DeBruijn graphs from uncompressed DeBruijn graphs, or a collection of disjoint DeBruijn graphs.
 use std::marker::PhantomData;
 use fx::{FxLMap, FxHasher};
 use std::collections::VecDeque;

@@ -26,50 +26,12 @@ use Kmer;
 use Vmer;
 use Dir;
 use Exts;
-use dna_string::{DnaString, DnaStringSlice};
+use dna_string::{DnaString, DnaStringSlice, PackedDnaStringSet};
 
-#[derive(Serialize, Deserialize)]
-pub struct PackedDnaStringSet {
-    pub sequence: DnaString,
-    pub start: Vec<usize>,
-    pub length: Vec<u32>,
-}
-
-impl<'a> PackedDnaStringSet {
-    fn new() -> Self {
-        PackedDnaStringSet {
-            sequence: DnaString::new(),
-            start: Vec::new(),
-            length: Vec::new(),
-        }
-    }
-
-    pub fn get(&'a self, i: usize) -> DnaStringSlice<'a> {
-        DnaStringSlice {
-            dna_string: &self.sequence,
-            start: self.start[i],
-            length: self.length[i] as usize,
-            is_rc: false,
-        }
-    }
-
-    pub fn len(&self) -> usize {
-        self.start.len()
-    }
-
-    fn add<'b, R: Borrow<u8>, S: IntoIterator<Item = R>>(&mut self, sequence: S) {
-        let start = self.sequence.len();
-        self.start.push(start);
-
-        let mut length = 0;
-        for b in sequence {
-            self.sequence.push(b.borrow().clone());
-            length += 1;
-        }
-        self.length.push(length as u32);
-    }
-}
-
+/// A compressed DeBruijn graph carrying auxiliary data on each node of type `D`.
+/// This private type does not carry the sorted index arrays the allow the graph
+/// to be walked efficiently.  The `DeBruijnGraph` type wraps this type and add those
+/// vectors.
 #[derive(Serialize, Deserialize)]
 pub struct BaseGraph<K, D> {
     pub sequences: PackedDnaStringSet,
@@ -155,6 +117,9 @@ impl<K: Kmer, D> BaseGraph<K, D> {
     }
 }
 
+/// A compressed DeBruijn graph carrying auxiliary data on each node of type `D`.
+/// The struct carries sorted index arrays the allow the graph
+/// to be walked efficiently.
 #[derive(Serialize, Deserialize)]
 pub struct DebruijnGraph<K, D> {
     pub base: BaseGraph<K, D>,
@@ -163,10 +128,12 @@ pub struct DebruijnGraph<K, D> {
 }
 
 impl<K: Kmer, D:Debug> DebruijnGraph<K, D> {
+    /// Total number of nodes in the DeBruijn graph
     pub fn len(&self) -> usize {
         self.base.len()
     }
 
+    /// Get a node given it's `node_id`
     pub fn get_node<'a>(&'a self, node_id: usize) -> Node<'a, K, D> {
         Node {
             node_id: node_id,
@@ -174,11 +141,14 @@ impl<K: Kmer, D:Debug> DebruijnGraph<K, D> {
         }
     }
 
+    /// Return an iterator over all nodes in the graph
     pub fn iter_nodes<'a>(&'a self) -> NodeIter<'a, K, D> {
         NodeIter { graph: self, node_id: 0 }
     }
 
-    pub fn find_edges(&self, node_id: usize, dir: Dir) -> SmallVec4<(usize, Dir, bool)> {
+    /// Find the edges leaving node `node_id` in direction `Dir`. Should generally be
+    /// accessed via a Node wrapper object
+    fn find_edges(&self, node_id: usize, dir: Dir) -> SmallVec4<(usize, Dir, bool)> {
 
         let exts = self.base.exts[node_id];
         let sequence = self.base.sequences.get(node_id);
@@ -202,7 +172,8 @@ impl<K: Kmer, D:Debug> DebruijnGraph<K, D> {
         edges
     }
 
-    pub fn search_kmer(&self, kmer: K, side: Dir) -> Option<usize> {
+    /// Seach for the kmer `kmer`, appearing at the given `side` of a node sequence.
+    fn search_kmer(&self, kmer: K, side: Dir) -> Option<usize> {
         match side {
             Dir::Left => {
                 let pos = self.left_order
@@ -229,6 +200,7 @@ impl<K: Kmer, D:Debug> DebruijnGraph<K, D> {
         }
     }
 
+    /// Find a link in the graph, possibly handling a RC switch.
     pub fn find_link(&self, kmer: K, dir: Dir) -> Option<(usize, Dir, bool)> {
         // Only test self-consistent paths through
         // the edges
@@ -274,6 +246,9 @@ impl<K: Kmer, D:Debug> DebruijnGraph<K, D> {
         return None;
     }
 
+    /// Check whether the graph is fully compressed. Return `None` if it's compressed, 
+    /// otherwise return `Some(node1, node2)` representing a pair of node that could
+    /// be collapsed. Probably only useful for testing.
     pub fn is_compressed(&self) -> Option<(usize, usize)>  {
         for i in 0 .. self.len() {
             let n = self.get_node(i);
@@ -352,6 +327,9 @@ impl<K: Kmer, D:Debug> DebruijnGraph<K, D> {
         new_exts
     }
 
+    /// Find the highest-scoring, unambiguous path in the graph. Each node get a score
+    /// given by `score`. Any node where `solid_path(node) == True` are valid paths - 
+    /// paths will be terminated if there are multiple valid paths emanating from a node.
     pub fn max_path<F, F2>(&self, score: F, solid_path: F2) -> Vec<(usize, Dir)>
         where F: Fn(&D) -> f32, F2: Fn(&D) -> bool {
 
@@ -445,7 +423,7 @@ impl<K: Kmer, D:Debug> DebruijnGraph<K, D> {
         Vec::from_iter(path)
     }
 
-
+    /// Get the sequence of a path through the graph. The path is given as a sequence of node_id integers
     pub fn sequence_of_path<'a, I: 'a + Iterator<Item=&'a (usize, Dir)>>(&self, path: I) -> DnaString {
         let mut seq = DnaString::new();
 
@@ -597,11 +575,12 @@ impl<K: Kmer, D:Debug> DebruijnGraph<K, D> {
         writeln!(writer, "}}").expect("io error");
     }
 
-    
+    /// Write the graph to JSON
     pub fn to_json<W: Write, F: Fn(&D) -> Value, RF: Fn(&mut W) -> ()>(&self, fmt_func: F, writer: &mut W) {
         self.to_json_rest(fmt_func, writer, None);
     }
 
+    /// Print a text representation of the graph.
     pub fn print(&self) {
         println!("DebruijnGraph {{ len: {}, K: {} }} :", self.len(), K::k());
         for node in self.iter_nodes() {
@@ -752,7 +731,7 @@ struct State {
 impl State {
 }
 
-
+/// Iterator over nodes in a `DeBruijnGraph`
 pub struct NodeIter<'a, K: Kmer + 'a, D: Debug + 'a> {
     graph: &'a DebruijnGraph<K,D>,
     node_id: usize
