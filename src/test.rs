@@ -143,10 +143,9 @@ mod tests {
     use clean_graph::CleanGraph;
     use std::collections::HashSet;
     use paths::{BaseGraph, DebruijnGraph};
-    use compression::{SimpleCompress, PathCompression, Simplify};
+    use compression::{SimpleCompress, compress_kmers, Simplify};
     use std::iter::FromIterator;
-    use std::hash::{Hash, SipHasher, Hasher};
-    use std::marker::PhantomData;
+    use std::hash::{Hasher};
     use DnaBytes;
 
     use std::ops::Sub;
@@ -293,10 +292,9 @@ mod tests {
         assert!(kmer_set == extension_kmer_set);
 
         let spec = SimpleCompress::new(|mut d1: u16, d2: &u16| { d1.saturating_add(*d2) });
-        let pc: PathCompression<K,_,_> = PathCompression::new(stranded, spec);
 
-        // Now generate the lines for these kmers
-        let graph = pc.build_nodes(&valid_kmers);
+        // Generate compress DBG for these kmers
+        let graph = compress_kmers(stranded, spec, &valid_kmers);
 
         // Check that all the lines have valid kmers,
         // and have extensions into other valid kmers
@@ -355,17 +353,17 @@ mod tests {
 
 
         // Assemble w/o tips
-        let (valid_kmers_clean, _) = filter::filter_kmers(&clean_seqs, filter::CountFilter::new(2), stranded);
+        let (valid_kmers_clean, _): (Vec<(K, _)>, Vec<K>) = filter::filter_kmers(&clean_seqs, filter::CountFilter::new(2), stranded);
         let spec = SimpleCompress::new(|mut d1: u16, d2: &u16| { d1 + d2 });
-        let pc: PathCompression<K,_,_> = PathCompression::new(stranded, spec);
-        let graph1 = pc.build_nodes(&valid_kmers_clean).finish();
+        let graph = compress_kmers(stranded, spec, &valid_kmers_clean);
+        let graph1 = graph.finish();
         graph1.print();
 
         // Assemble w/ tips
-        let (valid_kmers_errs, _) = filter::filter_kmers(&all_seqs, filter::CountFilter::new(2), stranded);
+        let (valid_kmers_errs, _): (Vec<(K, _)>, Vec<K>) = filter::filter_kmers(&all_seqs, filter::CountFilter::new(2), stranded);
         let spec = SimpleCompress::new(|mut d1: u16, d2: &u16| { d1 + d2 });
-        let pc: PathCompression<K,_,_> = PathCompression::new(stranded, spec);
-        let graph2 = pc.build_nodes(&valid_kmers_errs).finish();
+        let graph = compress_kmers(stranded, spec, &valid_kmers_errs);
+        let graph2 = graph.finish();
         graph2.print();
 
         // Now try to clean the tips.
