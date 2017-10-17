@@ -143,7 +143,7 @@ mod tests {
     use clean_graph::CleanGraph;
     use std::collections::HashSet;
     use paths::{BaseGraph, DebruijnGraph};
-    use compression::{SimpleCompress, compress_kmers, Simplify};
+    use compression::{SimpleCompress, compress_kmers, compress_graph};
     use std::iter::FromIterator;
     use std::hash::{Hasher};
     use DnaBytes;
@@ -201,7 +201,7 @@ mod tests {
 
         // Canonicalize the graph with 
         let spec = SimpleCompress::new(|mut d1: u16, d2: &u16| { d1 + d2 });
-        let simp_dbg = Simplify::simplify(uncompressed_dbg, None, stranded, spec);
+        let simp_dbg = compress_graph(stranded, spec, uncompressed_dbg, None);
 
         let is_cmp = simp_dbg.is_compressed();
         if is_cmp.is_some() {
@@ -372,7 +372,7 @@ mod tests {
 
         println!("censor: {:?}", nodes_to_censor);
         let spec = SimpleCompress::new(|mut d1: u16, d2: &u16| { d1 + d2 });
-        let fixed = Simplify::simplify(graph2, Some(nodes_to_censor), stranded, spec);
+        let fixed = compress_graph(stranded, spec, graph2, Some(nodes_to_censor));
         fixed.print();
     }
 }

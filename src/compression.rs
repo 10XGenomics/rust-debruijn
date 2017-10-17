@@ -293,7 +293,7 @@ pub fn compress_kmers<K: Kmer,D: Clone + Debug,S: CompressionSpec<D>>(stranded: 
     CompressFromKmers::<K,D,S>::compress_kmers(stranded, spec, kmer_exts)  
 }
 
-pub struct Simplify<'a, K: 'a + Kmer, D:'a, S: CompressionSpec<D>> {
+struct CompressFromGraph<'a, K: 'a + Kmer, D:'a, S: CompressionSpec<D>> {
     stranded: bool,
     d: PhantomData<D>,
     spec: S,
@@ -301,7 +301,7 @@ pub struct Simplify<'a, K: 'a + Kmer, D:'a, S: CompressionSpec<D>> {
     graph: &'a DebruijnGraph<K, D>,
 }
 
-impl<'a, K:Kmer, D: Debug + Clone, S: CompressionSpec<D>> Simplify<'a, K, D, S> {
+impl<'a, K:Kmer, D: Debug + Clone, S: CompressionSpec<D>> CompressFromGraph<'a, K, D, S> {
 
     #[inline(never)]
     fn try_extend_node(&mut self, node: usize, dir: Dir) -> ExtModeNode {
@@ -466,12 +466,9 @@ impl<'a, K:Kmer, D: Debug + Clone, S: CompressionSpec<D>> Simplify<'a, K, D, S> 
 
     /// Simplify a compressed Debruijn graph by merging adjacent unbranched nodes, and optionally
     /// censoring some nodes
-    pub fn simplify(mut old_graph: DebruijnGraph<K,D>, censor_nodes: Option<Vec<usize>>, stranded: bool, compression: S) -> DebruijnGraph<K, D> {
-
+    pub fn compress_graph(stranded: bool, compression: S, mut old_graph: DebruijnGraph<K,D>, censor_nodes: Option<Vec<usize>>) -> DebruijnGraph<K, D> {
 
         let n_nodes = old_graph.len();
-        
-
         let mut available_nodes = BitSet::with_capacity(n_nodes);
         for i in 0 .. n_nodes {
             available_nodes.insert(i);
@@ -488,8 +485,8 @@ impl<'a, K:Kmer, D: Debug + Clone, S: CompressionSpec<D>> Simplify<'a, K, D, S> 
 
         old_graph.fix_exts(Some(&available_nodes));
 
-        let mut simplify = 
-            Simplify {
+        let mut comp = 
+            CompressFromGraph {
                 spec: compression,
                 stranded: stranded,
                 graph: &old_graph,
@@ -502,8 +499,8 @@ impl<'a, K:Kmer, D: Debug + Clone, S: CompressionSpec<D>> Simplify<'a, K, D, S> 
 
         for node_counter in 0 .. n_nodes {
 
-            if simplify.available_nodes.contains(node_counter) {
-                let (seq, exts, _, data) = simplify.build_node(node_counter);
+            if comp.available_nodes.contains(node_counter) {
+                let (seq, exts, _, data) = comp.build_node(node_counter);
                 graph.add(&seq, exts, data);
             }
         }
@@ -511,9 +508,17 @@ impl<'a, K:Kmer, D: Debug + Clone, S: CompressionSpec<D>> Simplify<'a, K, D, S> 
         // We will have some hanging exts due to
         let mut dbg = graph.finish();
         dbg.fix_exts(None);
-        //assert!(dbg.is_compressed() == None);
+        debug_assert!(dbg.is_compressed() == None);
         dbg
-
-        
     }
 }
+
+/// Perform path-compression on a (possibly partially compressed) DeBruijn graph
+pub fn compress_graph<K: Kmer,D: Clone + Debug,S: CompressionSpec<D>>(
+    stranded: bool, 
+    spec: S, 
+    mut old_graph: DebruijnGraph<K,D>, 
+    censor_nodes: Option<Vec<usize>>) -> DebruijnGraph<K,D> {
+    CompressFromGraph::<K,D,S>::compress_graph(stranded, spec, old_graph, censor_nodes)  
+}
+
