@@ -289,6 +289,7 @@ impl<'a, K: Kmer, D: Clone + Debug, S: CompressionSpec<D>> CompressFromKmers<'a,
     }
 }
 
+/// Take a set of kmers and their observed extensions and build a compressed DeBruijn graph.
 pub fn compress_kmers<K: Kmer,D: Clone + Debug,S: CompressionSpec<D>>(stranded: bool, spec: S, kmer_exts: &Vec<(K, (Exts, D))>) -> BaseGraph<K,D> {
     CompressFromKmers::<K,D,S>::compress_kmers(stranded, spec, kmer_exts)  
 }
