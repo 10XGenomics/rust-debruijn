@@ -50,8 +50,10 @@ impl<D, F> SimpleCompress<D, F> {
     }
 }
 
-impl<D, F> CompressionSpec<D> for SimpleCompress<D,F> 
-    where for<'r> F: Fn(D, &'r D) -> D {
+impl<D, F> CompressionSpec<D> for SimpleCompress<D, F>
+where
+    for<'r> F: Fn(D, &'r D) -> D,
+{
     fn reduce(&self, d: D, other: &D) -> D {
         (self.func)(d, other)
     }
@@ -73,14 +75,17 @@ struct CompressFromKmers<'a, K: 'a + Kmer, D: 'a, S: CompressionSpec<D>> {
 
 /// Compression of paths in Debruijn graph
 impl<'a, K: Kmer, D: Clone + Debug, S: CompressionSpec<D>> CompressFromKmers<'a, K, D, S> {
-
     fn get_kmer_data(&'a self, kmer: &K) -> &'a (Exts, D) {
-        let pos = self.kmer_exts.binary_search_by_key(kmer, |x| x.0).expect("couldn't find kmer");
+        let pos = self.kmer_exts.binary_search_by_key(kmer, |x| x.0).expect(
+            "couldn't find kmer",
+        );
         &self.kmer_exts[pos].1
     }
 
     fn get_kmer_id(&self, kmer: &K) -> usize {
-        self.kmer_exts.binary_search_by_key(kmer, |x| x.0).expect("couldn't find kmer")
+        self.kmer_exts.binary_search_by_key(kmer, |x| x.0).expect(
+            "couldn't find kmer",
+        )
     }
 
     /// Attempt to extend kmer v in direction dir. Return:
@@ -100,7 +105,7 @@ impl<'a, K: Kmer, D: Clone + Debug, S: CompressionSpec<D>> CompressFromKmers<'a,
             let ext_base = exts.get_unique_extension(dir).expect("should be unique");
 
             let mut next_kmer = kmer.extend(ext_base, dir);
-            
+
             let mut do_flip = false;
 
             if !self.stranded {
@@ -161,8 +166,7 @@ impl<'a, K: Kmer, D: Clone + Debug, S: CompressionSpec<D>> CompressFromKmers<'a,
         let _ = self.available_kmers.remove(id);
 
         loop {
-            let ext_result =
-                self.try_extend_kmer(current_kmer, current_dir);
+            let ext_result = self.try_extend_kmer(current_kmer, current_dir);
 
             match ext_result {
                 ExtMode::Unique(next_kmer, next_dir, _) => {
@@ -171,11 +175,11 @@ impl<'a, K: Kmer, D: Clone + Debug, S: CompressionSpec<D>> CompressFromKmers<'a,
                     self.available_kmers.remove(next_id);
                     current_kmer = next_kmer;
                     current_dir = next_dir;
-                },
+                }
                 ExtMode::Terminal(ext) => {
                     final_exts = ext;
                     break;
-                },
+                }
             }
         }
 
@@ -185,7 +189,12 @@ impl<'a, K: Kmer, D: Clone + Debug, S: CompressionSpec<D>> CompressFromKmers<'a,
 
     /// Build the edge surrounding a kmer
     #[inline(never)]
-    fn build_node(&mut self, seed: K, path: &mut Vec<(K, Dir)>,  edge_seq: &mut VecDeque<u8>) -> (Exts, D) {
+    fn build_node(
+        &mut self,
+        seed: K,
+        path: &mut Vec<(K, Dir)>,
+        edge_seq: &mut VecDeque<u8>,
+    ) -> (Exts, D) {
 
         edge_seq.clear();
         for i in 0..K::k() {
@@ -242,23 +251,26 @@ impl<'a, K: Kmer, D: Clone + Debug, S: CompressionSpec<D>> CompressFromKmers<'a,
 
     /// Compress a set of kmers and their extensions and metadata into a base DeBruijn graph.
     #[inline(never)]
-    pub fn compress_kmers(stranded: bool, spec: S, kmer_exts: &Vec<(K, (Exts, D))>) -> BaseGraph<K,D> {
+    pub fn compress_kmers(
+        stranded: bool,
+        spec: S,
+        kmer_exts: &Vec<(K, (Exts, D))>,
+    ) -> BaseGraph<K, D> {
 
         let n_kmers = kmer_exts.len();
         let mut available_kmers = BitSet::with_capacity(n_kmers);
-        for i in 0 .. n_kmers {
+        for i in 0..n_kmers {
             available_kmers.insert(i);
         }
 
-        let mut comp = 
-            CompressFromKmers {
-                stranded: stranded,
-                spec: spec,
-                k: PhantomData,
-                d: PhantomData,
-                available_kmers: available_kmers,
-                kmer_exts: kmer_exts,
-            };
+        let mut comp = CompressFromKmers {
+            stranded: stranded,
+            spec: spec,
+            k: PhantomData,
+            d: PhantomData,
+            available_kmers: available_kmers,
+            kmer_exts: kmer_exts,
+        };
 
         // Path-compressed De Bruijn graph will be created here
         let mut graph = BaseGraph::new(stranded);
@@ -269,10 +281,11 @@ impl<'a, K: Kmer, D: Clone + Debug, S: CompressionSpec<D>> CompressFromKmers<'a,
         // Node sequences will get assembled here
         let mut edge_seq_buf = VecDeque::new();
 
-        for kmer_counter in 0 .. n_kmers {
+        for kmer_counter in 0..n_kmers {
             let start_kmer = kmer_exts[kmer_counter].0.clone();
             if comp.available_kmers.contains(kmer_counter) {
-                let (node_exts, node_data) = comp.build_node(start_kmer, &mut path_buf, &mut edge_seq_buf);
+                let (node_exts, node_data) =
+                    comp.build_node(start_kmer, &mut path_buf, &mut edge_seq_buf);
                 graph.add(&edge_seq_buf, node_exts, node_data);
             }
         }
@@ -282,11 +295,15 @@ impl<'a, K: Kmer, D: Clone + Debug, S: CompressionSpec<D>> CompressFromKmers<'a,
 }
 
 /// Take a set of kmers and their observed extensions and build a compressed DeBruijn graph.
-pub fn compress_kmers<K: Kmer,D: Clone + Debug,S: CompressionSpec<D>>(stranded: bool, spec: S, kmer_exts: &Vec<(K, (Exts, D))>) -> BaseGraph<K,D> {
-    CompressFromKmers::<K,D,S>::compress_kmers(stranded, spec, kmer_exts)  
+pub fn compress_kmers<K: Kmer, D: Clone + Debug, S: CompressionSpec<D>>(
+    stranded: bool,
+    spec: S,
+    kmer_exts: &Vec<(K, (Exts, D))>,
+) -> BaseGraph<K, D> {
+    CompressFromKmers::<K, D, S>::compress_kmers(stranded, spec, kmer_exts)
 }
 
-struct CompressFromGraph<'a, K: 'a + Kmer, D:'a, S: CompressionSpec<D>> {
+struct CompressFromGraph<'a, K: 'a + Kmer, D: 'a, S: CompressionSpec<D>> {
     stranded: bool,
     d: PhantomData<D>,
     spec: S,
@@ -294,8 +311,7 @@ struct CompressFromGraph<'a, K: 'a + Kmer, D:'a, S: CompressionSpec<D>> {
     graph: &'a DebruijnGraph<K, D>,
 }
 
-impl<'a, K:Kmer, D: Debug + Clone, S: CompressionSpec<D>> CompressFromGraph<'a, K, D, S> {
-
+impl<'a, K: Kmer, D: Debug + Clone, S: CompressionSpec<D>> CompressFromGraph<'a, K, D, S> {
     #[inline(never)]
     fn try_extend_node(&mut self, node: usize, dir: Dir) -> ExtModeNode {
 
@@ -303,7 +319,10 @@ impl<'a, K:Kmer, D: Debug + Clone, S: CompressionSpec<D>> CompressFromGraph<'a, 
         let bases = node.sequence();
         let exts = node.exts();
 
-        if exts.num_ext_dir(dir) != 1 || (!self.stranded && node.len() == K::k() && Vmer::<K>::get_kmer(&bases,0).is_palindrome()) {
+        if exts.num_ext_dir(dir) != 1 ||
+            (!self.stranded && node.len() == K::k() &&
+                 Vmer::<K>::get_kmer(&bases, 0).is_palindrome())
+        {
             ExtModeNode::Terminal(exts.single_dir(dir))
         } else {
             // Get the next kmer
@@ -311,7 +330,7 @@ impl<'a, K:Kmer, D: Debug + Clone, S: CompressionSpec<D>> CompressFromGraph<'a, 
             let end_kmer: K = bases.term_kmer(dir);
 
             let next_kmer = end_kmer.extend(ext_base, dir);
-            let (next_node_id, next_side_incoming, rc) = 
+            let (next_node_id, next_side_incoming, rc) =
                 match self.graph.find_link(next_kmer, dir) {
                     Some(e) => e,
                     None => {
@@ -327,23 +346,25 @@ impl<'a, K:Kmer, D: Debug + Clone, S: CompressionSpec<D>> CompressFromGraph<'a, 
             let next_exts = next_node.exts();
 
             let consistent = (next_node.len() == K::k()) ||
-                            match (dir, next_side_incoming, rc) {
-                (Dir::Left, Dir::Right, false) => true,
-                (Dir::Left, Dir::Left, true) => true,
-                (Dir::Right, Dir::Left, false) => true,
-                (Dir::Right, Dir::Right, true) => true,
-                _ => {
-                    println!("dir: {:?}, Lmer: {:?}, exts: {:?}", dir, bases, exts);
-                    println!("end kmer: {:?}", end_kmer);
-                    println!("next kmer: {:?}", next_kmer);
-                    println!("rc: {:?}", next_kmer.min_rc());
-                    println!("next bases: {:?}, next_side_incoming: {:?}, rc: {:?}",
+                match (dir, next_side_incoming, rc) {
+                    (Dir::Left, Dir::Right, false) => true,
+                    (Dir::Left, Dir::Left, true) => true,
+                    (Dir::Right, Dir::Left, false) => true,
+                    (Dir::Right, Dir::Right, true) => true,
+                    _ => {
+                        println!("dir: {:?}, Lmer: {:?}, exts: {:?}", dir, bases, exts);
+                        println!("end kmer: {:?}", end_kmer);
+                        println!("next kmer: {:?}", next_kmer);
+                        println!("rc: {:?}", next_kmer.min_rc());
+                        println!(
+                            "next bases: {:?}, next_side_incoming: {:?}, rc: {:?}",
                             next_node.sequence(),
                             next_side_incoming,
-                            rc);
-                    false
-                }
-            };
+                            rc
+                        );
+                        false
+                    }
+                };
             assert!(consistent);
 
             // We can include this kmer in the line if:
@@ -351,7 +372,9 @@ impl<'a, K:Kmer, D: Debug + Clone, S: CompressionSpec<D>> CompressFromGraph<'a, 
             // b) the kmer we go to has a unique extension back in our direction
             // c) the new edge is not of length K and a palindrome
 
-            if !self.available_nodes.contains(next_node_id) || (!self.stranded && next_kmer.is_palindrome())  {
+            if !self.available_nodes.contains(next_node_id) ||
+                (!self.stranded && next_kmer.is_palindrome())
+            {
                 // Next kmer isn't in this partition,
                 // or we've already used it,
                 // or it's palindrom and we are not stranded
@@ -414,8 +437,7 @@ impl<'a, K:Kmer, D: Debug + Clone, S: CompressionSpec<D>> CompressFromGraph<'a, 
     // Determine the sequence and extensions of the maximal unbranched
     // edge, centered around the given edge number
     #[inline(never)]
-    fn build_node(&mut self, seed_node: usize)
-                -> (DnaString, Exts, VecDeque<(usize, Dir)>, D) {
+    fn build_node(&mut self, seed_node: usize) -> (DnaString, Exts, VecDeque<(usize, Dir)>, D) {
 
         let (l_path, l_ext) = self.extend_node(seed_node, Dir::Left);
         let (r_path, r_ext) = self.extend_node(seed_node, Dir::Right);
@@ -429,13 +451,19 @@ impl<'a, K:Kmer, D: Debug + Clone, S: CompressionSpec<D>> CompressFromGraph<'a, 
         // Add on the left path
         for &(next_node, incoming_dir) in l_path.iter() {
             node_path.push_front((next_node, incoming_dir.flip()));
-            node_data = self.spec.reduce(node_data, self.graph.get_node(next_node).data());
+            node_data = self.spec.reduce(
+                node_data,
+                self.graph.get_node(next_node).data(),
+            );
         }
 
         // Add on the right path
         for &(next_node, incoming_dir) in r_path.iter() {
             node_path.push_back((next_node, incoming_dir));
-            node_data = self.spec.reduce(node_data, self.graph.get_node(next_node).data());
+            node_data = self.spec.reduce(
+                node_data,
+                self.graph.get_node(next_node).data(),
+            );
         }
 
         let left_extend = match l_path.last() {
@@ -453,17 +481,27 @@ impl<'a, K:Kmer, D: Debug + Clone, S: CompressionSpec<D>> CompressFromGraph<'a, 
         let path_seq = self.graph.sequence_of_path(node_path.iter());
 
         // return sequence and extensions
-        (path_seq, Exts::from_single_dirs(left_extend, right_extend), node_path, node_data)
+        (
+            path_seq,
+            Exts::from_single_dirs(left_extend, right_extend),
+            node_path,
+            node_data,
+        )
     }
 
 
     /// Simplify a compressed Debruijn graph by merging adjacent unbranched nodes, and optionally
     /// censoring some nodes
-    pub fn compress_graph(stranded: bool, compression: S, mut old_graph: DebruijnGraph<K,D>, censor_nodes: Option<Vec<usize>>) -> DebruijnGraph<K, D> {
+    pub fn compress_graph(
+        stranded: bool,
+        compression: S,
+        mut old_graph: DebruijnGraph<K, D>,
+        censor_nodes: Option<Vec<usize>>,
+    ) -> DebruijnGraph<K, D> {
 
         let n_nodes = old_graph.len();
         let mut available_nodes = BitSet::with_capacity(n_nodes);
-        for i in 0 .. n_nodes {
+        for i in 0..n_nodes {
             available_nodes.insert(i);
         }
 
@@ -472,25 +510,24 @@ impl<'a, K:Kmer, D: Debug + Clone, S: CompressionSpec<D>> CompressFromGraph<'a, 
                 for censor in c {
                     available_nodes.remove(censor);
                 }
-            },
+            }
             None => (),
         }
 
         old_graph.fix_exts(Some(&available_nodes));
 
-        let mut comp = 
-            CompressFromGraph {
-                spec: compression,
-                stranded: stranded,
-                graph: &old_graph,
-                available_nodes: available_nodes,
-                d: PhantomData,
-            };
+        let mut comp = CompressFromGraph {
+            spec: compression,
+            stranded: stranded,
+            graph: &old_graph,
+            available_nodes: available_nodes,
+            d: PhantomData,
+        };
 
         // FIXME -- clarify requirements around state of extensions
         let mut graph = BaseGraph::new(stranded);
 
-        for node_counter in 0 .. n_nodes {
+        for node_counter in 0..n_nodes {
 
             if comp.available_nodes.contains(node_counter) {
                 let (seq, exts, _, data) = comp.build_node(node_counter);
@@ -507,11 +544,11 @@ impl<'a, K:Kmer, D: Debug + Clone, S: CompressionSpec<D>> CompressFromGraph<'a, 
 }
 
 /// Perform path-compression on a (possibly partially compressed) DeBruijn graph
-pub fn compress_graph<K: Kmer,D: Clone + Debug,S: CompressionSpec<D>>(
-    stranded: bool, 
-    spec: S, 
-    old_graph: DebruijnGraph<K,D>, 
-    censor_nodes: Option<Vec<usize>>) -> DebruijnGraph<K,D> {
-    CompressFromGraph::<K,D,S>::compress_graph(stranded, spec, old_graph, censor_nodes)  
+pub fn compress_graph<K: Kmer, D: Clone + Debug, S: CompressionSpec<D>>(
+    stranded: bool,
+    spec: S,
+    old_graph: DebruijnGraph<K, D>,
+    censor_nodes: Option<Vec<usize>>,
+) -> DebruijnGraph<K, D> {
+    CompressFromGraph::<K, D, S>::compress_graph(stranded, spec, old_graph, censor_nodes)
 }
-

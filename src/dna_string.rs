@@ -4,23 +4,23 @@
 // except according to those terms.
 
 //! A 2-bit encoding of arbitrary length DNA sequences.
-//! 
+//!
 //! Store arbitrary-length DNA strings in a packed 2-bit encoding. Individual base values are encoded
 //! as the integers 0,1,2,3 corresponding to A,C,G,T.
-//! 
+//!
 //! # Example
 //! ```
 //! use debruijn::Kmer;
 //! use debruijn::dna_string::*;
 //! use debruijn::kmer::Kmer16;
 //! use debruijn::Vmer;
-//! 
+//!
 //! // Construct a new DNA string
 //! let dna_string1 = DnaString::from_dna_string("ACAGCAGCAGCACGTATGACAGATAGTGACAGCAGTTTGTGACCGCAAGAGCAGTAATATGATG");
-//! 
+//!
 //! // Get an immutable view into the sequence
 //! let slice1 = dna_string1.slice(10, 40);
-//! 
+//!
 //! // Get a kmer from the DNA string
 //! let first_kmer: Kmer16 = slice1.get_kmer(0);
 //! assert_eq!(first_kmer, Kmer16::from_ascii(b"CACGTATGACAGATAG"))
@@ -92,7 +92,8 @@ impl Mer for DnaString {
 }
 
 impl<K> Vmer<K> for DnaString
-    where K: Kmer
+where
+    K: Kmer,
 {
     fn new(len: usize) -> Self {
         Self::empty(len)
@@ -153,7 +154,7 @@ impl DnaString {
 
     /// Create a new instance with a given capacity.
     pub fn empty(n: usize) -> Self {
-        let blocks = (n*WIDTH >> 6) + (if n*WIDTH & 0x3F > 0 { 1 } else { 0 });
+        let blocks = (n * WIDTH >> 6) + (if n * WIDTH & 0x3F > 0 { 1 } else { 0 });
         let storage = vec![0; blocks];
 
         DnaString {
@@ -246,8 +247,10 @@ impl DnaString {
     /// `seq_length`: how many values to read from the byte array. Note that this
     /// is number of values not number of elements of the byte array.
     pub fn push_bytes(&mut self, bytes: &Vec<u8>, seq_length: usize) {
-        assert!(seq_length <= bytes.len() * 8 / WIDTH,
-                "Number of elements to push exceeds array length");
+        assert!(
+            seq_length <= bytes.len() * 8 / WIDTH,
+            "Number of elements to push exceeds array length"
+        );
 
         for i in 0..seq_length {
             let byte_index = (i * WIDTH) / 8;
@@ -429,11 +432,11 @@ impl<'a> Mer for DnaStringSlice<'a> {
     }
 
     fn rc(&self) -> DnaStringSlice<'a> {
-        DnaStringSlice{ 
+        DnaStringSlice {
             dna_string: self.dna_string,
             start: self.start,
-            length: self.length, 
-            is_rc: !self.is_rc 
+            length: self.length,
+            is_rc: !self.is_rc,
         }
     }
 
@@ -447,7 +450,8 @@ impl<'a> Mer for DnaStringSlice<'a> {
 }
 
 impl<'a, K> Vmer<K> for DnaStringSlice<'a>
-    where K: Kmer
+where
+    K: Kmer,
 {
     fn new(_: usize) -> Self {
         unimplemented!()
@@ -467,7 +471,6 @@ impl<'a, K> Vmer<K> for DnaStringSlice<'a>
 
 
 impl<'a> DnaStringSlice<'a> {
-
     pub fn is_palindrome(&self) -> bool {
         unimplemented!();
     }
@@ -494,7 +497,7 @@ impl<'a> DnaStringSlice<'a> {
 
     pub fn to_owned(&self) -> DnaString {
         let mut be = DnaString::empty(self.length);
-        for pos in 0 .. self.length {
+        for pos in 0..self.length {
             be.set_mut(pos, self.dna_string.get(self.start + pos));
         }
 
@@ -699,7 +702,7 @@ mod tests {
     #[test]
     fn test_kmers() {
         let dna = "TGCATTAGAAAACTCCTTGCCTGTCAGCCCGACAGGTAGAAACTCATTAATCCACACATTGA".to_string() +
-                  "CTCTATTTCAGGTAAATATGACGTCAACTCCTGCATGTTGAAGGCAGTGAGTGGCTGAAACAGCATCAAGGCGTGAAGGC";
+            "CTCTATTTCAGGTAAATATGACGTCAACTCCTGCATGTTGAAGGCAGTGAGTGGCTGAAACAGCATCAAGGCGTGAAGGC";
         let dna_string = DnaString::from_dna_string(&dna);
 
         let kmers: Vec<IntKmer<u64>> = dna_string.iter_kmers().collect();

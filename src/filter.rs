@@ -12,16 +12,16 @@ use Vmer;
 use pdqsort;
 
 fn bucket<K: Kmer>(kmer: K) -> usize {
-    // FIXME - make 256 mins    
+    // FIXME - make 256 mins
     kmer.get(0) as usize
 }
 
-pub trait KmerSummarizer<DI,DO> {
-    fn summarize<K, F: Iterator<Item=(K,Exts,DI)>>(&self, items: F) -> (bool, Exts, DO);
+pub trait KmerSummarizer<DI, DO> {
+    fn summarize<K, F: Iterator<Item = (K, Exts, DI)>>(&self, items: F) -> (bool, Exts, DO);
 }
 
 pub struct CountFilter {
-    min_kmer_obs: usize
+    min_kmer_obs: usize,
 }
 
 impl CountFilter {
@@ -31,7 +31,7 @@ impl CountFilter {
 }
 
 impl<D> KmerSummarizer<D, u16> for CountFilter {
-    fn summarize<K, F: Iterator<Item=(K,Exts,D)>>(&self, items: F) -> (bool, Exts, u16) {
+    fn summarize<K, F: Iterator<Item = (K, Exts, D)>>(&self, items: F) -> (bool, Exts, u16) {
         let mut all_exts = Exts::empty();
         let mut count = 0u16;
         for (_, exts, _) in items {
@@ -50,17 +50,20 @@ pub struct CountFilterSet<D> {
 
 impl<D> CountFilterSet<D> {
     pub fn new(min_kmer_obs: usize) -> CountFilterSet<D> {
-        CountFilterSet { min_kmer_obs: min_kmer_obs, phantom: PhantomData }
+        CountFilterSet {
+            min_kmer_obs: min_kmer_obs,
+            phantom: PhantomData,
+        }
     }
 }
 
 
 impl<D: Ord> KmerSummarizer<D, Vec<D>> for CountFilterSet<D> {
-    fn summarize<K, F: Iterator<Item=(K,Exts,D)>>(&self, items: F) -> (bool, Exts, Vec<D>) {
+    fn summarize<K, F: Iterator<Item = (K, Exts, D)>>(&self, items: F) -> (bool, Exts, Vec<D>) {
         let mut all_exts = Exts::empty();
-        
+
         let mut out_data: Vec<D> = Vec::new();
-        
+
         let mut nobs = 0;
         for (_, exts, d) in items {
             out_data.push(d);
@@ -80,8 +83,11 @@ impl<D: Ord> KmerSummarizer<D, Vec<D>> for CountFilterSet<D> {
 /// Low memory implementation that should consume < 4G of temporary memory
 /// To reduce memory consumption, set track_bcs to false to forget about BC lists.
 #[inline(never)]
-pub fn filter_kmers<K:Kmer, V:Vmer<K>, D1: Clone, DS, S: KmerSummarizer<D1,DS>>(seqs: &Vec<(V, Exts, D1)>, summarizer: S, stranded: bool) ->
- (Vec<(K, (Exts, DS))>, Vec<K>) {
+pub fn filter_kmers<K: Kmer, V: Vmer<K>, D1: Clone, DS, S: KmerSummarizer<D1, DS>>(
+    seqs: &Vec<(V, Exts, D1)>,
+    summarizer: S,
+    stranded: bool,
+) -> (Vec<(K, (Exts, DS))>, Vec<K>) {
 
     let rc_norm = !stranded;
 
@@ -89,21 +95,28 @@ pub fn filter_kmers<K:Kmer, V:Vmer<K>, D1: Clone, DS, S: KmerSummarizer<D1,DS>>(
     let mut valid_kmers = Vec::new();
 
     // Estimate memory consumed by Kmer vectors, and set iteration count appropriately
-    let input_kmers: usize = seqs.iter().map(|&(ref vmer, _, _)| vmer.len().saturating_sub(K::k() - 1)).sum();
+    let input_kmers: usize = seqs.iter()
+        .map(|&(ref vmer, _, _)| vmer.len().saturating_sub(K::k() - 1))
+        .sum();
     let kmer_mem = input_kmers * mem::size_of::<(K, D1)>();
     let max_mem = 4 * (10 as usize).pow(9);
     let slices = kmer_mem / max_mem + 1;
     let sz = 256 / slices + 1;
-    
+
     let mut bucket_ranges = Vec::new();
     let mut start = 0;
     while start < 256 {
-        bucket_ranges.push(start..start+sz);
+        bucket_ranges.push(start..start + sz);
         start += sz;
     }
 
     if bucket_ranges.len() > 1 {
-        info!("filter_kmers: {} sequences, {} kmers, {} passes", seqs.len(), input_kmers, bucket_ranges.len());
+        info!(
+            "filter_kmers: {} sequences, {} kmers, {} passes",
+            seqs.len(),
+            input_kmers,
+            bucket_ranges.len()
+        );
     }
 
     for bucket_range in bucket_ranges {
@@ -116,14 +129,13 @@ pub fn filter_kmers<K:Kmer, V:Vmer<K>, D1: Clone, DS, S: KmerSummarizer<D1,DS>>(
         //info!("Enumerating kmers...");
         for &(ref seq, seq_exts, ref d) in seqs {
             for (kmer, exts) in seq.iter_kmer_exts(seq_exts) {
-                let (min_kmer, flip_exts) = 
-                    if rc_norm {
-                        let (min_kmer, flip) = kmer.min_rc_flip();
-                        let flip_exts = if flip { exts.rc() } else { exts };
-                        (min_kmer, flip_exts)
-                    } else {
-                        (kmer, exts)
-                    };
+                let (min_kmer, flip_exts) = if rc_norm {
+                    let (min_kmer, flip) = kmer.min_rc_flip();
+                    let flip_exts = if flip { exts.rc() } else { exts };
+                    (min_kmer, flip_exts)
+                } else {
+                    (kmer, exts)
+                };
                 let bucket = bucket(min_kmer);
 
                 if bucket >= bucket_range.start && bucket < bucket_range.end {
@@ -141,7 +153,9 @@ pub fn filter_kmers<K:Kmer, V:Vmer<K>, D1: Clone, DS, S: KmerSummarizer<D1,DS>>(
             for (kmer, kmer_obs_iter) in &kmer_vec.into_iter().group_by(|elt| elt.0) {
                 let (is_valid, exts, summary_data) = summarizer.summarize(kmer_obs_iter);
                 all_kmers.push(kmer);
-                if is_valid {valid_kmers.push((kmer, (exts, summary_data))); }
+                if is_valid {
+                    valid_kmers.push((kmer, (exts, summary_data)));
+                }
             }
         }
     }
@@ -150,7 +164,13 @@ pub fn filter_kmers<K:Kmer, V:Vmer<K>, D1: Clone, DS, S: KmerSummarizer<D1,DS>>(
     pdqsort::sort(&mut all_kmers);
     fix_exts(stranded, &mut valid_kmers, &all_kmers);
 
-    info!("filter kmers: sequences: {}, kmers: {}, unique kmers: {}. valid kmers: {}", seqs.len(), input_kmers, all_kmers.len(), valid_kmers.len());
+    info!(
+        "filter kmers: sequences: {}, kmers: {}, unique kmers: {}. valid kmers: {}",
+        seqs.len(),
+        input_kmers,
+        all_kmers.len(),
+        valid_kmers.len()
+    );
     (valid_kmers, all_kmers)
 }
 
@@ -158,16 +178,19 @@ pub fn filter_kmers<K:Kmer, V:Vmer<K>, D1: Clone, DS, S: KmerSummarizer<D1,DS>>(
 /// exists in all_kmers but not valid_kmers. We know that we can delete these extensions.
 /// In sharded kmer processing, we will have extensions to kmers in other shards. We don't
 /// know whether these are censored until later, so we retain the extension.
-pub fn fix_exts<K: Kmer, D>(stranded: bool, valid_kmers: &mut Vec<(K, (Exts, D))>, all_kmers: &Vec<K>) {
+pub fn fix_exts<K: Kmer, D>(
+    stranded: bool,
+    valid_kmers: &mut Vec<(K, (Exts, D))>,
+    all_kmers: &Vec<K>,
+) {
 
-    for idx in 0 .. valid_kmers.len() {
+    for idx in 0..valid_kmers.len() {
         let mut new_exts = Exts::empty();
         let kmer = valid_kmers[idx].0;
         let exts = (valid_kmers[idx].1).0;
 
         for dir in [Dir::Left, Dir::Right].iter() {
-            for i in 0..4
-            {
+            for i in 0..4 {
                 if exts.has_ext(*dir, i) {
                     let _ext_kmer = kmer.extend(i, *dir);
 
@@ -181,7 +204,7 @@ pub fn fix_exts<K: Kmer, D>(stranded: bool, valid_kmers: &mut Vec<(K, (Exts, D))
                         if valid_kmers.binary_search_by_key(&ext_kmer, |d| d.0).is_ok() {
                             // ext_kmer is valid. not censored
                             false
-                        } else { 
+                        } else {
                             // ext_kmer is not valid. if it was in this shard, then we censor it
                             all_kmers.binary_search(&ext_kmer).is_ok()
                         };
@@ -203,22 +226,20 @@ pub fn fix_exts<K: Kmer, D>(stranded: bool, valid_kmers: &mut Vec<(K, (Exts, D))
 /// know whether these are censored until later, so we retain the extension.
 pub fn fix_exts_local<K: Kmer, D>(stranded: bool, valid_kmers: &mut Vec<(K, (Exts, D))>) {
 
-    for idx in 0 .. valid_kmers.len() {
+    for idx in 0..valid_kmers.len() {
         let mut new_exts = Exts::empty();
         let kmer = valid_kmers[idx].0;
         let exts = (valid_kmers[idx].1).0;
 
         for dir in [Dir::Left, Dir::Right].iter() {
-            for i in 0..4
-            {
+            for i in 0..4 {
                 if exts.has_ext(*dir, i) {
-                    let ext_kmer = 
-                        if stranded {
-                            kmer.extend(i, *dir)
-                        } else {
-                            kmer.extend(i, *dir).min_rc()
-                        };
-                    
+                    let ext_kmer = if stranded {
+                        kmer.extend(i, *dir)
+                    } else {
+                        kmer.extend(i, *dir).min_rc()
+                    };
+
                     let kmer_valid = valid_kmers.binary_search_by_key(&ext_kmer, |d| d.0).is_ok();
 
                     if kmer_valid {
