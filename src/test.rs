@@ -1,3 +1,5 @@
+// Copyright 2017 10x Genomics
+
 //! Generate random genomes (with lots of re-used sustrings), reassemble them, and check sanity
 
 use Kmer;

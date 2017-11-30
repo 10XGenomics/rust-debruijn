@@ -1,9 +1,9 @@
-//! Methods for filtering observed kmers before De Bruijn graph construction, and summarizing 'color' annotations.
+// Copyright 2017 10x Genomics
 
+//! Methods for filtering observed kmers before De Bruijn graph construction, and summarizing 'color' annotations.
 use std::mem;
 use itertools::Itertools;
 use std::marker::PhantomData;
-
 
 use Dir;
 use Kmer;

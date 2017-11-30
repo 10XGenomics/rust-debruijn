@@ -1,3 +1,5 @@
+// Copyright 2017 10x Genomics
+
 //! Variable-length DNA strings packed into fixed-size structs.
 
 use std::marker::PhantomData;

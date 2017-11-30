@@ -1,3 +1,5 @@
+// Copyright 2017 10x Genomics
+
 //! Methods for minimum substring partitioning of a DNA string
 //!
 //! simple_scan method is based on:

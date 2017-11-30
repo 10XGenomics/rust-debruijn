@@ -1,4 +1,4 @@
-#![allow(dead_code)]
+// Copyright 2017 10x Genomics
 
 //! # debruijn-rs: a De Bruijn graph for DNA seqeunces in Rust.
 //! This library provides tools for efficiently construction de bruijn graphs
@@ -20,7 +20,7 @@
 extern crate num;
 extern crate extprim;
 extern crate rand;
-extern crate linked_hash_map;
+
 #[macro_use]
 extern crate serde_derive;
 extern crate serde;
@@ -45,8 +45,7 @@ pub mod filter;
 pub mod compression;
 pub mod clean_graph;
 
-mod fx;
-mod test;
+pub mod test;
 
 /// Convert a 2-bit representation of a base to a char
 pub fn bits_to_ascii(c: u8) -> u8 {
@@ -405,7 +404,7 @@ impl Mer for DnaBytes {
 
     /// Set `nbases` positions in the sequence, starting at `pos`.
     /// Values must  be packed into the upper-most bits of `value`.
-    fn set_slice_mut(&mut self, pos: usize, nbases: usize, value: u64) {
+    fn set_slice_mut(&mut self, _pos: usize, _nbases: usize, _value: u64) {
         unimplemented!();
         //for i in pos .. (pos + nbases) {
         //
@@ -418,12 +417,12 @@ impl Mer for DnaBytes {
     }
 
     /// Add the base `v` to the left side of the sequence, and remove the rightmost base
-    fn extend_left(&self, v: u8) -> Self {
+    fn extend_left(&self, _v: u8) -> Self {
         unimplemented!()
     }
 
     /// Add the base `v` to the right side of the sequence, and remove the leftmost base
-    fn extend_right(&self, v: u8) -> Self {
+    fn extend_right(&self, _v: u8) -> Self {
         unimplemented!();
     }
 }

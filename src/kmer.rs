@@ -1,4 +1,3 @@
-
 // Copyright 2017 10x Genomics
 
 //! Represent kmers with statically know length in compact integer types

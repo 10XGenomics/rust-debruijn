@@ -1,4 +1,4 @@
-// Copyright 2014 Johannes Köster.
+// Copyright 2014 Johannes Köster and 10x Genomics
 // Licensed under the MIT license (http://opensource.org/licenses/MIT)
 // This file may not be copied, modified, or distributed
 // except according to those terms.

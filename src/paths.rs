@@ -1,3 +1,5 @@
+// Copyright 2017 10x Genomics
+
 //! Compute path-compressed De Bruijn graphs from kmers or intermediate sized De Bruijn graph fragments
 
 use std::marker::PhantomData;
@@ -507,7 +509,7 @@ impl<K: Kmer, D:Debug> DebruijnGraph<K, D> {
         writeln!(wtr, "H\tVN:Z:debruijn-rs").unwrap();
 
         // Hack to generate a None value with the right type.
-        let dummy_func = |n: &Node<K,D>| { "".to_string() };
+        let dummy_func = |_n: &Node<K,D>| { "".to_string() };
         let mut dummy_opt = Some(&dummy_func);
         let _ = dummy_opt.take();
 
@@ -597,7 +599,8 @@ impl<K: Kmer, D:Debug> DebruijnGraph<K, D> {
 
 
 
-    pub fn max_path_beam<F, F2>(&self, beam: usize, score: F, solid_path: F2) -> Vec<(usize, Dir)>
+    pub fn max_path_beam<F, F2>(&self, beam: usize, score: F, _solid_path: F2) -> Vec<(usize, Dir)>
+        // TODO: restore path pruning based on solid_path predicate.
         where F: Fn(&D) -> f32, F2: Fn(&D) -> bool {
 
         if self.len() == 0 {
@@ -651,7 +654,7 @@ impl<K: Kmer, D:Debug> DebruijnGraph<K, D> {
             for s in states {
                 if s.status == Status::Active {
                     active = true;
-                    let expanded = self.expand_state(&s, &score, &solid_path);
+                    let expanded = self.expand_state(&s, &score);
                     new_states.extend(expanded);
                 } else {
                     new_states.push(s)
@@ -672,8 +675,8 @@ impl<K: Kmer, D:Debug> DebruijnGraph<K, D> {
         states[0].path.iter().map(|&(node, dir)| (node as usize, dir)).collect()
     }
 
-    fn expand_state<F, F2>(&self, state: &State, score: &F, solid_path: &F2) -> SmallVec4<State>
-        where F: Fn(&D) -> f32, F2: Fn(&D) -> bool  {
+    fn expand_state<F>(&self, state: &State, score: &F) -> SmallVec4<State>
+        where F: Fn(&D) -> f32 {
 
         if state.status != Status::Active {
             panic!("only attempt to expand active states")

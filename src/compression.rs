@@ -4,10 +4,7 @@
 use std::marker::PhantomData;
 use std::collections::VecDeque;
 use bit_set::BitSet;
-use smallvec::SmallVec;
 use std::fmt::Debug;
-
-type SmallVec4<T> = SmallVec<[T; 4]>;
 
 use Kmer;
 use Vmer;
@@ -16,21 +13,17 @@ use Exts;
 use paths::{DebruijnGraph, BaseGraph};
 use dna_string::DnaString;
 
-
 #[derive(Copy, Clone)]
 enum ExtMode<K: Kmer> {
     Unique(K, Dir, Exts),
     Terminal(Exts),
 }
 
-
 #[derive(Copy, Clone)]
 enum ExtModeNode {
     Unique(usize, Dir, Exts),
     Terminal(Exts),
 }
-
-type Seq = Vec<u8>;
 
 /// Customize the path-compression process. Implementing this trait lets the user
 /// control how the per-kmer data (of type `D`) is summarized into a per-path
@@ -162,7 +155,7 @@ impl<'a, K: Kmer, D: Clone + Debug, S: CompressionSpec<D>> CompressFromKmers<'a,
         let mut current_kmer = kmer;
         path.clear();
 
-        let mut final_exts: Exts; // must get set below
+        let final_exts: Exts; // must get set below
 
         let id = self.get_kmer_id(&kmer);
         let _ = self.available_kmers.remove(id);
@@ -172,18 +165,17 @@ impl<'a, K: Kmer, D: Clone + Debug, S: CompressionSpec<D>> CompressFromKmers<'a,
                 self.try_extend_kmer(current_kmer, current_dir);
 
             match ext_result {
-                ExtMode::Unique(next_kmer, next_dir, next_ext) => {
+                ExtMode::Unique(next_kmer, next_dir, _) => {
                     path.push((next_kmer, next_dir));
                     let next_id = self.get_kmer_id(&next_kmer);
                     self.available_kmers.remove(next_id);
                     current_kmer = next_kmer;
                     current_dir = next_dir;
-                    final_exts = next_ext
-                }
+                },
                 ExtMode::Terminal(ext) => {
                     final_exts = ext;
                     break;
-                }
+                },
             }
         }
 
@@ -518,7 +510,7 @@ impl<'a, K:Kmer, D: Debug + Clone, S: CompressionSpec<D>> CompressFromGraph<'a, 
 pub fn compress_graph<K: Kmer,D: Clone + Debug,S: CompressionSpec<D>>(
     stranded: bool, 
     spec: S, 
-    mut old_graph: DebruijnGraph<K,D>, 
+    old_graph: DebruijnGraph<K,D>, 
     censor_nodes: Option<Vec<usize>>) -> DebruijnGraph<K,D> {
     CompressFromGraph::<K,D,S>::compress_graph(stranded, spec, old_graph, censor_nodes)  
 }
