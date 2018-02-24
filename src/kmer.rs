@@ -1,4 +1,38 @@
+// Copyright 2017 10x Genomics
+
 //! Represent kmers with statically know length in compact integer types
+//!
+//! A kmer is a DNA sequence with statically-known length K. The sequence is stored the smallest possible integer type
+//! Efficient methods for reverse complement and shifting new bases into the left or right of a sequence are provided.
+//! Kmers implement `Eq` to test if two kmers represent the same string.
+//! Kmers implement `Ord`, which corresponds to the natural lexicographic ordering.
+//!
+//! ```
+//! use debruijn::*;
+//! use debruijn::kmer::*;
+//!
+//! let k1 = Kmer16::from_ascii(b"ACGTACGTACGTACGT");
+//!
+//! // Reverse complement
+//! let rc_k1 = k1.rc();
+//!
+//! // Double reverse complement
+//! let k1_copy = rc_k1.rc();
+//! assert_eq!(k1, k1_copy);
+//!
+//! // Push one base onto the left
+//! assert_eq!(k1.extend_left(base_to_bits(b'T')), Kmer16::from_ascii(b"TACGTACGTACGTACG"));
+//!
+//! // Generate a set of kmers from a string, then sort
+//! let mut all_kmers = Kmer16::kmers_from_ascii(b"TACGTACGTACGTACGTT");
+//! all_kmers.sort();
+//! assert_eq!(all_kmers,
+//!     vec![
+//!         Kmer16::from_ascii(b"ACGTACGTACGTACGT"),
+//!         Kmer16::from_ascii(b"CGTACGTACGTACGTT"),
+//!         Kmer16::from_ascii(b"TACGTACGTACGTACG")
+//!     ]);
+
 
 use std;
 use std::hash::Hash;
@@ -13,24 +47,49 @@ use Kmer;
 use bits_to_base;
 
 
+// Pre-defined kmer types
+
+/// 64-base kmer, backed by a single u128
 pub type Kmer64 = IntKmer<u128>;
+
+/// 48-base kmer, backed by a single u128
 pub type Kmer48 = VarIntKmer<u128, K48>;
+
+/// 40-base kmer, backed by a single u128
 pub type Kmer40 = VarIntKmer<u128, K40>;
+
+/// 32-base kmer, backed by a single u64
 pub type Kmer32 = IntKmer<u64>;
 
+/// 24-base kmer, backed by a single u64
+pub type Kmer24 = VarIntKmer<u64, K24>;
 
+/// 16-base kmer, backed by a single u32
+pub type Kmer16 = IntKmer<u32>;
+
+/// 14-base kmer, backed by a single u32
+pub type Kmer14 = VarIntKmer<u32, K14>;
+
+/// 16-base kmer, backed by a single u16
+pub type Kmer8 = IntKmer<u16>;
+
+
+
+/// Trait for specialized integer operations used in DeBruijn Graph
 pub trait IntHelp: PrimInt + FromPrimitive {
+    /// Reverse the order of 2-bit units of the integer
     fn reverse_by_twos(&self) -> Self;
 }
 
 impl IntHelp for u128 {
     #[inline]
     fn reverse_by_twos(&self) -> u128 {
-        u128::from_parts(self.low64().reverse_by_twos(),
-                         self.high64().reverse_by_twos())
+        u128::from_parts(
+            self.low64().reverse_by_twos(),
+            self.high64().reverse_by_twos(),
+        )
     }
 }
-
 
 
 impl IntHelp for u64 {
@@ -104,7 +163,7 @@ impl IntHelp for u8 {
 }
 
 
-/// A fixed-length Kmer sequence.
+/// A Kmer sequence with a statically know K. K will fill the underlying integer type.
 #[derive(Copy, Clone, PartialEq, PartialOrd, Eq, Ord, Hash, Serialize, Deserialize)]
 pub struct IntKmer<T: PrimInt + FromPrimitive + IntHelp> {
     pub storage: T,
@@ -127,59 +186,11 @@ impl<T: PrimInt + FromPrimitive + Hash + IntHelp> IntKmer<T> {
         T::from_u64(v).unwrap()
     }
 
-   pub fn to_u64(&self) -> u64 {
-        T::to_u64(&self.storage).unwrap()
-    }
-
-    pub fn from_u64(v: u64) -> IntKmer<T> {
+    fn from_u64(v: u64) -> IntKmer<T> {
         IntKmer { storage: Self::t_from_u64(v) }
     }
 
-    pub fn from_bytes(bytes: &Vec<u8>) -> Vec<Self> {
-        let mut r = Vec::new();
-
-        let mut k0 = Self::empty();
-
-        for i in 0..Self::k() {
-            k0.set_mut(i, bytes[i])
-        }
-
-        r.push(k0);
-
-        for i in 1..(bytes.len() - Self::k() + 1) {
-            k0 = k0.clone().extend_right(bytes[Self::k() + i - 1]);
-            r.push(k0);
-        }
-        r
-    }
-
-    pub fn kmers_from_bases(bytes: &[u8]) -> Vec<Self> {
-        let mut r = Vec::new();
-
-        let mut k0 = Self::empty();
-
-        for i in 0..Self::k() {
-            k0.set_mut(i, ::base_to_bits(bytes[i]))
-        }
-
-        r.push(k0);
-
-        for i in 1..(bytes.len() - Self::k() + 1) {
-            k0 = k0.clone().extend_right(::base_to_bits(bytes[Self::k() + i - 1]));
-            r.push(k0);
-        }
-        r
-    }
-
-    pub fn kmer_from_bases(bytes: &[u8]) -> Self {
-        let mut k0 = Self::empty();
-
-        for i in 0..Self::k() {
-            k0.set_mut(i, ::base_to_bits(bytes[i]))
-        }
-        k0
-    }
-
+    #[inline]
     fn addr(&self, pos: usize) -> usize {
         let top_base = Self::k() - 1;
         let bitpos = (top_base - pos) * 2;
@@ -293,6 +304,10 @@ impl<T: PrimInt + FromPrimitive + Hash + IntHelp> Kmer for IntKmer<T> {
     fn k() -> usize {
         Self::_k()
     }
+
+    fn to_u64(&self) -> u64 {
+        T::to_u64(&self.storage).unwrap()
+    }
 }
 
 impl<T: PrimInt + FromPrimitive + Hash + IntHelp> fmt::Debug for IntKmer<T> {
@@ -306,7 +321,9 @@ impl<T: PrimInt + FromPrimitive + Hash + IntHelp> fmt::Debug for IntKmer<T> {
     }
 }
 
+/// Helper trait for declaring the K value of a Kmer. Will be removed when const generics are available
 pub trait KmerSize: Ord + Hash + Copy + fmt::Debug {
+    #[inline]
     fn K() -> usize;
 }
 
@@ -314,12 +331,11 @@ pub trait KmerSize: Ord + Hash + Copy + fmt::Debug {
 ///
 /// side:             L           R
 /// bases: 0   0   0  A  C  G  T  T
-/// bits:             H  ........ L      
+/// bits:             H  ........ L
 /// bit :  14  12  10 8  6  4  2  0
 ///
-/// sorting the integer will give a lexicographic sorting of the corresponding string
-/// 
-
+/// sorting the integer will give a lexicographic sorting of the corresponding string.
+///  kmers that don't fill `storage` are always aligned to the least signifcant bits
 #[derive(Copy, Clone, PartialEq, PartialOrd, Eq, Ord, Hash, Serialize, Deserialize)]
 pub struct VarIntKmer<T: PrimInt + FromPrimitive + IntHelp, KS: KmerSize> {
     pub storage: T,
@@ -329,11 +345,18 @@ pub struct VarIntKmer<T: PrimInt + FromPrimitive + IntHelp, KS: KmerSize> {
 
 impl<T: PrimInt + FromPrimitive + Hash + IntHelp, KS: KmerSize> Kmer for VarIntKmer<T, KS> {
     fn empty() -> Self {
-        VarIntKmer { storage: T::zero(), phantom: PhantomData }
+        VarIntKmer {
+            storage: T::zero(),
+            phantom: PhantomData,
+        }
     }
 
     fn k() -> usize {
         Self::_k()
+    }
+
+    fn to_u64(&self) -> u64 {
+        T::to_u64(&self.storage).unwrap()
     }
 }
 
@@ -355,57 +378,8 @@ impl<T: PrimInt + FromPrimitive + Hash + IntHelp, KS: KmerSize> VarIntKmer<T, KS
         T::from_u64(v).unwrap()
     }
 
-   pub fn to_u64(&self) -> u64 {
-        T::to_u64(&self.storage).unwrap()
-    }
-
-    pub fn from_u64(v: u64) -> IntKmer<T> {
+    fn from_u64(v: u64) -> IntKmer<T> {
         IntKmer { storage: Self::t_from_u64(v) }
-    }
-
-    pub fn from_bytes(bytes: &Vec<u8>) -> Vec<Self> {
-        let mut r = Vec::new();
-
-        let mut k0 = Self::empty();
-
-        for i in 0..Self::k() {
-            k0.set_mut(i, bytes[i])
-        }
-
-        r.push(k0);
-
-        for i in 1..(bytes.len() - Self::k() + 1) {
-            k0 = k0.clone().extend_right(bytes[Self::k() + i - 1]);
-            r.push(k0);
-        }
-        r
-    }
-
-    pub fn kmers_from_bases(bytes: &[u8]) -> Vec<Self> {
-        let mut r = Vec::new();
-
-        let mut k0 = Self::empty();
-
-        for i in 0..Self::k() {
-            k0.set_mut(i, ::base_to_bits(bytes[i]))
-        }
-
-        r.push(k0);
-
-        for i in 1..(bytes.len() - Self::k() + 1) {
-            k0 = k0.clone().extend_right(::base_to_bits(bytes[Self::k() + i - 1]));
-            r.push(k0);
-        }
-        r
-    }
-
-    pub fn kmer_from_bases(bytes: &[u8]) -> Self {
-        let mut k0 = Self::empty();
-
-        for i in 0..Self::k() {
-            k0.set_mut(i, ::base_to_bits(bytes[i]))
-        }
-        k0
     }
 
     fn addr(&self, pos: usize) -> usize {
@@ -425,7 +399,7 @@ impl<T: PrimInt + FromPrimitive + Hash + IntHelp, KS: KmerSize> VarIntKmer<T, KS
     }
 
     fn _total_bits() -> usize {
-        std::mem::size_of::<T>()*8
+        std::mem::size_of::<T>() * 8
     }
 
     // mask the unused bits at the top, plus the requested number of bases
@@ -497,7 +471,7 @@ impl<T: PrimInt + FromPrimitive + Hash + IntHelp, KS: KmerSize> Mer for VarIntKm
         let mask = top_mask | bottom_mask;
 
         // Move the base down to their home: position + unused high-order bits
-        let shift = (2*pos) + (Self::_total_bits() - Self::_bits());
+        let shift = (2 * pos) + (Self::_total_bits() - Self::_bits());
         let value_slide = v >> shift;
 
         self.storage = (self.storage & mask) | (value_slide & !mask);
@@ -514,20 +488,29 @@ impl<T: PrimInt + FromPrimitive + Hash + IntHelp, KS: KmerSize> Mer for VarIntKm
             new = new >> up_shift;
         }
 
-        VarIntKmer { storage: new, phantom: PhantomData }
+        VarIntKmer {
+            storage: new,
+            phantom: PhantomData,
+        }
     }
 
     /// Shift the base v into the left end of the kmer
     fn extend_left(&self, v: u8) -> Self {
         let new = self.storage >> 2;
-        let mut kmer = VarIntKmer { storage: new, phantom: PhantomData };
+        let mut kmer = VarIntKmer {
+            storage: new,
+            phantom: PhantomData,
+        };
         kmer.set_mut(0, v);
         kmer
     }
 
     fn extend_right(&self, v: u8) -> Self {
         let new = self.storage << 2 & !Self::top_mask(0);
-        let mut kmer = VarIntKmer { storage: new, phantom: PhantomData };
+        let mut kmer = VarIntKmer {
+            storage: new,
+            phantom: PhantomData,
+        };
         kmer.set_mut(Self::k() - 1, v);
         kmer
     }
@@ -544,6 +527,7 @@ impl<T: PrimInt + FromPrimitive + Hash + IntHelp, KS: KmerSize> fmt::Debug for V
     }
 }
 
+/// Marker struct for generating K=48 Kmers
 #[derive(Debug, Hash, Copy, Clone, Ord, PartialOrd, Eq, PartialEq)]
 pub struct K48;
 
@@ -553,7 +537,7 @@ impl KmerSize for K48 {
     }
 }
 
-
+/// Marker trait for generating K=40 Kmers
 #[derive(Debug, Hash, Copy, Clone, Ord, PartialOrd, Eq, PartialEq)]
 pub struct K40;
 
@@ -563,7 +547,7 @@ impl KmerSize for K40 {
     }
 }
 
-
+/// Marker trait for generating K=24 Kmers
 #[derive(Debug, Hash, Copy, Clone, Ord, PartialOrd, Eq, PartialEq)]
 pub struct K24;
 
@@ -573,6 +557,19 @@ impl KmerSize for K24 {
     }
 }
 
+/// Marker trait for generating K=24 Kmers
+#[derive(Debug, Hash, Copy, Clone, Ord, PartialOrd, Eq, PartialEq)]
+pub struct K14;
+
+impl KmerSize for K14 {
+    #[inline]
+    fn K() -> usize {
+        14
+    }
+}
+
+
+
 
 #[cfg(test)]
 mod tests {
@@ -581,7 +578,7 @@ mod tests {
     use extprim::u128::u128;
 
     use vmer::Lmer;
-    
+
     use Vmer;
     use KmerIter;
     use MerImmut;
@@ -675,7 +672,13 @@ mod tests {
             }
 
             if vm.get_kmer(pos) != *kmer {
-                println!("didn't get same kmer: i:{}, vm: {:?} kmer_iter: {:?}, kmer_get: {:?}", pos, vm, kmer, vm.get_kmer(pos))
+                println!(
+                    "didn't get same kmer: i:{}, vm: {:?} kmer_iter: {:?}, kmer_get: {:?}",
+                    pos,
+                    vm,
+                    kmer,
+                    vm.get_kmer(pos)
+                )
             }
             assert_eq!(vm.get_kmer(pos), *kmer);
         }
@@ -785,6 +788,13 @@ mod tests {
     fn test_kmer_16() {
         for _ in 0..10000 {
             check_kmer::<IntKmer<u32>>();
+        }
+    }
+
+    #[test]
+    fn test_kmer_14() {
+        for _ in 0..10000 {
+            check_kmer::<VarIntKmer<u32, K14>>();
         }
     }
 

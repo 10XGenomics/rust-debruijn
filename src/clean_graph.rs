@@ -1,19 +1,26 @@
+// Copyright 2017 10x Genomics
+
+//! DeBruijn graph simplification routines. Currently tip-removal is implemented.
 use Kmer;
 use paths::{DebruijnGraph, Node};
 use std::marker::PhantomData;
 use std::fmt::Debug;
 
 
-pub struct CleanGraph<K: Kmer, D, T1> where
-    T1: Fn(&Node<K,D>) -> bool {
+pub struct CleanGraph<K: Kmer, D, T1>
+where
+    T1: Fn(&Node<K, D>) -> bool,
+{
     tip_predicate: T1,
     _k: PhantomData<K>,
     _d: PhantomData<D>,
 }
 
 
-impl<K: Kmer, D: Debug, T1> CleanGraph<K, D, T1> where T1: (Fn(&Node<K,D>) -> bool) {
-
+impl<K: Kmer, D: Debug, T1> CleanGraph<K, D, T1>
+where
+    T1: Fn(&Node<K, D>) -> bool,
+{
     pub fn new(tip_predicate: T1) -> CleanGraph<K, D, T1> {
         CleanGraph {
             tip_predicate,
@@ -30,9 +37,11 @@ impl<K: Kmer, D: Debug, T1> CleanGraph<K, D, T1> where T1: (Fn(&Node<K,D>) -> bo
             return None;
         }
 
-        if (exts.num_exts_l() == 0 && exts.num_exts_r() <= 1) || (exts.num_exts_r() == 0 && exts.num_exts_l() <= 1) {
+        if (exts.num_exts_l() == 0 && exts.num_exts_r() <= 1) ||
+            (exts.num_exts_r() == 0 && exts.num_exts_l() <= 1)
+        {
             if (self.tip_predicate)(&node) {
-                return Some(id)
+                return Some(id);
             }
         }
 
@@ -42,8 +51,8 @@ impl<K: Kmer, D: Debug, T1> CleanGraph<K, D, T1> where T1: (Fn(&Node<K,D>) -> bo
     pub fn find_bad_nodes(&self, graph: &DebruijnGraph<K, D>) -> Vec<usize> {
 
         (0..graph.len())
-        .map(|i| self.test_tip(graph, i))
-        .filter_map(|x| x)
-        .collect()
+            .map(|i| self.test_tip(graph, i))
+            .filter_map(|x| x)
+            .collect()
     }
 }

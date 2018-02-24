@@ -1,13 +1,10 @@
+// Copyright 2017 10x Genomics
+
+//! Create compressed DeBruijn graphs from uncompressed DeBruijn graphs, or a collection of disjoint DeBruijn graphs.
 use std::marker::PhantomData;
-use fx::{FxLMap, FxHasher};
 use std::collections::VecDeque;
 use bit_set::BitSet;
-use smallvec::SmallVec;
 use std::fmt::Debug;
-
-use std::hash::BuildHasherDefault;
-
-type SmallVec4<T> = SmallVec<[T; 4]>;
 
 use Kmer;
 use Vmer;
@@ -16,21 +13,17 @@ use Exts;
 use paths::{DebruijnGraph, BaseGraph};
 use dna_string::DnaString;
 
-
 #[derive(Copy, Clone)]
 enum ExtMode<K: Kmer> {
     Unique(K, Dir, Exts),
     Terminal(Exts),
 }
 
-
 #[derive(Copy, Clone)]
 enum ExtModeNode {
     Unique(usize, Dir, Exts),
     Terminal(Exts),
 }
-
-type Seq = Vec<u8>;
 
 /// Customize the path-compression process. Implementing this trait lets the user
 /// control how the per-kmer data (of type `D`) is summarized into a per-path
@@ -57,8 +50,10 @@ impl<D, F> SimpleCompress<D, F> {
     }
 }
 
-impl<D, F> CompressionSpec<D> for SimpleCompress<D,F> 
-    where for<'r> F: Fn(D, &'r D) -> D {
+impl<D, F> CompressionSpec<D> for SimpleCompress<D, F>
+where
+    for<'r> F: Fn(D, &'r D) -> D,
+{
     fn reduce(&self, d: D, other: &D) -> D {
         (self.func)(d, other)
     }
@@ -68,29 +63,29 @@ impl<D, F> CompressionSpec<D> for SimpleCompress<D,F>
     }
 }
 
-
-pub struct PathCompression<K: Kmer, D, S: CompressionSpec<D>> {
+/// Generate a compressed DeBruijn graph from a set of observed kmers
+struct CompressFromKmers<'a, K: 'a + Kmer, D: 'a, S: CompressionSpec<D>> {
     stranded: bool,
     k: PhantomData<K>,
     d: PhantomData<D>,
     spec: S,
+    available_kmers: BitSet,
+    kmer_exts: &'a Vec<(K, (Exts, D))>,
 }
 
 /// Compression of paths in Debruijn graph
-impl<K: Kmer, D: Clone + Debug, S: CompressionSpec<D>> PathCompression<K, D, S> {
-
-    pub fn new(stranded: bool, spec: S) -> Self {
-        PathCompression {
-            stranded: stranded,
-            spec: spec,
-            k: PhantomData,
-            d: PhantomData
-        }
+impl<'a, K: Kmer, D: Clone + Debug, S: CompressionSpec<D>> CompressFromKmers<'a, K, D, S> {
+    fn get_kmer_data(&'a self, kmer: &K) -> &'a (Exts, D) {
+        let pos = self.kmer_exts.binary_search_by_key(kmer, |x| x.0).expect(
+            "couldn't find kmer",
+        );
+        &self.kmer_exts[pos].1
     }
 
-    fn get_kmer_data<'a>(&self, kmer: &K, kmer_exts: &'a Vec<(K, (Exts, D))>) -> &'a (Exts, D) {
-        let pos = kmer_exts.binary_search_by_key(kmer, |x| x.0).expect("couldn't find kmer");
-        &kmer_exts[pos].1
+    fn get_kmer_id(&self, kmer: &K) -> usize {
+        self.kmer_exts.binary_search_by_key(kmer, |x| x.0).expect(
+            "couldn't find kmer",
+        )
     }
 
     /// Attempt to extend kmer v in direction dir. Return:
@@ -98,16 +93,10 @@ impl<K: Kmer, D: Clone + Debug, S: CompressionSpec<D>> PathCompression<K, D, S> 
     ///    is possible.  nextDir indicates the direction to extend nextMker
     ///    to preserve the direction of the extension.
     /// - Term(ext) no unique extension possible, indicating the extensions at this end of the line
-    fn try_extend_kmer(&self,
-                       available_kmers: &FxLMap<K, ()>,
-                       kmer_exts: &Vec<(K, (Exts, D))>,
-                       kmer: K,
-                       dir: Dir)
-                       -> ExtMode<K> {
+    fn try_extend_kmer(&self, kmer: K, dir: Dir) -> ExtMode<K> {
 
         // metadata of start kmer
-
-        let &(exts, ref kmer_data) = self.get_kmer_data(&kmer, kmer_exts);
+        let &(exts, ref kmer_data) = self.get_kmer_data(&kmer);
 
         if exts.num_ext_dir(dir) != 1 || (!self.stranded && kmer.is_palindrome()) {
             ExtMode::Terminal(exts.single_dir(dir))
@@ -116,7 +105,7 @@ impl<K: Kmer, D: Clone + Debug, S: CompressionSpec<D>> PathCompression<K, D, S> 
             let ext_base = exts.get_unique_extension(dir).expect("should be unique");
 
             let mut next_kmer = kmer.extend(ext_base, dir);
-            
+
             let mut do_flip = false;
 
             if !self.stranded {
@@ -128,17 +117,18 @@ impl<K: Kmer, D: Clone + Debug, S: CompressionSpec<D>> PathCompression<K, D, S> 
             let next_dir = dir.cond_flip(do_flip);
             let is_palindrome = !self.stranded && next_kmer.is_palindrome();
 
+
             // We can include this kmer in the line if:
             // a) it exists in the partition, and is still unused
             // b) the kmer we go to has a unique extension back in our direction
-            if !available_kmers.contains_key(&next_kmer) {
+            if !self.available_kmers.contains(self.get_kmer_id(&next_kmer)) {
                 // This kmer isn't in this partition, or we've already used it
                 return ExtMode::Terminal(exts.single_dir(dir));
             }
 
             // Direction we're approaching the new kmer from
             let new_incoming_dir = dir.flip().cond_flip(do_flip);
-            let next_kmer_r = self.get_kmer_data(&next_kmer, kmer_exts);
+            let next_kmer_r = self.get_kmer_data(&next_kmer);
             let &(next_kmer_exts, ref next_kmer_data) = next_kmer_r;
             let incoming_count = next_kmer_exts.num_ext_dir(new_incoming_dir);
             let outgoing_exts = next_kmer_exts.single_dir(new_incoming_dir.flip());
@@ -164,33 +154,27 @@ impl<K: Kmer, D: Clone + Debug, S: CompressionSpec<D>> PathCompression<K, D, S> 
     /// Also return the extensions at the end of this line.
     /// Sub-lines break if their extensions are not available in this shard
     #[inline(never)]
-    fn extend_kmer(&self,
-                   kmer_exts: &Vec<(K, (Exts, D))>,
-                   available_kmers: &mut FxLMap<K, ()>,
-                   kmer: K,
-                   start_dir: Dir,
-                   path: &mut Vec<(K, Dir)>)
-                   -> Exts {
+    fn extend_kmer(&mut self, kmer: K, start_dir: Dir, path: &mut Vec<(K, Dir)>) -> Exts {
 
         let mut current_dir = start_dir;
         let mut current_kmer = kmer;
         path.clear();
 
-        let mut final_exts: Exts; // must get set below
+        let final_exts: Exts; // must get set below
 
-        let _ = available_kmers.remove(&kmer);
+        let id = self.get_kmer_id(&kmer);
+        let _ = self.available_kmers.remove(id);
 
         loop {
-            let ext_result =
-                self.try_extend_kmer(available_kmers, kmer_exts, current_kmer, current_dir);
+            let ext_result = self.try_extend_kmer(current_kmer, current_dir);
 
             match ext_result {
-                ExtMode::Unique(next_kmer, next_dir, next_ext) => {
+                ExtMode::Unique(next_kmer, next_dir, _) => {
                     path.push((next_kmer, next_dir));
-                    available_kmers.remove(&next_kmer);
+                    let next_id = self.get_kmer_id(&next_kmer);
+                    self.available_kmers.remove(next_id);
                     current_kmer = next_kmer;
                     current_dir = next_dir;
-                    final_exts = next_ext
                 }
                 ExtMode::Terminal(ext) => {
                     final_exts = ext;
@@ -205,27 +189,21 @@ impl<K: Kmer, D: Clone + Debug, S: CompressionSpec<D>> PathCompression<K, D, S> 
 
     /// Build the edge surrounding a kmer
     #[inline(never)]
-    fn build_node(&self,
-                  kmer_exts: &Vec<(K, (Exts, D))>,
-                  available_kmers: &mut FxLMap<K, ()>,
-                  seed: K,
-                  path: &mut Vec<(K, Dir)>,
-                  edge_seq: &mut VecDeque<u8>)
-                  -> (Exts, D) {
-
+    fn build_node(
+        &mut self,
+        seed: K,
+        path: &mut Vec<(K, Dir)>,
+        edge_seq: &mut VecDeque<u8>,
+    ) -> (Exts, D) {
 
         edge_seq.clear();
         for i in 0..K::k() {
             edge_seq.push_back(seed.get(i));
         }
 
-        let mut node_data = self.get_kmer_data(&seed, kmer_exts).1.clone();
+        let mut node_data = self.get_kmer_data(&seed).1.clone();
 
-        let l_ext = self.extend_kmer(kmer_exts,
-                                    available_kmers,
-                                    seed,
-                                    Dir::Left,
-                                    path);
+        let l_ext = self.extend_kmer(seed, Dir::Left, path);
 
         // Add on the left path
         for &(next_kmer, dir) in path.iter() {
@@ -237,7 +215,7 @@ impl<K: Kmer, D: Clone + Debug, S: CompressionSpec<D>> PathCompression<K, D, S> 
             edge_seq.push_front(kmer.get(0));
 
             // Reduce the data object
-            let &(_, ref kmer_data) = self.get_kmer_data(&next_kmer, kmer_exts);
+            let &(_, ref kmer_data) = self.get_kmer_data(&next_kmer);
             node_data = self.spec.reduce(node_data, kmer_data)
         }
 
@@ -247,13 +225,7 @@ impl<K: Kmer, D: Clone + Debug, S: CompressionSpec<D>> PathCompression<K, D, S> 
             Some(&(_, Dir::Right)) => l_ext.complement(),
         };
 
-
-        let r_ext = self.extend_kmer(kmer_exts,
-                             available_kmers,
-                             seed,
-                             Dir::Right,
-                             path);
-
+        let r_ext = self.extend_kmer(seed, Dir::Right, path);
 
         // Add on the right path
         for &(next_kmer, dir) in path.iter() {
@@ -264,7 +236,7 @@ impl<K: Kmer, D: Clone + Debug, S: CompressionSpec<D>> PathCompression<K, D, S> 
 
             edge_seq.push_back(kmer.get(K::k() - 1));
 
-            let &(_, ref kmer_data) = self.get_kmer_data(&next_kmer, kmer_exts);
+            let &(_, ref kmer_data) = self.get_kmer_data(&next_kmer);
             node_data = self.spec.reduce(node_data, kmer_data)
         }
 
@@ -277,16 +249,31 @@ impl<K: Kmer, D: Clone + Debug, S: CompressionSpec<D>> PathCompression<K, D, S> 
         (Exts::from_single_dirs(left_extend, right_extend), node_data)
     }
 
-    /// Build all sedges until all kmers are exhausted
+    /// Compress a set of kmers and their extensions and metadata into a base DeBruijn graph.
     #[inline(never)]
-    pub fn build_nodes(&self, kmer_exts: &Vec<(K, (Exts, D))>) -> BaseGraph<K,D> {
+    pub fn compress_kmers(
+        stranded: bool,
+        spec: S,
+        kmer_exts: &Vec<(K, (Exts, D))>,
+    ) -> BaseGraph<K, D> {
 
-        let h = BuildHasherDefault::<FxHasher>::default();
-        let mut available_kmers: FxLMap<K, ()> = FxLMap::with_capacity_and_hasher(kmer_exts.len(), h);
-        available_kmers.extend(kmer_exts.iter().map(|&(k, _)| (k.clone(), ())));
+        let n_kmers = kmer_exts.len();
+        let mut available_kmers = BitSet::with_capacity(n_kmers);
+        for i in 0..n_kmers {
+            available_kmers.insert(i);
+        }
+
+        let mut comp = CompressFromKmers {
+            stranded: stranded,
+            spec: spec,
+            k: PhantomData,
+            d: PhantomData,
+            available_kmers: available_kmers,
+            kmer_exts: kmer_exts,
+        };
 
         // Path-compressed De Bruijn graph will be created here
-        let mut graph = BaseGraph::new(self.stranded);
+        let mut graph = BaseGraph::new(stranded);
 
         // Paths will be get assembled here
         let mut path_buf = Vec::new();
@@ -294,18 +281,12 @@ impl<K: Kmer, D: Clone + Debug, S: CompressionSpec<D>> PathCompression<K, D, S> 
         // Node sequences will get assembled here
         let mut edge_seq_buf = VecDeque::new();
 
-        loop {
-            match available_kmers.front() {
-                Some((&start_kmer, _)) => {
-                    let (node_exts, node_data) = self.build_node(kmer_exts, 
-                    &mut available_kmers, 
-                    start_kmer,
-                    &mut path_buf,
-                    &mut edge_seq_buf);
-
-                    graph.add(&edge_seq_buf, node_exts, node_data);
-                }
-                None => break,
+        for kmer_counter in 0..n_kmers {
+            let start_kmer = kmer_exts[kmer_counter].0.clone();
+            if comp.available_kmers.contains(kmer_counter) {
+                let (node_exts, node_data) =
+                    comp.build_node(start_kmer, &mut path_buf, &mut edge_seq_buf);
+                graph.add(&edge_seq_buf, node_exts, node_data);
             }
         }
 
@@ -313,8 +294,16 @@ impl<K: Kmer, D: Clone + Debug, S: CompressionSpec<D>> PathCompression<K, D, S> 
     }
 }
 
+/// Take a set of kmers and their observed extensions and build a compressed DeBruijn graph.
+pub fn compress_kmers<K: Kmer, D: Clone + Debug, S: CompressionSpec<D>>(
+    stranded: bool,
+    spec: S,
+    kmer_exts: &Vec<(K, (Exts, D))>,
+) -> BaseGraph<K, D> {
+    CompressFromKmers::<K, D, S>::compress_kmers(stranded, spec, kmer_exts)
+}
 
-pub struct Simplify<'a, K: 'a + Kmer, D:'a, S: CompressionSpec<D>> {
+struct CompressFromGraph<'a, K: 'a + Kmer, D: 'a, S: CompressionSpec<D>> {
     stranded: bool,
     d: PhantomData<D>,
     spec: S,
@@ -322,8 +311,7 @@ pub struct Simplify<'a, K: 'a + Kmer, D:'a, S: CompressionSpec<D>> {
     graph: &'a DebruijnGraph<K, D>,
 }
 
-impl<'a, K:Kmer, D: Debug + Clone, S: CompressionSpec<D>> Simplify<'a, K, D, S> {
-
+impl<'a, K: Kmer, D: Debug + Clone, S: CompressionSpec<D>> CompressFromGraph<'a, K, D, S> {
     #[inline(never)]
     fn try_extend_node(&mut self, node: usize, dir: Dir) -> ExtModeNode {
 
@@ -331,7 +319,10 @@ impl<'a, K:Kmer, D: Debug + Clone, S: CompressionSpec<D>> Simplify<'a, K, D, S> 
         let bases = node.sequence();
         let exts = node.exts();
 
-        if exts.num_ext_dir(dir) != 1 || (!self.stranded && node.len() == K::k() && Vmer::<K>::get_kmer(&bases,0).is_palindrome()) {
+        if exts.num_ext_dir(dir) != 1 ||
+            (!self.stranded && node.len() == K::k() &&
+                 Vmer::<K>::get_kmer(&bases, 0).is_palindrome())
+        {
             ExtModeNode::Terminal(exts.single_dir(dir))
         } else {
             // Get the next kmer
@@ -339,7 +330,7 @@ impl<'a, K:Kmer, D: Debug + Clone, S: CompressionSpec<D>> Simplify<'a, K, D, S> 
             let end_kmer: K = bases.term_kmer(dir);
 
             let next_kmer = end_kmer.extend(ext_base, dir);
-            let (next_node_id, next_side_incoming, rc) = 
+            let (next_node_id, next_side_incoming, rc) =
                 match self.graph.find_link(next_kmer, dir) {
                     Some(e) => e,
                     None => {
@@ -355,23 +346,25 @@ impl<'a, K:Kmer, D: Debug + Clone, S: CompressionSpec<D>> Simplify<'a, K, D, S> 
             let next_exts = next_node.exts();
 
             let consistent = (next_node.len() == K::k()) ||
-                            match (dir, next_side_incoming, rc) {
-                (Dir::Left, Dir::Right, false) => true,
-                (Dir::Left, Dir::Left, true) => true,
-                (Dir::Right, Dir::Left, false) => true,
-                (Dir::Right, Dir::Right, true) => true,
-                _ => {
-                    println!("dir: {:?}, Lmer: {:?}, exts: {:?}", dir, bases, exts);
-                    println!("end kmer: {:?}", end_kmer);
-                    println!("next kmer: {:?}", next_kmer);
-                    println!("rc: {:?}", next_kmer.min_rc());
-                    println!("next bases: {:?}, next_side_incoming: {:?}, rc: {:?}",
+                match (dir, next_side_incoming, rc) {
+                    (Dir::Left, Dir::Right, false) => true,
+                    (Dir::Left, Dir::Left, true) => true,
+                    (Dir::Right, Dir::Left, false) => true,
+                    (Dir::Right, Dir::Right, true) => true,
+                    _ => {
+                        println!("dir: {:?}, Lmer: {:?}, exts: {:?}", dir, bases, exts);
+                        println!("end kmer: {:?}", end_kmer);
+                        println!("next kmer: {:?}", next_kmer);
+                        println!("rc: {:?}", next_kmer.min_rc());
+                        println!(
+                            "next bases: {:?}, next_side_incoming: {:?}, rc: {:?}",
                             next_node.sequence(),
                             next_side_incoming,
-                            rc);
-                    false
-                }
-            };
+                            rc
+                        );
+                        false
+                    }
+                };
             assert!(consistent);
 
             // We can include this kmer in the line if:
@@ -379,7 +372,9 @@ impl<'a, K:Kmer, D: Debug + Clone, S: CompressionSpec<D>> Simplify<'a, K, D, S> 
             // b) the kmer we go to has a unique extension back in our direction
             // c) the new edge is not of length K and a palindrome
 
-            if !self.available_nodes.contains(next_node_id) || (!self.stranded && next_kmer.is_palindrome())  {
+            if !self.available_nodes.contains(next_node_id) ||
+                (!self.stranded && next_kmer.is_palindrome())
+            {
                 // Next kmer isn't in this partition,
                 // or we've already used it,
                 // or it's palindrom and we are not stranded
@@ -442,8 +437,7 @@ impl<'a, K:Kmer, D: Debug + Clone, S: CompressionSpec<D>> Simplify<'a, K, D, S> 
     // Determine the sequence and extensions of the maximal unbranched
     // edge, centered around the given edge number
     #[inline(never)]
-    fn build_node(&mut self, seed_node: usize)
-                -> (DnaString, Exts, VecDeque<(usize, Dir)>, D) {
+    fn build_node(&mut self, seed_node: usize) -> (DnaString, Exts, VecDeque<(usize, Dir)>, D) {
 
         let (l_path, l_ext) = self.extend_node(seed_node, Dir::Left);
         let (r_path, r_ext) = self.extend_node(seed_node, Dir::Right);
@@ -457,13 +451,19 @@ impl<'a, K:Kmer, D: Debug + Clone, S: CompressionSpec<D>> Simplify<'a, K, D, S> 
         // Add on the left path
         for &(next_node, incoming_dir) in l_path.iter() {
             node_path.push_front((next_node, incoming_dir.flip()));
-            node_data = self.spec.reduce(node_data, self.graph.get_node(next_node).data());
+            node_data = self.spec.reduce(
+                node_data,
+                self.graph.get_node(next_node).data(),
+            );
         }
 
         // Add on the right path
         for &(next_node, incoming_dir) in r_path.iter() {
             node_path.push_back((next_node, incoming_dir));
-            node_data = self.spec.reduce(node_data, self.graph.get_node(next_node).data());
+            node_data = self.spec.reduce(
+                node_data,
+                self.graph.get_node(next_node).data(),
+            );
         }
 
         let left_extend = match l_path.last() {
@@ -481,20 +481,27 @@ impl<'a, K:Kmer, D: Debug + Clone, S: CompressionSpec<D>> Simplify<'a, K, D, S> 
         let path_seq = self.graph.sequence_of_path(node_path.iter());
 
         // return sequence and extensions
-        (path_seq, Exts::from_single_dirs(left_extend, right_extend), node_path, node_data)
+        (
+            path_seq,
+            Exts::from_single_dirs(left_extend, right_extend),
+            node_path,
+            node_data,
+        )
     }
 
 
     /// Simplify a compressed Debruijn graph by merging adjacent unbranched nodes, and optionally
     /// censoring some nodes
-    pub fn simplify(mut old_graph: DebruijnGraph<K,D>, censor_nodes: Option<Vec<usize>>, stranded: bool, compression: S) -> DebruijnGraph<K, D> {
-
+    pub fn compress_graph(
+        stranded: bool,
+        compression: S,
+        mut old_graph: DebruijnGraph<K, D>,
+        censor_nodes: Option<Vec<usize>>,
+    ) -> DebruijnGraph<K, D> {
 
         let n_nodes = old_graph.len();
-        
-
         let mut available_nodes = BitSet::with_capacity(n_nodes);
-        for i in 0 .. n_nodes {
+        for i in 0..n_nodes {
             available_nodes.insert(i);
         }
 
@@ -503,28 +510,27 @@ impl<'a, K:Kmer, D: Debug + Clone, S: CompressionSpec<D>> Simplify<'a, K, D, S> 
                 for censor in c {
                     available_nodes.remove(censor);
                 }
-            },
+            }
             None => (),
         }
 
         old_graph.fix_exts(Some(&available_nodes));
 
-        let mut simplify = 
-            Simplify {
-                spec: compression,
-                stranded: stranded,
-                graph: &old_graph,
-                available_nodes: available_nodes,
-                d: PhantomData,
-            };
+        let mut comp = CompressFromGraph {
+            spec: compression,
+            stranded: stranded,
+            graph: &old_graph,
+            available_nodes: available_nodes,
+            d: PhantomData,
+        };
 
         // FIXME -- clarify requirements around state of extensions
         let mut graph = BaseGraph::new(stranded);
 
-        for node_counter in 0 .. n_nodes {
+        for node_counter in 0..n_nodes {
 
-            if simplify.available_nodes.contains(node_counter) {
-                let (seq, exts, _, data) = simplify.build_node(node_counter);
+            if comp.available_nodes.contains(node_counter) {
+                let (seq, exts, _, data) = comp.build_node(node_counter);
                 graph.add(&seq, exts, data);
             }
         }
@@ -532,9 +538,17 @@ impl<'a, K:Kmer, D: Debug + Clone, S: CompressionSpec<D>> Simplify<'a, K, D, S> 
         // We will have some hanging exts due to
         let mut dbg = graph.finish();
         dbg.fix_exts(None);
-        //assert!(dbg.is_compressed() == None);
+        debug_assert!(dbg.is_compressed() == None);
         dbg
-
-        
     }
+}
+
+/// Perform path-compression on a (possibly partially compressed) DeBruijn graph
+pub fn compress_graph<K: Kmer, D: Clone + Debug, S: CompressionSpec<D>>(
+    stranded: bool,
+    spec: S,
+    old_graph: DebruijnGraph<K, D>,
+    censor_nodes: Option<Vec<usize>>,
+) -> DebruijnGraph<K, D> {
+    CompressFromGraph::<K, D, S>::compress_graph(stranded, spec, old_graph, censor_nodes)
 }
