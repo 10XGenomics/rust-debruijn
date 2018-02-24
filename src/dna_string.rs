@@ -475,18 +475,26 @@ impl<'a> DnaStringSlice<'a> {
         unimplemented!();
     }
 
+    pub fn bytes(&self) -> Vec<u8> {
+        let mut v = Vec::new();
+        for pos in 0..self.length {
+            v.push(self.get(pos));
+        }
+        v
+    }
+
     pub fn ascii(&self) -> Vec<u8> {
         let mut v = Vec::new();
-        for pos in self.start..(self.start + self.length) {
-            v.push(bits_to_ascii(self.dna_string.get(pos)));
+        for pos in 0..self.length {
+            v.push(bits_to_ascii(self.get(pos)));
         }
         v
     }
 
     pub fn to_dna_string(&self) -> String {
         let mut dna: String = String::new();
-        for pos in self.start..(self.start + self.length) {
-            dna.push(bits_to_base(self.dna_string.get(pos)));
+        for pos in 0..self.length {
+            dna.push(bits_to_base(self.get(pos)));
         }
         dna
     }
@@ -498,22 +506,40 @@ impl<'a> DnaStringSlice<'a> {
     pub fn to_owned(&self) -> DnaString {
         let mut be = DnaString::empty(self.length);
         for pos in 0..self.length {
-            be.set_mut(pos, self.dna_string.get(self.start + pos));
+            be.set_mut(pos, self.get(pos));
         }
 
         be
     }
+        /// Get slice containing the interval [`start`, `end`) of `self`
+    pub fn slice(&self, start: usize, end: usize) -> DnaStringSlice {
+        assert!(start <= self.length, "coordinate exceeds number of elements.");
+        assert!(end <= self.length, "coordinate exceeds number of elements.");
+
+        DnaStringSlice {
+            dna_string: self.dna_string,
+            start: self.start + start,
+            length: end - start,
+            is_rc: false,
+        }
+    }
+
 }
 
 
 impl<'a> fmt::Debug for DnaStringSlice<'a> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let mut s = String::new();
-        for pos in self.start..(self.start + self.length) {
-            s.push(bits_to_base(self.dna_string.get(pos)))
+        if self.length < 256 {
+            for pos in self.start..(self.start + self.length) {
+                s.push(bits_to_base(self.dna_string.get(pos)))
+            }
+            write!(f, "{}", s)
+        } else {
+            write!(f, "start: {}, len: {}, is_rc: {}", self.start, self.length, self.is_rc)
         }
 
-        write!(f, "{}", s)
+        
     }
 }
 
@@ -555,6 +581,20 @@ impl<'a> PackedDnaStringSet {
             is_rc: false,
         }
     }
+
+    /// Get a `DnaStringSlice` containing `i`th sequence in the set
+    pub fn slice(&'a self, i: usize, start: usize, end: usize) -> DnaStringSlice<'a> {
+        assert!(start <= self.length[i] as usize);
+        assert!(end <= self.length[i] as usize);
+
+        DnaStringSlice {
+            dna_string: &self.sequence,
+            start: self.start[i] + start,
+            length: end - start,
+            is_rc: false,
+        }
+    }
+
 
     /// Number of sequences in the set
     pub fn len(&self) -> usize {

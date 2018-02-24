@@ -48,6 +48,7 @@ pub mod clean_graph;
 pub mod test;
 
 /// Convert a 2-bit representation of a base to a char
+#[inline]
 pub fn bits_to_ascii(c: u8) -> u8 {
     match c {
         0u8 => 'A' as u8,
@@ -59,18 +60,30 @@ pub fn bits_to_ascii(c: u8) -> u8 {
 }
 
 /// Convert an ASCII-encoded DNA base to a 2-bit representation
+#[inline]
 pub fn base_to_bits(c: u8) -> u8 {
     match c {
-        b'A' => 0u8,
-        b'C' => 1u8,
-        b'G' => 2u8,
-        b'T' => 3u8,
+        b'A' | b'a' => 0u8,
+        b'C' | b'c' => 1u8,
+        b'G' | b'g' => 2u8,
+        b'T' | b't' => 3u8,
         _ => 0u8,
+    }
+}
+
+/// Convert an ASCII-encoded DNA base to a 2-bit representation
+#[inline]
+pub fn is_valid_base(c: u8) -> bool {
+    match c {
+        b'A' | b'C' | b'G' | b'T' => true,
+        b'a' | b'c' | b'g' | b't' => true,
+        _ => false,
     }
 }
 
 
 /// Convert a 2-bit representation of a base to a char
+#[inline]
 pub fn bits_to_base(c: u8) -> char {
     match c {
         0u8 => 'A',
@@ -82,6 +95,7 @@ pub fn bits_to_base(c: u8) -> char {
 }
 
 /// The complement of a 2-bit encoded base
+#[inline]
 pub fn complement(base: u8) -> u8 {
     (!base) & 0x3u8
 }
@@ -179,6 +193,11 @@ pub trait Kmer: Mer + Sized + Copy + PartialEq + PartialOrd + Eq + Ord + Hash {
 
     /// K value for this concrete type.
     fn k() -> usize;
+
+    /// Return the rank of this kmer in an lexicographic ordering of all kmers
+    /// E.g. 'AAAA' -> 0, 'AAAT' -> 1, etc.
+    /// If K > 32, the leading bases are truncated 
+    fn to_u64(&self) -> u64;
 
     /// Return the minimum of the kmer and it's reverse complement, and a flag indicating if sequence was flipped
     fn min_rc_flip(&self) -> (Self, bool) {

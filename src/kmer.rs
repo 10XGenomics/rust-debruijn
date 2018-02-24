@@ -67,6 +67,13 @@ pub type Kmer24 = VarIntKmer<u64, K24>;
 /// 16-base kmer, backed by a single u32
 pub type Kmer16 = IntKmer<u32>;
 
+/// 14-base kmer, backed by a single u32
+pub type Kmer14 = VarIntKmer<u32, K14>;
+
+/// 16-base kmer, backed by a single u16
+pub type Kmer8 = IntKmer<u16>;
+
+
 
 /// Trait for specialized integer operations used in DeBruijn Graph
 pub trait IntHelp: PrimInt + FromPrimitive {
@@ -179,14 +186,11 @@ impl<T: PrimInt + FromPrimitive + Hash + IntHelp> IntKmer<T> {
         T::from_u64(v).unwrap()
     }
 
-    fn to_u64(&self) -> u64 {
-        T::to_u64(&self.storage).unwrap()
-    }
-
     fn from_u64(v: u64) -> IntKmer<T> {
         IntKmer { storage: Self::t_from_u64(v) }
     }
 
+    #[inline]
     fn addr(&self, pos: usize) -> usize {
         let top_base = Self::k() - 1;
         let bitpos = (top_base - pos) * 2;
@@ -300,6 +304,10 @@ impl<T: PrimInt + FromPrimitive + Hash + IntHelp> Kmer for IntKmer<T> {
     fn k() -> usize {
         Self::_k()
     }
+
+    fn to_u64(&self) -> u64 {
+        T::to_u64(&self.storage).unwrap()
+    }
 }
 
 impl<T: PrimInt + FromPrimitive + Hash + IntHelp> fmt::Debug for IntKmer<T> {
@@ -315,6 +323,7 @@ impl<T: PrimInt + FromPrimitive + Hash + IntHelp> fmt::Debug for IntKmer<T> {
 
 /// Helper trait for declaring the K value of a Kmer. Will be removed when const generics are available
 pub trait KmerSize: Ord + Hash + Copy + fmt::Debug {
+    #[inline]
     fn K() -> usize;
 }
 
@@ -325,8 +334,8 @@ pub trait KmerSize: Ord + Hash + Copy + fmt::Debug {
 /// bits:             H  ........ L
 /// bit :  14  12  10 8  6  4  2  0
 ///
-/// sorting the integer will give a lexicographic sorting of the corresponding string
-///
+/// sorting the integer will give a lexicographic sorting of the corresponding string.
+///  kmers that don't fill `storage` are always aligned to the least signifcant bits
 #[derive(Copy, Clone, PartialEq, PartialOrd, Eq, Ord, Hash, Serialize, Deserialize)]
 pub struct VarIntKmer<T: PrimInt + FromPrimitive + IntHelp, KS: KmerSize> {
     pub storage: T,
@@ -344,6 +353,10 @@ impl<T: PrimInt + FromPrimitive + Hash + IntHelp, KS: KmerSize> Kmer for VarIntK
 
     fn k() -> usize {
         Self::_k()
+    }
+
+    fn to_u64(&self) -> u64 {
+        T::to_u64(&self.storage).unwrap()
     }
 }
 
@@ -363,10 +376,6 @@ impl<T: PrimInt + FromPrimitive + Hash + IntHelp, KS: KmerSize> VarIntKmer<T, KS
 
     fn t_from_u64(v: u64) -> T {
         T::from_u64(v).unwrap()
-    }
-
-    fn to_u64(&self) -> u64 {
-        T::to_u64(&self.storage).unwrap()
     }
 
     fn from_u64(v: u64) -> IntKmer<T> {
@@ -547,6 +556,19 @@ impl KmerSize for K24 {
         24
     }
 }
+
+/// Marker trait for generating K=24 Kmers
+#[derive(Debug, Hash, Copy, Clone, Ord, PartialOrd, Eq, PartialEq)]
+pub struct K14;
+
+impl KmerSize for K14 {
+    #[inline]
+    fn K() -> usize {
+        14
+    }
+}
+
+
 
 
 #[cfg(test)]
@@ -766,6 +788,13 @@ mod tests {
     fn test_kmer_16() {
         for _ in 0..10000 {
             check_kmer::<IntKmer<u32>>();
+        }
+    }
+
+    #[test]
+    fn test_kmer_14() {
+        for _ in 0..10000 {
+            check_kmer::<VarIntKmer<u32, K14>>();
         }
     }
 
