@@ -171,18 +171,6 @@ impl<'a, M: 'a + Mer> Iterator for MerIter<'a, M> {
 
     }
 }
-/*
-impl<'a, M: 'a + Mer> IntoIterator for M {
-    type Item = u8;
-    type IntoIter = MerIter<'a, M>;
-
-    fn into_iter(self) -> MerIter<'a, M> {
-        self.iter()
-    }
-}
-*/
-
-
 
 
 /// Encapsulates a Kmer sequence with statically known K.
@@ -194,9 +182,12 @@ pub trait Kmer: Mer + Sized + Copy + PartialEq + PartialOrd + Eq + Ord + Hash {
     fn k() -> usize;
 
     /// Return the rank of this kmer in an lexicographic ordering of all kmers
-    /// E.g. 'AAAA' -> 0, 'AAAT' -> 1, etc.
-    /// If K > 32, the leading bases are truncated 
+    /// E.g. 'AAAA' -> 0, 'AAAT' -> 1, etc. This will panic if K > 32.
     fn to_u64(&self) -> u64;
+
+    // Construct a kmer from the given lexicographic rank of the kmer.
+    // If K > 32, the leads bases will be A's.
+    fn from_u64(value: u64) -> Self;
 
     /// Return the minimum of the kmer and it's reverse complement, and a flag indicating if sequence was flipped
     fn min_rc_flip(&self) -> (Self, bool) {

@@ -186,10 +186,6 @@ impl<T: PrimInt + FromPrimitive + Hash + IntHelp> IntKmer<T> {
         T::from_u64(v).unwrap()
     }
 
-    fn from_u64(v: u64) -> IntKmer<T> {
-        IntKmer { storage: Self::t_from_u64(v) }
-    }
-
     #[inline]
     fn addr(&self, pos: usize) -> usize {
         let top_base = Self::k() - 1;
@@ -305,6 +301,10 @@ impl<T: PrimInt + FromPrimitive + Hash + IntHelp> Kmer for IntKmer<T> {
         Self::_k()
     }
 
+    fn from_u64(v: u64) -> IntKmer<T> {
+        IntKmer { storage: Self::t_from_u64(v) }
+    }
+
     fn to_u64(&self) -> u64 {
         T::to_u64(&self.storage).unwrap()
     }
@@ -351,12 +351,17 @@ impl<T: PrimInt + FromPrimitive + Hash + IntHelp, KS: KmerSize> Kmer for VarIntK
         }
     }
 
+    #[inline]
     fn k() -> usize {
         Self::_k()
     }
 
     fn to_u64(&self) -> u64 {
         T::to_u64(&self.storage).unwrap()
+    }
+
+    fn from_u64(v: u64) -> Self {
+        VarIntKmer { storage: Self::t_from_u64(v), phantom: PhantomData}
     }
 }
 
@@ -376,10 +381,6 @@ impl<T: PrimInt + FromPrimitive + Hash + IntHelp, KS: KmerSize> VarIntKmer<T, KS
 
     fn t_from_u64(v: u64) -> T {
         T::from_u64(v).unwrap()
-    }
-
-    fn from_u64(v: u64) -> IntKmer<T> {
-        IntKmer { storage: Self::t_from_u64(v) }
     }
 
     fn addr(&self, pos: usize) -> usize {
@@ -583,11 +584,14 @@ mod tests {
     use KmerIter;
     use MerImmut;
 
+    // Generate random kmers & test the methods for manipulating them
     fn check_kmer<T: Kmer>() {
         let K = T::k();
 
+        // Random kmer
         let km = random_kmer::<T>();
 
+        // Reverse complementing
         let rc = km.rc();
         let double_rc = rc.rc();
         assert!(km == double_rc);
@@ -596,13 +600,11 @@ mod tests {
             assert!(km.get(i) == (3 - rc.get(K - 1 - i)))
         }
 
-
+        // Get and set bases
         for i in 0..K {
-            // Get and set
             let km2 = km.set(i, 0);
             assert!(km2.get(i) == 0);
         }
-
         let mut copy_kmer = T::empty();
         for i in 0..K {
             copy_kmer = copy_kmer.set(i, km.get(i));
@@ -627,7 +629,16 @@ mod tests {
         let ts = km.set(0, l_base).set(K - 1, r_base);
 
         let double_shift = ts.extend_left(0).extend_right(r_base);
-        assert!(ts == double_shift)
+        assert!(ts == double_shift);
+
+        if T::k() <= 32 {
+            // Convert to and from u64.
+            let u64_1 = km.to_u64();
+            let km2   = T::from_u64(u64_1);
+            let u64_2 = km2.to_u64();
+            assert_eq!(km, km2);
+            assert_eq!(u64_1, u64_2);
+        }
     }
 
     fn check_vmer<V: Vmer<T>, T: Kmer>() {
