@@ -2,7 +2,7 @@
 
 //! DeBruijn graph simplification routines. Currently tip-removal is implemented.
 use Kmer;
-use paths::{DebruijnGraph, Node};
+use graph::{DebruijnGraph, Node};
 use std::marker::PhantomData;
 use std::fmt::Debug;
 

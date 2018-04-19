@@ -38,7 +38,7 @@ use std::fmt;
 
 pub mod kmer;
 pub mod dna_string;
-pub mod paths;
+pub mod graph;
 pub mod vmer;
 pub mod msp;
 pub mod filter;

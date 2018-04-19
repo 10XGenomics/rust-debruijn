@@ -144,7 +144,7 @@ mod tests {
     use {Kmer, Dir, Exts};
     use clean_graph::CleanGraph;
     use std::collections::HashSet;
-    use paths::{BaseGraph, DebruijnGraph};
+    use graph::{BaseGraph, DebruijnGraph};
     use compression::{SimpleCompress, compress_kmers, compress_graph};
     use std::iter::FromIterator;
     use DnaBytes;

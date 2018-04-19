@@ -10,7 +10,7 @@ use Kmer;
 use Vmer;
 use Dir;
 use Exts;
-use paths::{DebruijnGraph, BaseGraph};
+use graph::{DebruijnGraph, BaseGraph};
 use dna_string::DnaString;
 
 #[derive(Copy, Clone)]
