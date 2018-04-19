@@ -4,14 +4,15 @@ version = "0.2.0"
 authors = ["Patrick Marks <patrick@10xgenomics.com>"]
 
 [dependencies]
-serde = "1"
-serde_derive = "1"
-serde_json = "1"
+serde = "^1"
+serde_derive = "^1"
+serde_json = "^1"
 rand = "*"
 smallvec = "*"
 bit-set = "0.4.0"
 itertools = ">=0.6"
 pdqsort = "*"
+byteorder = "*"
 
 [dependencies.extprim]
 version = "^1.4.0"

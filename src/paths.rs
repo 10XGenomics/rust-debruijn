@@ -14,6 +14,7 @@ use std::path::Path;
 use std::fmt::{self, Debug};
 use std::borrow::Borrow;
 use std::cmp::min;
+use std::io::Error;
 
 use std::f32;
 
@@ -511,7 +512,7 @@ impl<K: Kmer, D: Debug> DebruijnGraph<K, D> {
         node: &Node<K, D>,
         w: &mut Write,
         tag_func: Option<&F>,
-    ) {
+    ) -> Result<(), Error> {
 
         match tag_func {
             Some(f) => {
@@ -522,7 +523,7 @@ impl<K: Kmer, D: Debug> DebruijnGraph<K, D> {
                     node.node_id,
                     node.sequence().to_dna_string(),
                     tags
-                ).unwrap();
+                )?;
             }
             _ => {
                 writeln!(
@@ -530,7 +531,7 @@ impl<K: Kmer, D: Debug> DebruijnGraph<K, D> {
                     "S\t{}\t{}",
                     node.node_id,
                     node.sequence().to_dna_string()
-                ).unwrap()
+                )?
             }
         }
 
@@ -548,7 +549,7 @@ impl<K: Kmer, D: Debug> DebruijnGraph<K, D> {
                     target,
                     to_dir,
                     K::k() - 1
-                ).unwrap();
+                )?;
             }
         }
 
@@ -566,15 +567,17 @@ impl<K: Kmer, D: Debug> DebruijnGraph<K, D> {
                     target,
                     to_dir,
                     K::k() - 1
-                ).unwrap();
+                )?;
             }
         }
+
+        Ok(())
     }
 
     /// Write the graph to GFA format
-    pub fn to_gfa<P: AsRef<Path>>(&self, gfa_out: P) {
-        let mut wtr = File::create(gfa_out).unwrap();
-        writeln!(wtr, "H\tVN:Z:debruijn-rs").unwrap();
+    pub fn to_gfa<P: AsRef<Path>>(&self, gfa_out: P) -> Result<(), Error> {
+        let mut wtr = File::create(gfa_out)?;
+        writeln!(wtr, "H\tVN:Z:debruijn-rs")?;
 
         // Hack to generate a None value with the right type.
         let dummy_func = |_n: &Node<K, D>| "".to_string();
@@ -583,8 +586,10 @@ impl<K: Kmer, D: Debug> DebruijnGraph<K, D> {
 
         for i in 0..self.len() {
             let n = self.get_node(i);
-            self.node_to_gfa(&n, &mut wtr, dummy_opt);
+            self.node_to_gfa(&n, &mut wtr, dummy_opt)?;
         }
+
+        Ok(())
     }
 
     /// Write the graph to GFA format
@@ -592,14 +597,16 @@ impl<K: Kmer, D: Debug> DebruijnGraph<K, D> {
         &self,
         gfa_out: P,
         tag_func: F,
-    ) {
-        let mut wtr = File::create(gfa_out).unwrap();
-        writeln!(wtr, "H\tVN:Z:debruijn-rs").unwrap();
+    ) -> Result<(), Error> {
+        let mut wtr = File::create(gfa_out)?;
+        writeln!(wtr, "H\tVN:Z:debruijn-rs")?;
 
         for i in 0..self.len() {
             let n = self.get_node(i);
-            self.node_to_gfa(&n, &mut wtr, Some(&tag_func));
+            self.node_to_gfa(&n, &mut wtr, Some(&tag_func))?;
         }
+
+        Ok(())
     }
 
 
@@ -679,7 +686,45 @@ impl<K: Kmer, D: Debug> DebruijnGraph<K, D> {
         }
     }
 
+    pub fn to_supernova_bv(&self, w: &mut Write) -> Result<(), Error> {
+        use byteorder::{LittleEndian, WriteBytesExt};
 
+        w.write(b"BINWRITE")?;   // magic number
+
+        let num_nodes = self.len();
+        w.write_u64::<LittleEndian>(num_nodes as u64)?;
+
+        let mut byte_buf = Vec::new();
+
+		debug!( "writing a graph of {} nodes", num_nodes );
+
+        for i in 0 .. num_nodes {
+            let node = self.get_node(i);
+            let l = node.len();
+            w.write_u32::<LittleEndian>(l as u32)?;
+
+            let seq = node.sequence();
+
+            let mut v = 0 as u8;
+            byte_buf.clear();
+            for j in 0..(l as usize) {
+                let offset = (j % 4) * 2;
+                v = v | ((seq.get(j)) << offset);
+
+                if j % 4 == 3 {
+                    byte_buf.push(v);
+                    v = 0;
+                }
+            }
+
+            if l % 4 > 0 {
+                byte_buf.push(v)
+            }
+            w.write(&byte_buf)?;
+        }
+
+        Ok(())
+    }
 
     pub fn max_path_beam<F, F2>(&self, beam: usize, score: F, _solid_path: F2) -> Vec<(usize, Dir)>
     where

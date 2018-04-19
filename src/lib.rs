@@ -19,6 +19,7 @@
 extern crate num;
 extern crate extprim;
 extern crate rand;
+extern crate byteorder;
 
 #[macro_use]
 extern crate serde_derive;
