@@ -1,6 +1,6 @@
 // Copyright 2017 10x Genomics
 
-//! Compute path-compressed De Bruijn graphs from kmers or intermediate sized De Bruijn graph fragments
+//! Containers for path-compressed De Bruijn graphs
 
 use std::marker::PhantomData;
 use std::collections::VecDeque;
@@ -32,10 +32,10 @@ use Exts;
 use dna_string::{DnaString, DnaStringSlice, PackedDnaStringSet};
 
 /// A compressed DeBruijn graph carrying auxiliary data on each node of type `D`.
-/// This private type does not carry the sorted index arrays the allow the graph
-/// to be walked efficiently.  The `DeBruijnGraph` type wraps this type and add those
+/// This type does not carry the sorted index arrays the allow the graph
+/// to be walked efficiently. The `DeBruijnGraph` type wraps this type and add those
 /// vectors.
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Clone)]
 pub struct BaseGraph<K, D> {
     pub sequences: PackedDnaStringSet,
     pub exts: Vec<Exts>,
@@ -173,17 +173,9 @@ impl<K: Kmer, D: Debug> DebruijnGraph<K, D> {
                 let link = self.find_link(kmer.extend(i, dir), dir); //.expect("missing link");
                 match link {
                     Some(l) => edges.push(l),
-                    None => {
-                        println!(
-                            "seq: {:?}, kmer: {:?}, exts: {:?}, next:{:?}, p: {}",
-                            sequence,
-                            kmer,
-                            exts,
-                            kmer.extend(i, dir),
-                            kmer.is_palindrome()
-                        );
-                        panic!("no link");
-                    }
+                    // This edge doesn't exist within this shard, so ignore it.
+                    // NOTE: this should be allowed in a 'complete' DBG
+                    None => (),
                 }
             }
         }

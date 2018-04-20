@@ -555,7 +555,7 @@ impl<'a> IntoIterator for &'a DnaStringSlice<'a> {
 
 /// Container for many distinct sequences, concatenated into a single DnaString.  Each
 /// sequence is accessible by index as a DnaStringSlice.
-#[derive(Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PackedDnaStringSet {
     pub sequence: DnaString,
     pub start: Vec<usize>,

@@ -14,6 +14,9 @@ itertools = ">=0.6"
 pdqsort = "*"
 byteorder = "*"
 
+[dev-dependencies]
+pretty_assertions = "0.5.1"
+
 [dependencies.extprim]
 version = "^1.4.0"
 features = ["serde"]

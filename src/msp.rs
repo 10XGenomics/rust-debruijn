@@ -5,8 +5,6 @@
 //! simple_scan method is based on:
 //! Li, Yang. "MSPKmerCounter: a fast and memory efficient approach for k-mer counting." arXiv preprint arXiv:1505.06550 (2015).
 
-use std::collections::HashSet;
-use std::iter::FromIterator;
 use std::cmp::min;
 use std::iter::Iterator;
 use Kmer;
@@ -174,32 +172,31 @@ where
 
 
 
-fn all_kmers<T>(k: usize, seq: &[T]) -> Vec<&[T]> {
-    (0..(seq.len() - k + 1)).map(|i| &seq[i..i + k]).collect()
-}
-
-fn test_all_kmers(k: usize, full_seq: &[u8], slices: Vec<(u32, usize, usize, usize)>) {
-    let start_kmers = HashSet::from_iter(all_kmers(k, full_seq));
-
-    let mut sliced_kmers = HashSet::new();
-
-    for (_, _, slc_start, slc_len) in slices {
-        let slc = &full_seq[slc_start..(slc_start + slc_len)];
-        sliced_kmers.extend(all_kmers(k, slc));
-    }
-
-    if start_kmers != sliced_kmers {
-        println!("start kmers: {:?}", start_kmers);
-        println!("sliced kmers: {:?}", sliced_kmers);
-        panic!("kmer sets not equal");
-    }
-}
-
-
 #[cfg(test)]
 mod tests {
     use test;
     use super::*;
+
+    fn all_kmers<T>(k: usize, seq: &[T]) -> Vec<&[T]> {
+        (0..(seq.len() - k + 1)).map(|i| &seq[i..i + k]).collect()
+    }
+
+    fn test_all_kmers(k: usize, full_seq: &[u8], slices: Vec<(u32, usize, usize, usize)>) {
+        let start_kmers = HashSet::from_iter(all_kmers(k, full_seq));
+
+        let mut sliced_kmers = HashSet::new();
+
+        for (_, _, slc_start, slc_len) in slices {
+            let slc = &full_seq[slc_start..(slc_start + slc_len)];
+            sliced_kmers.extend(all_kmers(k, slc));
+        }
+
+        if start_kmers != sliced_kmers {
+            println!("start kmers: {:?}", start_kmers);
+            println!("sliced kmers: {:?}", sliced_kmers);
+            panic!("kmer sets not equal");
+        }
+    }
 
     #[test]
     fn test1() {
@@ -246,7 +243,7 @@ mod tests {
             );
 
             println!("slices: {:?}", slices);
-            super::test_all_kmers(k, &dna[..], slices);
+            test_all_kmers(k, &dna[..], slices);
         }
     }
 

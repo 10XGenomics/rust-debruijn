@@ -78,7 +78,6 @@ impl<D: Ord> KmerSummarizer<D, Vec<D>> for CountFilterSet<D> {
 }
 
 
-
 /// Read a shard and determine the valid kmers
 /// Low memory implementation that should consume < 4G of temporary memory
 /// To reduce memory consumption, set track_bcs to false to forget about BC lists.
@@ -109,6 +108,7 @@ pub fn filter_kmers<K: Kmer, V: Vmer<K>, D1: Clone, DS, S: KmerSummarizer<D1, DS
         bucket_ranges.push(start..start + sz);
         start += sz;
     }
+    assert!(bucket_ranges[bucket_ranges.len() - 1].end >= 256);
 
     if bucket_ranges.len() > 1 {
         info!(
@@ -126,7 +126,6 @@ pub fn filter_kmers<K: Kmer, V: Vmer<K>, D1: Clone, DS, S: KmerSummarizer<D1, DS
             kmer_buckets.push(Vec::new());
         }
 
-        //info!("Enumerating kmers...");
         for &(ref seq, seq_exts, ref d) in seqs {
             for (kmer, exts) in seq.iter_kmer_exts(seq_exts) {
                 let (min_kmer, flip_exts) = if rc_norm {
@@ -162,7 +161,7 @@ pub fn filter_kmers<K: Kmer, V: Vmer<K>, D1: Clone, DS, S: KmerSummarizer<D1, DS
 
     pdqsort::sort_by_key(&mut valid_kmers, |x| x.0);
     pdqsort::sort(&mut all_kmers);
-    fix_exts(stranded, &mut valid_kmers, &all_kmers);
+    remove_censored_exts_sharded(stranded, &mut valid_kmers, &all_kmers);
 
     info!(
         "filter kmers: sequences: {}, kmers: {}, unique kmers: {}. valid kmers: {}",
@@ -175,10 +174,11 @@ pub fn filter_kmers<K: Kmer, V: Vmer<K>, D1: Clone, DS, S: KmerSummarizer<D1, DS
 }
 
 /// Remove extensions in valid_kmers that point to censored kmers. A censored kmer
-/// exists in all_kmers but not valid_kmers. We know that we can delete these extensions.
+/// exists in all_kmers but not valid_kmers. Since the kmer exists in this partition, 
+/// but was censored, we know that we can delete extensions to it.
 /// In sharded kmer processing, we will have extensions to kmers in other shards. We don't
-/// know whether these are censored until later, so we retain the extension.
-pub fn fix_exts<K: Kmer, D>(
+/// know whether these are censored until later, so we retain these extension.
+pub fn remove_censored_exts_sharded<K: Kmer, D>(
     stranded: bool,
     valid_kmers: &mut Vec<(K, (Exts, D))>,
     all_kmers: &Vec<K>,
@@ -220,11 +220,9 @@ pub fn fix_exts<K: Kmer, D>(
     }
 }
 
-/// Remove extensions in valid_kmers that point to censored kmers. A censored kmer
-/// exists in all_kmers but not valid_kmers. We know that we can delete these extensions.
-/// In sharded kmer processing, we will have extensions to kmers in other shards. We don't
-/// know whether these are censored until later, so we retain the extension.
-pub fn fix_exts_local<K: Kmer, D>(stranded: bool, valid_kmers: &mut Vec<(K, (Exts, D))>) {
+/// Remove extensions in valid_kmers that point to censored kmers. Use this method in a non-partitioned
+/// context when valid_kmers includes _all_ kmers that will ultimately be included in the graph.
+pub fn remove_censored_exts<K: Kmer, D>(stranded: bool, valid_kmers: &mut Vec<(K, (Exts, D))>) {
 
     for idx in 0..valid_kmers.len() {
         let mut new_exts = Exts::empty();

@@ -82,10 +82,8 @@ impl<'a, K: Kmer, D: Clone + Debug, S: CompressionSpec<D>> CompressFromKmers<'a,
         &self.kmer_exts[pos].1
     }
 
-    fn get_kmer_id(&self, kmer: &K) -> usize {
-        self.kmer_exts.binary_search_by_key(kmer, |x| x.0).expect(
-            "couldn't find kmer",
-        )
+    fn get_kmer_id(&self, kmer: &K) -> Result<usize, usize> {
+        self.kmer_exts.binary_search_by_key(kmer, |x| x.0)
     }
 
     /// Attempt to extend kmer v in direction dir. Return:
@@ -119,13 +117,18 @@ impl<'a, K: Kmer, D: Clone + Debug, S: CompressionSpec<D>> CompressFromKmers<'a,
 
 
             // We can include this kmer in the line if:
-            // a) it exists in the partition, and is still unused
+            // a) it exists in the partition and is still unused
             // b) the kmer we go to has a unique extension back in our direction
-            if !self.available_kmers.contains(self.get_kmer_id(&next_kmer)) {
+
+            // Check condition a)
+            match self.get_kmer_id(&next_kmer) {
+                Ok(id) if self.available_kmers.contains(id) => (),
+
                 // This kmer isn't in this partition, or we've already used it
-                return ExtMode::Terminal(exts.single_dir(dir));
+                _ => return ExtMode::Terminal(exts.single_dir(dir))
             }
 
+            // Check condition b)
             // Direction we're approaching the new kmer from
             let new_incoming_dir = dir.flip().cond_flip(do_flip);
             let next_kmer_r = self.get_kmer_data(&next_kmer);
@@ -162,7 +165,7 @@ impl<'a, K: Kmer, D: Clone + Debug, S: CompressionSpec<D>> CompressFromKmers<'a,
 
         let final_exts: Exts; // must get set below
 
-        let id = self.get_kmer_id(&kmer);
+        let id = self.get_kmer_id(&kmer).expect("should have this kmer");
         let _ = self.available_kmers.remove(id);
 
         loop {
@@ -171,7 +174,7 @@ impl<'a, K: Kmer, D: Clone + Debug, S: CompressionSpec<D>> CompressFromKmers<'a,
             match ext_result {
                 ExtMode::Unique(next_kmer, next_dir, _) => {
                     path.push((next_kmer, next_dir));
-                    let next_id = self.get_kmer_id(&next_kmer);
+                    let next_id = self.get_kmer_id(&next_kmer).expect("should have this kmer");
                     self.available_kmers.remove(next_id);
                     current_kmer = next_kmer;
                     current_dir = next_dir;

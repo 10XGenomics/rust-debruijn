@@ -33,6 +33,10 @@ extern crate pdqsort;
 #[macro_use]
 extern crate log;
 
+#[cfg(test)] 
+#[macro_use]
+extern crate pretty_assertions;
+
 use std::hash::Hash;
 use std::fmt;
 

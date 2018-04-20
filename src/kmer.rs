@@ -232,7 +232,7 @@ impl<T: PrimInt + FromPrimitive + Hash + IntHelp> Mer for IntKmer<T> {
     /// Get the letter at the given position.
     fn get(&self, pos: usize) -> u8 {
         let bit = self.addr(pos);
-        Self::to_byte((self.storage >> bit & Self::msk()))
+        Self::to_byte(self.storage >> bit & Self::msk())
     }
 
     fn set_mut(&mut self, pos: usize, v: u8) {
@@ -323,6 +323,7 @@ impl<T: PrimInt + FromPrimitive + Hash + IntHelp> fmt::Debug for IntKmer<T> {
 
 /// Helper trait for declaring the K value of a Kmer. Will be removed when const generics are available
 pub trait KmerSize: Ord + Hash + Copy + fmt::Debug {
+    #[allow(non_snake_case)]
     #[inline]
     fn K() -> usize;
 }
@@ -436,7 +437,7 @@ impl<T: PrimInt + FromPrimitive + Hash + IntHelp, KS: KmerSize> Mer for VarIntKm
     /// Get the letter at the given position.
     fn get(&self, pos: usize) -> u8 {
         let bit = self.addr(pos);
-        Self::to_byte((self.storage >> bit & Self::msk()))
+        Self::to_byte(self.storage >> bit & Self::msk())
     }
 
     fn set_mut(&mut self, pos: usize, v: u8) {
@@ -581,7 +582,6 @@ mod tests {
     use vmer::Lmer;
 
     use Vmer;
-    use KmerIter;
     use MerImmut;
 
     // Generate random kmers & test the methods for manipulating them
