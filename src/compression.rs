@@ -393,6 +393,8 @@ impl<'a, K: Kmer, D: Debug + Clone, S: CompressionSpec<D>> CompressFromGraph<'a,
             if incoming_count == 0 {
                 println!("dir: {:?}, Lmer: {:?}, exts: {:?}", dir, bases, exts);
                 println!("end kmer: {:?}", end_kmer);
+                println!("next_node: {:?}", next_node);
+
                 panic!("unreachable");
             } else if incoming_count == 1 {
                 // We have a unique path to next_kmer -- include it

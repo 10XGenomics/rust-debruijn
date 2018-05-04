@@ -176,6 +176,8 @@ where
 mod tests {
     use test;
     use super::*;
+    use std::collections::HashSet;
+    use std::iter::FromIterator;
 
     fn all_kmers<T>(k: usize, seq: &[T]) -> Vec<&[T]> {
         (0..(seq.len() - k + 1)).map(|i| &seq[i..i + k]).collect()
