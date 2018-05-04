@@ -1,3 +1,5 @@
+// Copyright 2017 10x Genomics
+
 //! Generate random genomes (with lots of re-used sustrings), reassemble them, and check sanity
 
 use Kmer;
@@ -8,13 +10,13 @@ use std::cmp::{min, max};
 use rand::{self, Rng};
 use rand::distributions::{IndependentSample, Gamma, Range};
 
-
+/// Generate a uniformly random base
 pub fn random_base() -> u8 {
     let mut r = rand::thread_rng();
     (r.next_u64() % 4) as u8
 }
 
-// Generate uniformly random DNA sequences
+/// Generate uniformly random DNA sequences
 pub fn random_dna(len: usize) -> Vec<u8> {
     let mut r = rand::thread_rng();
     let mut dna = Vec::new();
@@ -26,6 +28,7 @@ pub fn random_dna(len: usize) -> Vec<u8> {
     dna
 }
 
+/// Randomly mutate each base with probability `p`
 pub fn edit_dna<R: Rng>(seq: &mut Vec<u8>, p: f64, r: &mut R) {
     for b in seq.iter_mut() {
         if r.next_f64() < p {
@@ -56,7 +59,7 @@ pub fn random_vmer<K: Kmer, V: Vmer<K>>() -> V {
     lmer
 }
 
-fn simple_contigs() -> Vec<Vec<u8>> {
+pub fn simple_random_contigs() -> Vec<Vec<u8>> {
     let p1 = random_dna(40);
     let p2 = random_dna(30);
 
@@ -77,10 +80,10 @@ fn simple_contigs() -> Vec<Vec<u8>> {
     c2.extend(pc);
     c2.extend(p4);
 
-    
+
     let mut c3 = Vec::new();
     c3.extend(random_dna(30));
-    
+
     // Stick a palindrome in the middle
     let palindrome1 = random_dna(33);
     let mut palindrome2 = palindrome1.clone();
@@ -141,17 +144,15 @@ mod tests {
 
     use {Kmer, Dir, Exts};
     use clean_graph::CleanGraph;
-    use std::collections::HashSet;
-    use paths::{BaseGraph, DebruijnGraph};
-    use compression::{SimpleCompress, PathCompression, Simplify};
+    use std::collections::{HashSet, HashMap};
+    use graph::{BaseGraph, DebruijnGraph};
+    use compression::{SimpleCompress, compress_kmers, compress_graph};
     use std::iter::FromIterator;
-    use std::hash::{Hash, SipHasher, Hasher};
-    use std::marker::PhantomData;
     use DnaBytes;
 
     use std::ops::Sub;
     use msp;
-    use kmer::IntKmer;    
+    use kmer::IntKmer;
     use dna_string::DnaString;
     use filter;
 
@@ -159,9 +160,16 @@ mod tests {
 
     #[test]
     fn simple_kmer_compress() {
-        let contigs = simple_contigs();
+        let contigs = simple_random_contigs();
         reassemble_contigs::<IntKmer<u64>, DnaString>(contigs, false);
     }
+
+    #[test]
+    fn simple_sharded() {
+        let contigs = simple_random_contigs();
+        reassemble_sharded::<IntKmer<u64>, DnaString>(contigs, false);
+    }
+
 
     #[test]
     fn complex_kmer_compress() {
@@ -172,8 +180,16 @@ mod tests {
     }
 
     #[test]
+    fn complex_sharded() {
+        for _ in 0..5 {
+            let contigs = random_contigs();
+            reassemble_sharded::<IntKmer<u64>, DnaString>(contigs, false);
+        }
+    }
+
+    #[test]
     fn simple_path_compress() {
-        let contigs = simple_contigs();
+        let contigs = simple_random_contigs();
         simplify_from_kmers::<IntKmer<u64>>(contigs, false);
     }
 
@@ -186,10 +202,13 @@ mod tests {
     }
 
     fn simplify_from_kmers<K: Kmer>(mut contigs: Vec<Vec<u8>>, stranded: bool) {
-        
+
         use DnaBytes;
-        let seqs = contigs.drain(..).map(|x| (DnaBytes(x), Exts::empty(), ())).collect();
-        let (valid_kmers, _): (Vec<(K, (Exts, _))>, _) = 
+        let seqs = contigs
+            .drain(..)
+            .map(|x| (DnaBytes(x), Exts::empty(), ()))
+            .collect();
+        let (valid_kmers, _): (Vec<(K, (Exts, _))>, _) =
             filter::filter_kmers(&seqs, filter::CountFilter::new(1), stranded);
 
         // Create a DBG with one node per input kmer
@@ -200,9 +219,9 @@ mod tests {
         }
         let uncompressed_dbg = base_graph.finish();
 
-        // Canonicalize the graph with 
-        let spec = SimpleCompress::new(|mut d1: u16, d2: &u16| { d1 + d2 });
-        let simp_dbg = Simplify::simplify(uncompressed_dbg, None, stranded, spec);
+        // Canonicalize the graph with
+        let spec = SimpleCompress::new(|d1: u16, d2: &u16| d1 + d2);
+        let simp_dbg = compress_graph(stranded, spec, uncompressed_dbg, None);
 
         let is_cmp = simp_dbg.is_compressed();
         if is_cmp.is_some() {
@@ -215,14 +234,14 @@ mod tests {
 
     // Take some input contig, which likely form a complicated graph,
     // and test the kmer, bsp, sedge and edge construction machinery
-    fn reassemble_contigs<K:Kmer + Copy, V:Vmer<K>>(contigs: Vec<Vec<u8>>, stranded: bool) {
+    fn reassemble_contigs<K: Kmer + Copy, V: Vmer<K>>(contigs: Vec<Vec<u8>>, stranded: bool) {
         let ctg_lens: Vec<_> = contigs.iter().map(|c| c.len()).collect();
         println!("Reassembling contig sizes: {:?}", ctg_lens);
 
         // kmer vector
         let mut kmers = Vec::new();
         for c in contigs.iter() {
-            let mut _kmers = K::kmers_from_string(c.as_slice());
+            let mut _kmers = K::kmers_from_bytes(&c);
             kmers.extend(_kmers.iter().map(|k| k.min_rc()));
         }
 
@@ -235,7 +254,7 @@ mod tests {
 
         let mut seqs: Vec<(V, Exts, u8)> = Vec::new();
         let permutation = (0..1 << (2 * P)).collect();
-        for c in contigs.iter() {            
+        for c in contigs.iter() {
             let msps = msp::msp_sequence::<K, V>(P, c.as_slice(), Some(&permutation));
             seqs.extend(msps.clone().into_iter().map(|(_, e, v)| (v, e, 0u8)));
             seqs.extend(msps.into_iter().map(|(_, e, v)| (v, e, 1u8)));
@@ -292,20 +311,22 @@ mod tests {
 
         assert!(kmer_set == extension_kmer_set);
 
-        let spec = SimpleCompress::new(|mut d1: u16, d2: &u16| { d1.saturating_add(*d2) });
-        let pc: PathCompression<K,_,_> = PathCompression::new(stranded, spec);
+        let spec = SimpleCompress::new(|d1: u16, d2: &u16| d1.saturating_add(*d2));
 
-        // Now generate the lines for these kmers
-        let graph = pc.build_nodes(&valid_kmers);
+        // Generate compress DBG for these kmers
+        let graph = compress_kmers(stranded, spec, &valid_kmers);
 
         // Check that all the lines have valid kmers,
         // and have extensions into other valid kmers
-        for seq_id in 0 .. graph.len() {
+        let mut all_contig_set = HashSet::new();
+
+        for seq_id in 0..graph.len() {
             let seq = graph.sequences.get(seq_id);
             let exts = graph.exts[seq_id];
-            
-            let seq_set = HashSet::from_iter(seq.iter_kmers().map(|km: K| km.min_rc()));
-            assert!(kmer_set.is_superset(&seq_set));
+
+            let contig_set = HashSet::from_iter(seq.iter_kmers().map(|km: K| km.min_rc()));
+            all_contig_set.extend(contig_set.iter());
+            assert!(kmer_set.is_superset(&contig_set));
 
             for l_ext in exts.get(Dir::Left) {
                 let f: K = seq.first_kmer();
@@ -319,6 +340,92 @@ mod tests {
                 assert!(kmer_set.contains(&(ext_kmer.min_rc())));
             }
         }
+
+        assert_eq!(kmer_set, all_contig_set);
+        //graph
+    }
+
+    // Take some input contig, which likely form a complicated graph,
+    // and the msp / shard_asm / main_asm loop
+    fn reassemble_sharded<K: Kmer + Copy, V: Vmer<K>>(contigs: Vec<Vec<u8>>, stranded: bool) {
+        let ctg_lens: Vec<_> = contigs.iter().map(|c| c.len()).collect();
+        println!("Reassembling contig sizes: {:?}", ctg_lens);
+
+        // kmer vector
+        let mut kmer_set = HashSet::new();
+        for c in contigs.iter() {
+            let mut _kmers = K::kmers_from_bytes(&c);
+            kmer_set.extend(_kmers.iter().map(|k| k.min_rc()));
+        }
+
+        // Bsps of kmers
+        let P = 6;
+
+        let mut shards = HashMap::new();
+        let permutation = (0..1 << (2 * P)).collect();
+
+        for ctg in contigs.iter() {
+            let msps = msp::msp_sequence::<K, V>(P, ctg.as_slice(), Some(&permutation));
+
+            for (shard, exts, seq) in msps {
+                let shard_vec = shards.entry(shard).or_insert_with(|| Vec::new());
+                shard_vec.push((seq.clone(), exts, 0u8));
+                shard_vec.push((seq, exts, 1u8));
+            }
+        }
+
+        let mut shard_asms = Vec::new();
+
+        // Do a subassembly in each shard
+        for seqs in shards.values() {
+            // Check the correctness of the process_kmer_shard kmer filtering function
+            let (valid_kmers, _) = filter::filter_kmers(&seqs, filter::CountFilter::new(2), stranded);
+
+            // Generate compress DBG for this shard
+            let spec = SimpleCompress::new(|d1: u16, d2: &u16| d1.saturating_add(*d2));
+            
+            print!("{:?}", valid_kmers);
+            let graph = compress_kmers(stranded, spec, &valid_kmers);
+            shard_asms.push(graph.clone());
+
+            graph.finish().print();
+        }
+
+
+        // Shove the subassemblies into a partially compress base graph
+        let combined_graph = BaseGraph::combine(shard_asms.into_iter()).finish();
+        let cmp = SimpleCompress::new(|a: u16, b: &u16| { max(a, *b) });
+        let dbg_graph = compress_graph(false, cmp, combined_graph, None);
+        let graph = dbg_graph.base;
+
+        // Check that all the lines have valid kmers,
+        // and have extensions into other valid kmers
+        let mut all_contig_set = HashSet::new();
+
+        for seq_id in 0..graph.len() {
+            let seq = graph.sequences.get(seq_id);
+            let exts = graph.exts[seq_id];
+
+            let contig_set = HashSet::from_iter(seq.iter_kmers().map(|km: K| km.min_rc()));
+            all_contig_set.extend(contig_set.iter());
+            assert!(kmer_set.is_superset(&contig_set));
+
+            for l_ext in exts.get(Dir::Left) {
+                let f: K = seq.first_kmer();
+                let ext_kmer: K = f.extend_left(l_ext);
+                assert!(kmer_set.contains(&(ext_kmer.min_rc())));
+            }
+
+            for r_ext in exts.get(Dir::Right) {
+                let f: K = seq.last_kmer();
+                let ext_kmer: K = f.extend_right(r_ext);
+                assert!(kmer_set.contains(&(ext_kmer.min_rc())));
+            }
+        }
+
+        assert_eq!(kmer_set, all_contig_set);
+
+        //graph
     }
 
 
@@ -330,16 +437,18 @@ mod tests {
 
     // Take some input contig, which likely form a complicated graph,
     // and test the kmer, bsp, sedge and edge construction machinery
-    fn test_tip_cleaning<K:Kmer>(contigs: Vec<Vec<u8>>, stranded: bool) {
-        
+    fn test_tip_cleaning<K: Kmer>(contigs: Vec<Vec<u8>>, stranded: bool) {
+
         let mut clean_seqs = Vec::new();
         let mut all_seqs = Vec::new();
 
         // Generate 5x coverage of the main sequences & add some tips
         for c in contigs {
-            if c.len() < K::k() * 3 { continue }
+            if c.len() < K::k() * 3 {
+                continue;
+            }
 
-            for i in 0 .. 5 {
+            for _i in 0..5 {
                 clean_seqs.push((DnaBytes(c.clone()), Exts::empty(), ()));
                 all_seqs.push((DnaBytes(c.clone()), Exts::empty(), ()));
             }
@@ -355,17 +464,19 @@ mod tests {
 
 
         // Assemble w/o tips
-        let (valid_kmers_clean, _) = filter::filter_kmers(&clean_seqs, filter::CountFilter::new(2), stranded);
-        let spec = SimpleCompress::new(|mut d1: u16, d2: &u16| { d1 + d2 });
-        let pc: PathCompression<K,_,_> = PathCompression::new(stranded, spec);
-        let graph1 = pc.build_nodes(&valid_kmers_clean).finish();
+        let (valid_kmers_clean, _): (Vec<(K, _)>, Vec<K>) =
+            filter::filter_kmers(&clean_seqs, filter::CountFilter::new(2), stranded);
+        let spec = SimpleCompress::new(|d1: u16, d2: &u16| d1 + d2);
+        let graph = compress_kmers(stranded, spec, &valid_kmers_clean);
+        let graph1 = graph.finish();
         graph1.print();
 
         // Assemble w/ tips
-        let (valid_kmers_errs, _) = filter::filter_kmers(&all_seqs, filter::CountFilter::new(2), stranded);
-        let spec = SimpleCompress::new(|mut d1: u16, d2: &u16| { d1 + d2 });
-        let pc: PathCompression<K,_,_> = PathCompression::new(stranded, spec);
-        let graph2 = pc.build_nodes(&valid_kmers_errs).finish();
+        let (valid_kmers_errs, _): (Vec<(K, _)>, Vec<K>) =
+            filter::filter_kmers(&all_seqs, filter::CountFilter::new(2), stranded);
+        let spec = SimpleCompress::new(|d1: u16, d2: &u16| d1 + d2);
+        let graph = compress_kmers(stranded, spec, &valid_kmers_errs);
+        let graph2 = graph.finish();
         graph2.print();
 
         // Now try to clean the tips.
@@ -373,8 +484,8 @@ mod tests {
         let nodes_to_censor = cleaner.find_bad_nodes(&graph2);
 
         println!("censor: {:?}", nodes_to_censor);
-        let spec = SimpleCompress::new(|mut d1: u16, d2: &u16| { d1 + d2 });
-        let fixed = Simplify::simplify(graph2, Some(nodes_to_censor), stranded, spec);
+        let spec = SimpleCompress::new(|    d1: u16, d2: &u16| d1 + d2);
+        let fixed = compress_graph(stranded, spec, graph2, Some(nodes_to_censor));
         fixed.print();
     }
 }

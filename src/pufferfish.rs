@@ -1,11 +1,11 @@
 use paths;
 use paths::DebruijnGraph;
 
-use boomphf::Mphf
+use boomphf::Mphf;
 
-struct SuccinctBitVector {
-
-}
+//struct SuccinctBitVector {
+//
+//}
 
 impl SuccintBitVector {
     pub fn new(size: usize) -> SuccintBitVector {
@@ -30,7 +30,7 @@ impl SuccintBitVector {
 struct PufferIdx<K: Kmer> {
     graph: DebruijnGraph<K>,
     kmer_mphf: Mphf<K>,
-    pos_vec: Vec<usize>
+    pos_vec: Vec<usize>,
     contig_bounds: SuccinctBitVector,
 }
 
@@ -48,7 +48,7 @@ impl<K: Kmer> PufferIdx<K> {
 
 
         // Generate a MPHF on all kmers
-        let mut kmers = Vec::new()
+        let mut kmers = Vec::new();
 
         for (ind, start) in graph.base.sequences.start.iter().enumerate() {
             for (pos, kmer) in graph.base.sequences.get(ind).iter_kmers() {

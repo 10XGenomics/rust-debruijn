@@ -1,4 +1,4 @@
-#![allow(dead_code)]
+// Copyright 2017 10x Genomics
 
 //! # debruijn-rs: a De Bruijn graph for DNA seqeunces in Rust.
 //! This library provides tools for efficiently construction de bruijn graphs
@@ -6,15 +6,21 @@
 //! graph, and performing path-compression of unbranched graph paths to improve
 //! speed and reduce memory consumption.
 
-//! All the data structures in debruijn-rs are specialized to the alphabet {'A', 'C', 'G', 'T'},
+//! All the data structures in debruijn-rs are specialized to the 4 base DNA alphabet,
 //! and use 2-bit packed encoding of base-pairs into integer types, and efficient methods for
 //! reverse complement, enumerating kmers from longer sequences, and transfering data between
-//! sequences. 
+//! sequences.
+//!
+//! # Encodings
+//! Most methods for ingesting sequence data into the library will have a form named 'bytes',
+//! which expects bases encoded as the integers 0,1,2,3, and a separate form names 'ascii',
+//! which expects bases encoded as the ASCII letters A,C,G,T.
 
 extern crate num;
 extern crate extprim;
 extern crate rand;
-extern crate linked_hash_map;
+extern crate byteorder;
+
 #[macro_use]
 extern crate serde_derive;
 extern crate serde;
@@ -22,28 +28,34 @@ extern crate serde_json;
 extern crate smallvec;
 extern crate bit_set;
 extern crate itertools;
+extern crate pdqsort;
 
 extern crate boomphf;
 
 #[macro_use]
 extern crate log;
 
+#[cfg(test)] 
+#[macro_use]
+extern crate pretty_assertions;
+
 use std::hash::Hash;
 use std::fmt;
 
 pub mod kmer;
 pub mod dna_string;
-pub mod paths;
+pub mod graph;
 pub mod vmer;
 pub mod msp;
 pub mod filter;
-pub mod fx;
 pub mod pufferfish;
 pub mod compression;
 pub mod clean_graph;
-mod test;
+
+pub mod test;
 
 /// Convert a 2-bit representation of a base to a char
+#[inline]
 pub fn bits_to_ascii(c: u8) -> u8 {
     match c {
         0u8 => 'A' as u8,
@@ -55,18 +67,30 @@ pub fn bits_to_ascii(c: u8) -> u8 {
 }
 
 /// Convert an ASCII-encoded DNA base to a 2-bit representation
+#[inline]
 pub fn base_to_bits(c: u8) -> u8 {
     match c {
-        b'A' => 0u8,
-        b'C' => 1u8,
-        b'G' => 2u8,
-        b'T' => 3u8,
+        b'A' | b'a' => 0u8,
+        b'C' | b'c' => 1u8,
+        b'G' | b'g' => 2u8,
+        b'T' | b't' => 3u8,
         _ => 0u8,
+    }
+}
+
+/// Convert an ASCII-encoded DNA base to a 2-bit representation
+#[inline]
+pub fn is_valid_base(c: u8) -> bool {
+    match c {
+        b'A' | b'C' | b'G' | b'T' => true,
+        b'a' | b'c' | b'g' | b't' => true,
+        _ => false,
     }
 }
 
 
 /// Convert a 2-bit representation of a base to a char
+#[inline]
 pub fn bits_to_base(c: u8) -> char {
     match c {
         0u8 => 'A',
@@ -78,6 +102,7 @@ pub fn bits_to_base(c: u8) -> char {
 }
 
 /// The complement of a 2-bit encoded base
+#[inline]
 pub fn complement(base: u8) -> u8 {
     (!base) & 0x3u8
 }
@@ -154,18 +179,6 @@ impl<'a, M: 'a + Mer> Iterator for MerIter<'a, M> {
 
     }
 }
-/*
-impl<'a, M: 'a + Mer> IntoIterator for M {
-    type Item = u8;
-    type IntoIter = MerIter<'a, M>;
-
-    fn into_iter(self) -> MerIter<'a, M> {
-        self.iter()
-    }
-}
-*/
-
-
 
 
 /// Encapsulates a Kmer sequence with statically known K.
@@ -175,6 +188,14 @@ pub trait Kmer: Mer + Sized + Copy + PartialEq + PartialOrd + Eq + Ord + Hash {
 
     /// K value for this concrete type.
     fn k() -> usize;
+
+    /// Return the rank of this kmer in an lexicographic ordering of all kmers
+    /// E.g. 'AAAA' -> 0, 'AAAT' -> 1, etc. This will panic if K > 32.
+    fn to_u64(&self) -> u64;
+
+    // Construct a kmer from the given lexicographic rank of the kmer.
+    // If K > 32, the leads bases will be A's.
+    fn from_u64(value: u64) -> Self;
 
     /// Return the minimum of the kmer and it's reverse complement, and a flag indicating if sequence was flipped
     fn min_rc_flip(&self) -> (Self, bool) {
@@ -197,7 +218,7 @@ pub trait Kmer: Mer + Sized + Copy + PartialEq + PartialOrd + Eq + Ord + Hash {
         self.len() % 2 == 0 && *self == self.rc()
     }
 
-    /// Create a Kmer from the first K bytes of `bytes`
+    /// Create a Kmer from the first K bytes of `bytes`, which must be encoded as the integers 0-4.
     fn from_bytes(bytes: &[u8]) -> Self {
         if bytes.len() < Self::k() {
             panic!("bytes not long enough to form kmer")
@@ -212,6 +233,7 @@ pub trait Kmer: Mer + Sized + Copy + PartialEq + PartialOrd + Eq + Ord + Hash {
         k0
     }
 
+    /// Create a Kmer from the first K bytes of `bytes`, which must be encoded as ASCII letters A,C,G, or T.
     fn from_ascii(bytes: &[u8]) -> Self {
         if bytes.len() < Self::k() {
             panic!("bytes not long enough to form kmer")
@@ -226,6 +248,7 @@ pub trait Kmer: Mer + Sized + Copy + PartialEq + PartialOrd + Eq + Ord + Hash {
         k0
     }
 
+    /// Return String containing Kmer sequence
     fn to_string(&self) -> String {
         let mut s = String::new();
         for pos in 0..self.len() {
@@ -234,8 +257,8 @@ pub trait Kmer: Mer + Sized + Copy + PartialEq + PartialOrd + Eq + Ord + Hash {
         s
     }
 
-    /// Generate all kmers from string
-    fn kmers_from_string(str: &[u8]) -> Vec<Self> {
+    /// Generate vector of all kmers contained in `str` encoded as 0-4.
+    fn kmers_from_bytes(str: &[u8]) -> Vec<Self> {
         let mut r = Vec::new();
 
         if str.len() < Self::k() {
@@ -252,6 +275,30 @@ pub trait Kmer: Mer + Sized + Copy + PartialEq + PartialOrd + Eq + Ord + Hash {
 
         for i in Self::k()..str.len() {
             k0 = k0.extend_right(str[i]);
+            r.push(k0.clone());
+        }
+
+        r
+    }
+
+    /// Generate vector of all kmers contained in `str`, encoded as ASCII ACGT.
+    fn kmers_from_ascii(str: &[u8]) -> Vec<Self> {
+        let mut r = Vec::new();
+
+        if str.len() < Self::k() {
+            return r;
+        }
+
+        let mut k0 = Self::empty();
+
+        for i in 0..Self::k() {
+            k0.set_mut(i, base_to_bits(str[i]));
+        }
+
+        r.push(k0.clone());
+
+        for i in Self::k()..str.len() {
+            k0 = k0.extend_right(base_to_bits(str[i]));
             r.push(k0.clone());
         }
 
@@ -274,12 +321,15 @@ pub trait MerImmut: Mer + Clone {
     }
 }
 
-impl<T> MerImmut for T where T: Mer + Clone {}
+impl<T> MerImmut for T
+where
+    T: Mer + Clone,
+{
+}
 
 
 /// A DNA sequence with run-time variable length, up to a statically known maximum length
 pub trait Vmer<K: Kmer>: Mer + PartialEq + Eq + Clone {
-
     /// Create a new sequence with length `len`, initialized to all A's
     fn new(len: usize) -> Self;
 
@@ -344,7 +394,7 @@ pub trait Vmer<K: Kmer>: Mer + PartialEq + Eq + Clone {
     /// Create a Vmer from a sequence of bytes
     fn from_slice(seq: &[u8]) -> Self {
         let mut vmer = Self::new(seq.len());
-        for i in 0 .. seq.len() {
+        for i in 0..seq.len() {
             vmer.set_mut(i, seq[i]);
         }
 
@@ -355,10 +405,9 @@ pub trait Vmer<K: Kmer>: Mer + PartialEq + Eq + Clone {
 // Note DnaBytes newtype is required to prevent various
 // Vec methods from being overridden by Mer / Vmer methods.
 #[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd)]
-struct DnaBytes(Vec<u8>);
+pub struct DnaBytes(pub Vec<u8>);
 
 impl Mer for DnaBytes {
-
     fn len(&self) -> usize {
         self.0.len()
     }
@@ -366,7 +415,7 @@ impl Mer for DnaBytes {
     fn get(&self, pos: usize) -> u8 {
         self.0[pos]
     }
-    
+
     /// Set base at `pos` to 2-bit encoded base `val`
     fn set_mut(&mut self, pos: usize, val: u8) {
         self.0[pos] = val
@@ -374,7 +423,7 @@ impl Mer for DnaBytes {
 
     /// Set `nbases` positions in the sequence, starting at `pos`.
     /// Values must  be packed into the upper-most bits of `value`.
-    fn set_slice_mut(&mut self, pos: usize, nbases: usize, value: u64) {
+    fn set_slice_mut(&mut self, _pos: usize, _nbases: usize, _value: u64) {
         unimplemented!();
         //for i in pos .. (pos + nbases) {
         //
@@ -387,18 +436,17 @@ impl Mer for DnaBytes {
     }
 
     /// Add the base `v` to the left side of the sequence, and remove the rightmost base
-    fn extend_left(&self, v: u8) -> Self {
+    fn extend_left(&self, _v: u8) -> Self {
         unimplemented!()
     }
 
     /// Add the base `v` to the right side of the sequence, and remove the leftmost base
-    fn extend_right(&self, v: u8) -> Self {
+    fn extend_right(&self, _v: u8) -> Self {
         unimplemented!();
     }
 }
 
 impl<K: Kmer> Vmer<K> for DnaBytes {
-
     /// Create a new sequence with length `len`, initialized to all A's
     fn new(len: usize) -> Self {
         DnaBytes(vec![0u8; len])
@@ -412,9 +460,8 @@ impl<K: Kmer> Vmer<K> for DnaBytes {
 
     /// Efficiently extract a Kmer from the sequence
     fn get_kmer(&self, pos: usize) -> K {
-        K::from_bytes(&self.0[pos .. pos + K::k()])
+        K::from_bytes(&self.0[pos..pos + K::k()])
     }
-
 }
 
 
@@ -485,10 +532,10 @@ impl Exts {
 
     pub fn set(&self, dir: Dir, pos: u8) -> Exts {
         let shift = pos +
-                    match dir {
-                        Dir::Right => 4,
-                        Dir::Left => 0,
-                    };
+            match dir {
+                Dir::Right => 4,
+                Dir::Left => 0,
+            };
 
         let new_val = self.val | (1u8 << shift);
         Exts { val: new_val }
@@ -550,7 +597,7 @@ impl Exts {
     pub fn mk_left(base: u8) -> Exts {
         Exts::empty().set(Dir::Left, base)
     }
- 
+
     pub fn mk_right(base: u8) -> Exts {
         Exts::empty().set(Dir::Right, base)
     }
@@ -625,7 +672,8 @@ impl fmt::Debug for Exts {
 
 /// Iterate over the `Kmer`s of a DNA sequence efficiently
 pub struct KmerIter<'a, K: Kmer, D>
-    where D: 'a
+where
+    D: 'a,
 {
     bases: &'a D,
     kmer: K,
@@ -639,10 +687,10 @@ impl<'a, K: Kmer, D: Mer> Iterator for KmerIter<'a, K, D> {
         if self.pos <= self.bases.len() {
             let retval = self.kmer;
 
-            if self.pos < self.bases.len(){
+            if self.pos < self.bases.len() {
                 self.kmer = self.kmer.extend_right(self.bases.get(self.pos));
             }
-            
+
             self.pos = self.pos + 1;
             Some(retval)
         } else {
@@ -653,7 +701,8 @@ impl<'a, K: Kmer, D: Mer> Iterator for KmerIter<'a, K, D> {
 
 /// Iterate over the `(Kmer, Exts)` tuples of a sequence and it's extensions efficiently
 pub struct KmerExtsIter<'a, K: Kmer, D>
-    where D: 'a
+where
+    D: 'a,
 {
     bases: &'a D,
     exts: Exts,
@@ -664,30 +713,30 @@ pub struct KmerExtsIter<'a, K: Kmer, D>
 impl<'a, K: Kmer, D: Mer> Iterator for KmerExtsIter<'a, K, D> {
     type Item = (K, Exts);
 
-    fn next(&mut self) -> Option<(K,Exts)> {
+    fn next(&mut self) -> Option<(K, Exts)> {
         if self.pos <= self.bases.len() {
 
-            let next_base = 
+            let next_base =
                 if self.pos < self.bases.len() {
                     self.bases.get(self.pos)
                 } else {
                     0u8
                 };
 
-            let cur_left = 
+            let cur_left =
                 if self.pos == K::k() {
                     self.exts
                 } else {
                     Exts::mk_left(self.bases.get(self.pos - K::k() - 1))
                 };
 
-            let cur_right = 
+            let cur_right =
                 if self.pos < self.bases.len() {
                     Exts::mk_right(next_base)
                 } else {
                     self.exts
                 };
-            
+
             let cur_exts = Exts::merge(cur_left, cur_right);
 
             let retval = self.kmer;
@@ -699,5 +748,3 @@ impl<'a, K: Kmer, D: Mer> Iterator for KmerExtsIter<'a, K, D> {
         }
     }
 }
-
-

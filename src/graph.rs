@@ -1,4 +1,6 @@
-//! Compute path-compressed De Bruijn graphs from kmers or intermediate sized De Bruijn graph fragments
+// Copyright 2017 10x Genomics
+
+//! Containers for path-compressed De Bruijn graphs
 
 use std::marker::PhantomData;
 use std::collections::VecDeque;
@@ -11,6 +13,8 @@ use std::fs::File;
 use std::path::Path;
 use std::fmt::{self, Debug};
 use std::borrow::Borrow;
+use std::cmp::min;
+use std::io::Error;
 
 use std::f32;
 
@@ -18,57 +22,20 @@ use serde_json;
 use serde_json::Value;
 
 type SmallVec4<T> = SmallVec<[T; 4]>;
+type SmallVec8<T> = SmallVec<[T; 8]>;
 
 use Mer;
 use Kmer;
 use Vmer;
 use Dir;
 use Exts;
-use dna_string::{DnaString, DnaStringSlice};
+use dna_string::{DnaString, DnaStringSlice, PackedDnaStringSet};
 
-#[derive(Serialize, Deserialize)]
-pub struct PackedDnaStringSet {
-    pub sequence: DnaString,
-    pub start: Vec<usize>,
-    pub length: Vec<u32>,
-}
-
-impl<'a> PackedDnaStringSet {
-    fn new() -> Self {
-        PackedDnaStringSet {
-            sequence: DnaString::new(),
-            start: Vec::new(),
-            length: Vec::new(),
-        }
-    }
-
-    pub fn get(&'a self, i: usize) -> DnaStringSlice<'a> {
-        DnaStringSlice {
-            dna_string: &self.sequence,
-            start: self.start[i],
-            length: self.length[i] as usize,
-            is_rc: false,
-        }
-    }
-
-    pub fn len(&self) -> usize {
-        self.start.len()
-    }
-
-    fn add<'b, R: Borrow<u8>, S: IntoIterator<Item = R>>(&mut self, sequence: S) {
-        let start = self.sequence.len();
-        self.start.push(start);
-
-        let mut length = 0;
-        for b in sequence {
-            self.sequence.push(b.borrow().clone());
-            length += 1;
-        }
-        self.length.push(length as u32);
-    }
-}
-
-#[derive(Serialize, Deserialize)]
+/// A compressed DeBruijn graph carrying auxiliary data on each node of type `D`.
+/// This type does not carry the sorted index arrays the allow the graph
+/// to be walked efficiently. The `DeBruijnGraph` type wraps this type and add those
+/// vectors.
+#[derive(Serialize, Deserialize, Clone)]
 pub struct BaseGraph<K, D> {
     pub sequences: PackedDnaStringSet,
     pub exts: Vec<Exts>,
@@ -92,14 +59,14 @@ impl<K, D> BaseGraph<K, D> {
         self.sequences.len()
     }
 
-    pub fn combine<I: Iterator<Item=BaseGraph<K,D>>>(graphs: I) -> Self {
+    pub fn combine<I: Iterator<Item = BaseGraph<K, D>>>(graphs: I) -> Self {
         let mut sequences = PackedDnaStringSet::new();
         let mut exts = Vec::new();
         let mut data = Vec::new();
         let mut stranded = Vec::new();
 
         for g in graphs {
-            for s in 0 .. g.sequences.len() {
+            for s in 0..g.sequences.len() {
                 sequences.add(&g.sequences.get(s));
             }
 
@@ -126,8 +93,13 @@ impl<K, D> BaseGraph<K, D> {
 }
 
 impl<K: Kmer, D> BaseGraph<K, D> {
-    pub fn add<'b, R: Borrow<u8>, S: IntoIterator<Item = R>>(&mut self, sequence: S, exts: Exts, data:D) {
-    //pub fn add<'a, S: IntoIterator<Item = u8>>(&mut self, sequence: S, exts: Exts, data: D) {
+    pub fn add<'b, R: Borrow<u8>, S: IntoIterator<Item = R>>(
+        &mut self,
+        sequence: S,
+        exts: Exts,
+        data: D,
+    ) {
+        //pub fn add<'a, S: IntoIterator<Item = u8>>(&mut self, sequence: S, exts: Exts, data: D) {
         self.sequences.add(sequence);
         self.exts.push(exts);
         self.data.push(data);
@@ -142,7 +114,9 @@ impl<K: Kmer, D> BaseGraph<K, D> {
             right_sort.push(i as u32);
         }
 
-        left_sort.sort_by_key(|idx| -> K { self.sequences.get(*idx as usize).first_kmer() });
+        left_sort.sort_by_key(|idx| -> K {
+            self.sequences.get(*idx as usize).first_kmer()
+        });
         right_sort.sort_by_key(|idx| -> K { self.sequences.get(*idx as usize).last_kmer() });
 
         DebruijnGraph {
@@ -153,6 +127,9 @@ impl<K: Kmer, D> BaseGraph<K, D> {
     }
 }
 
+/// A compressed DeBruijn graph carrying auxiliary data on each node of type `D`.
+/// The struct carries sorted index arrays the allow the graph
+/// to be walked efficiently.
 #[derive(Serialize, Deserialize)]
 pub struct DebruijnGraph<K, D> {
     pub base: BaseGraph<K, D>,
@@ -160,11 +137,13 @@ pub struct DebruijnGraph<K, D> {
     right_order: Vec<u32>,
 }
 
-impl<K: Kmer, D:Debug> DebruijnGraph<K, D> {
+impl<K: Kmer, D: Debug> DebruijnGraph<K, D> {
+    /// Total number of nodes in the DeBruijn graph
     pub fn len(&self) -> usize {
         self.base.len()
     }
 
+    /// Get a node given it's `node_id`
     pub fn get_node<'a>(&'a self, node_id: usize) -> Node<'a, K, D> {
         Node {
             node_id: node_id,
@@ -172,11 +151,17 @@ impl<K: Kmer, D:Debug> DebruijnGraph<K, D> {
         }
     }
 
+    /// Return an iterator over all nodes in the graph
     pub fn iter_nodes<'a>(&'a self) -> NodeIter<'a, K, D> {
-        NodeIter { graph: self, node_id: 0 }
+        NodeIter {
+            graph: self,
+            node_id: 0,
+        }
     }
 
-    pub fn find_edges(&self, node_id: usize, dir: Dir) -> SmallVec4<(usize, Dir, bool)> {
+    /// Find the edges leaving node `node_id` in direction `Dir`. Should generally be
+    /// accessed via a Node wrapper object
+    fn find_edges(&self, node_id: usize, dir: Dir) -> SmallVec4<(usize, Dir, bool)> {
 
         let exts = self.base.exts[node_id];
         let sequence = self.base.sequences.get(node_id);
@@ -185,14 +170,12 @@ impl<K: Kmer, D:Debug> DebruijnGraph<K, D> {
 
         for i in 0..4 {
             if exts.has_ext(dir, i) {
-                let link = self.find_link(kmer.extend(i, dir), dir);//.expect("missing link");
+                let link = self.find_link(kmer.extend(i, dir), dir); //.expect("missing link");
                 match link {
                     Some(l) => edges.push(l),
-                    None => {
-                        println!("seq: {:?}, kmer: {:?}, exts: {:?}, next:{:?}, p: {}",
-                            sequence, kmer, exts, kmer.extend(i, dir), kmer.is_palindrome() );
-                        panic!("no link");
-                    },
+                    // This edge doesn't exist within this shard, so ignore it.
+                    // NOTE: this should be allowed in a 'complete' DBG
+                    None => (),
                 }
             }
         }
@@ -200,13 +183,13 @@ impl<K: Kmer, D:Debug> DebruijnGraph<K, D> {
         edges
     }
 
-    pub fn search_kmer(&self, kmer: K, side: Dir) -> Option<usize> {
+    /// Seach for the kmer `kmer`, appearing at the given `side` of a node sequence.
+    fn search_kmer(&self, kmer: K, side: Dir) -> Option<usize> {
         match side {
             Dir::Left => {
-                let pos = self.left_order
-                    .binary_search_by_key(&kmer, |idx| {
-                        self.base.sequences.get(*idx as usize).first_kmer()
-                    });
+                let pos = self.left_order.binary_search_by_key(&kmer, |idx| {
+                    self.base.sequences.get(*idx as usize).first_kmer()
+                });
 
                 match pos {
                     Ok(idx) => Some(self.left_order[idx] as usize),
@@ -214,11 +197,9 @@ impl<K: Kmer, D:Debug> DebruijnGraph<K, D> {
                 }
             }
             Dir::Right => {
-                let pos =
-                    self.right_order
-                        .binary_search_by_key(&kmer, |idx| {
-                            self.base.sequences.get(*idx as usize).last_kmer()
-                        });
+                let pos = self.right_order.binary_search_by_key(&kmer, |idx| {
+                    self.base.sequences.get(*idx as usize).last_kmer()
+                });
                 match pos {
                     Ok(idx) => Some(self.right_order[idx] as usize),
                     _ => None,
@@ -227,6 +208,7 @@ impl<K: Kmer, D:Debug> DebruijnGraph<K, D> {
         }
     }
 
+    /// Find a link in the graph, possibly handling a RC switch.
     pub fn find_link(&self, kmer: K, dir: Dir) -> Option<(usize, Dir, bool)> {
         // Only test self-consistent paths through
         // the edges
@@ -272,12 +254,15 @@ impl<K: Kmer, D:Debug> DebruijnGraph<K, D> {
         return None;
     }
 
-    pub fn is_compressed(&self) -> Option<(usize, usize)>  {
-        for i in 0 .. self.len() {
+    /// Check whether the graph is fully compressed. Return `None` if it's compressed,
+    /// otherwise return `Some(node1, node2)` representing a pair of node that could
+    /// be collapsed. Probably only useful for testing.
+    pub fn is_compressed(&self) -> Option<(usize, usize)> {
+        for i in 0..self.len() {
             let n = self.get_node(i);
 
             for dir in vec![Dir::Left, Dir::Right] {
-            
+
                 let dir_edges = n.edges(dir);
                 if dir_edges.len() == 1 {
                     let (next_id, return_dir, _) = dir_edges[0];
@@ -286,12 +271,16 @@ impl<K: Kmer, D:Debug> DebruijnGraph<K, D> {
                     let ret_edges = next.edges(return_dir);
                     if ret_edges.len() == 1 {
 
-                        if n.len() == K::k() && Vmer::<K>::first_kmer(&n.sequence()).is_palindrome() {
-                            return None
+                        if n.len() == K::k() &&
+                            Vmer::<K>::first_kmer(&n.sequence()).is_palindrome()
+                        {
+                            return None;
                         }
 
-                        if next.len() == K::k() && Vmer::<K>::first_kmer(&next.sequence()).is_palindrome() {
-                            return None
+                        if next.len() == K::k() &&
+                            Vmer::<K>::first_kmer(&next.sequence()).is_palindrome()
+                        {
+                            return None;
                         }
 
                         // Found a unbranched edge that should have been eliminated
@@ -305,43 +294,40 @@ impl<K: Kmer, D:Debug> DebruijnGraph<K, D> {
     }
 
     /// Remove non-existent extensions that may be created due to filtered kmers
-    pub fn fix_exts(&mut self, valid_nodes: Option<&BitSet>)
-    {
-        for i in 0 .. self.len() {
+    pub fn fix_exts(&mut self, valid_nodes: Option<&BitSet>) {
+        for i in 0..self.len() {
             let valid_exts = self.get_valid_exts(i, valid_nodes);
             self.base.exts[i] = valid_exts;
         }
     }
 
-    pub fn get_valid_exts(&self, node_id: usize, valid_nodes: Option<&BitSet>) -> Exts
-    {
+    pub fn get_valid_exts(&self, node_id: usize, valid_nodes: Option<&BitSet>) -> Exts {
         let mut new_exts = Exts::empty();
         let node = self.get_node(node_id);
         let exts = node.exts();
         let l_kmer: K = node.sequence().first_kmer();
         let r_kmer: K = node.sequence().last_kmer();
 
-        let check_node = |id| {
-            match valid_nodes {
-                Some(ref bs) => bs.contains(id),
-                None => true,
-            }
+        let check_node = |id| match valid_nodes {
+            Some(ref bs) => bs.contains(id),
+            None => true,
         };
 
-        for i in 0..4
-        {
+        for i in 0..4 {
             if exts.has_ext(Dir::Left, i) {
                 match self.find_link(l_kmer.extend_left(i), Dir::Left) {
-                    Some((target, _, _)) if check_node(target) => 
-                        new_exts = new_exts.set(Dir::Left, i),
+                    Some((target, _, _)) if check_node(target) => {
+                        new_exts = new_exts.set(Dir::Left, i)
+                    }
                     _ => (),
                 }
             }
 
             if exts.has_ext(Dir::Right, i) {
                 match self.find_link(r_kmer.extend_right(i), Dir::Right) {
-                    Some((target, _, _)) if check_node(target) =>
-                        new_exts = new_exts.set(Dir::Right, i),
+                    Some((target, _, _)) if check_node(target) => {
+                        new_exts = new_exts.set(Dir::Right, i)
+                    }
                     _ => (),
                 }
             }
@@ -350,9 +336,14 @@ impl<K: Kmer, D:Debug> DebruijnGraph<K, D> {
         new_exts
     }
 
-
+    /// Find the highest-scoring, unambiguous path in the graph. Each node get a score
+    /// given by `score`. Any node where `solid_path(node) == True` are valid paths -
+    /// paths will be terminated if there are multiple valid paths emanating from a node.
     pub fn max_path<F, F2>(&self, score: F, solid_path: F2) -> Vec<(usize, Dir)>
-        where F: Fn(&D) -> f32, F2: Fn(&D) -> bool {
+    where
+        F: Fn(&D) -> f32,
+        F2: Fn(&D) -> bool,
+    {
 
         if self.len() == 0 {
             return vec![];
@@ -370,18 +361,14 @@ impl<K: Kmer, D:Debug> DebruijnGraph<K, D> {
             }
         }
 
-        let oscore = |state| {
-            match state  {
-                None => 0.0,
-                Some((id, _)) => score(&self.get_node(id).data()),
-            }
+        let oscore = |state| match state {
+            None => 0.0,
+            Some((id, _)) => score(&self.get_node(id).data()),
         };
 
-        let osolid_path = |state| {
-            match state  {
-                None => false,
-                Some((id, _)) => solid_path(&self.get_node(id).data()),
-            }
+        let osolid_path = |state| match state {
+            None => false,
+            Some((id, _)) => solid_path(&self.get_node(id).data()),
         };
 
 
@@ -434,7 +421,7 @@ impl<K: Kmer, D:Debug> DebruijnGraph<K, D> {
 
                         used_nodes.insert(next_id);
                         current = (next_id, next_incoming);
-                    },
+                    }
                     _ => break,
                 }
             }
@@ -444,8 +431,11 @@ impl<K: Kmer, D:Debug> DebruijnGraph<K, D> {
         Vec::from_iter(path)
     }
 
-
-    pub fn sequence_of_path<'a, I: 'a + Iterator<Item=&'a (usize, Dir)>>(&self, path: I) -> DnaString {
+    /// Get the sequence of a path through the graph. The path is given as a sequence of node_id integers
+    pub fn sequence_of_path<'a, I: 'a + Iterator<Item = &'a (usize, Dir)>>(
+        &self,
+        path: I,
+    ) -> DnaString {
         let mut seq = DnaString::new();
 
         for (idx, &(node_id, dir)) in path.enumerate() {
@@ -465,19 +455,32 @@ impl<K: Kmer, D:Debug> DebruijnGraph<K, D> {
     }
 
 
-    fn node_to_dot<F: Fn(&D) -> String>(&self, node: &Node<K,D>, node_label: &F, f: &mut Write) {
+    fn node_to_dot<F: Fn(&D) -> String>(&self, node: &Node<K, D>, node_label: &F, f: &mut Write) {
 
         let label = node_label(node.data());
-        writeln!(f, "n{} [label=\"id:{} len:{}  {}\",style=filled]", node.node_id, node.node_id, node.sequence().len(), label).unwrap();
+        writeln!(
+            f,
+            "n{} [label=\"id:{} len:{}  {}\",style=filled]",
+            node.node_id,
+            node.node_id,
+            node.sequence().len(),
+            label
+        ).unwrap();
 
 
         for (id, incoming_dir, _) in node.l_edges() {
-            let color = match incoming_dir { Dir::Left => "blue", Dir::Right => "red"};
+            let color = match incoming_dir {
+                Dir::Left => "blue",
+                Dir::Right => "red",
+            };
             writeln!(f, "n{} -> n{} [color={}]", id, node.node_id, color).unwrap();
         }
 
         for (id, incoming_dir, _) in node.r_edges() {
-            let color = match incoming_dir { Dir::Left => "blue", Dir::Right => "red"};
+            let color = match incoming_dir {
+                Dir::Left => "blue",
+                Dir::Right => "red",
+            };
             writeln!(f, "n{} -> n{} [color={}]", node.node_id, id, color).unwrap();
         }
     }
@@ -496,65 +499,118 @@ impl<K: Kmer, D:Debug> DebruijnGraph<K, D> {
     }
 
 
-    fn node_to_gfa<F: (Fn(&Node<K,D>) -> String)>(&self, node: &Node<K,D>, w: &mut Write, tag_func: Option<&F>) {
-        
+    fn node_to_gfa<F: Fn(&Node<K, D>) -> String>(
+        &self,
+        node: &Node<K, D>,
+        w: &mut Write,
+        tag_func: Option<&F>,
+    ) -> Result<(), Error> {
+
         match tag_func {
             Some(f) => {
                 let tags = (f)(node);
-                writeln!(w, "S\t{}\t{}\t{}", node.node_id, node.sequence().to_dna_string(), tags).unwrap();
+                writeln!(
+                    w,
+                    "S\t{}\t{}\t{}",
+                    node.node_id,
+                    node.sequence().to_dna_string(),
+                    tags
+                )?;
             }
-            _ => writeln!(w, "S\t{}\t{}", node.node_id, node.sequence().to_dna_string()).unwrap(),
+            _ => {
+                writeln!(
+                    w,
+                    "S\t{}\t{}",
+                    node.node_id,
+                    node.sequence().to_dna_string()
+                )?
+            }
         }
 
         for (target, dir, _) in node.l_edges() {
             if target > node.node_id as usize {
-                let to_dir = match dir { Dir::Left => "+", Dir::Right => "-" };
-                writeln!(w, "L\t{}\t{}\t{}\t{}\t{}M", node.node_id, "-", target, to_dir, K::k()-1).unwrap();
+                let to_dir = match dir {
+                    Dir::Left => "+",
+                    Dir::Right => "-",
+                };
+                writeln!(
+                    w,
+                    "L\t{}\t{}\t{}\t{}\t{}M",
+                    node.node_id,
+                    "-",
+                    target,
+                    to_dir,
+                    K::k() - 1
+                )?;
             }
         }
 
         for (target, dir, _) in node.r_edges() {
             if target > node.node_id as usize {
-                let to_dir = match dir { Dir::Left => "+", Dir::Right => "-" };
-                writeln!(w, "L\t{}\t{}\t{}\t{}\t{}M", node.node_id, "+", target, to_dir, K::k()-1).unwrap();
+                let to_dir = match dir {
+                    Dir::Left => "+",
+                    Dir::Right => "-",
+                };
+                writeln!(
+                    w,
+                    "L\t{}\t{}\t{}\t{}\t{}M",
+                    node.node_id,
+                    "+",
+                    target,
+                    to_dir,
+                    K::k() - 1
+                )?;
             }
         }
+
+        Ok(())
     }
 
     /// Write the graph to GFA format
-    pub fn to_gfa<P: AsRef<Path>>(&self, gfa_out: P) 
-    {
-        let mut wtr = File::create(gfa_out).unwrap();
-        writeln!(wtr, "H\tVN:Z:debruijn-rs").unwrap();
+    pub fn to_gfa<P: AsRef<Path>>(&self, gfa_out: P) -> Result<(), Error> {
+        let mut wtr = File::create(gfa_out)?;
+        writeln!(wtr, "H\tVN:Z:debruijn-rs")?;
 
         // Hack to generate a None value with the right type.
-        let dummy_func = |n: &Node<K,D>| { "".to_string() };
+        let dummy_func = |_n: &Node<K, D>| "".to_string();
         let mut dummy_opt = Some(&dummy_func);
         let _ = dummy_opt.take();
 
-        for i in 0 .. self.len() {
+        for i in 0..self.len() {
             let n = self.get_node(i);
-            self.node_to_gfa(&n, &mut wtr, dummy_opt);
+            self.node_to_gfa(&n, &mut wtr, dummy_opt)?;
         }
+
+        Ok(())
     }
 
     /// Write the graph to GFA format
-    pub fn to_gfa_with_tags<P: AsRef<Path>, F: (Fn(&Node<K,D>) -> String)>(&self, gfa_out: P, tag_func: F) 
-    {
-        let mut wtr = File::create(gfa_out).unwrap();
-        writeln!(wtr, "H\tVN:Z:debruijn-rs").unwrap();
+    pub fn to_gfa_with_tags<P: AsRef<Path>, F: Fn(&Node<K, D>) -> String>(
+        &self,
+        gfa_out: P,
+        tag_func: F,
+    ) -> Result<(), Error> {
+        let mut wtr = File::create(gfa_out)?;
+        writeln!(wtr, "H\tVN:Z:debruijn-rs")?;
 
-        for i in 0 .. self.len() {
+        for i in 0..self.len() {
             let n = self.get_node(i);
-            self.node_to_gfa(&n, &mut wtr, Some(&tag_func));
+            self.node_to_gfa(&n, &mut wtr, Some(&tag_func))?;
         }
+
+        Ok(())
     }
 
 
-    pub fn to_json_rest<W: Write, F: Fn(&D) -> Value>(&self, fmt_func: F, mut writer: &mut W, rest: Option<Value>) {
+    pub fn to_json_rest<W: Write, F: Fn(&D) -> Value>(
+        &self,
+        fmt_func: F,
+        mut writer: &mut W,
+        rest: Option<Value>,
+    ) {
 
         writeln!(writer, "{{\n\"nodes\": [").unwrap();
-        for i in 0 .. self.len() {
+        for i in 0..self.len() {
             let node = self.get_node(i);
             node.to_json(&fmt_func, writer);
             if i == self.len() - 1 {
@@ -566,7 +622,7 @@ impl<K: Kmer, D:Debug> DebruijnGraph<K, D> {
         writeln!(writer, "],").unwrap();
 
         writeln!(writer, "\"links\": [").unwrap();
-        for i in 0 .. self.len() {
+        for i in 0..self.len() {
             let node = self.get_node(i);
             match node.edges_to_json(writer) {
                 true => {
@@ -575,7 +631,7 @@ impl<K: Kmer, D:Debug> DebruijnGraph<K, D> {
                     } else {
                         write!(writer, ",\n").unwrap();
                     }
-                },
+                }
                 _ => continue,
             }
         }
@@ -583,24 +639,31 @@ impl<K: Kmer, D:Debug> DebruijnGraph<K, D> {
 
         match rest {
             Some(Value::Object(v)) => {
-                for (k,v) in v.iter() {
+                for (k, v) in v.iter() {
                     writeln!(writer, ",").expect("io error");
                     write!(writer, "\"{}\": ", k).expect("io error");
                     serde_json::to_writer(&mut writer, v).expect("io error");
                     writeln!(writer, "").expect("io error");
                 }
-            },
-            _ => { writeln!(writer, "").expect("io error"); }
+            }
+            _ => {
+                writeln!(writer, "").expect("io error");
+            }
         }
 
         writeln!(writer, "}}").expect("io error");
     }
 
-    
-    pub fn to_json<W: Write, F: Fn(&D) -> Value, RF: Fn(&mut W) -> ()>(&self, fmt_func: F, writer: &mut W) {
+    /// Write the graph to JSON
+    pub fn to_json<W: Write, F: Fn(&D) -> Value, RF: Fn(&mut W) -> ()>(
+        &self,
+        fmt_func: F,
+        writer: &mut W,
+    ) {
         self.to_json_rest(fmt_func, writer, None);
     }
 
+    /// Print a text representation of the graph.
     pub fn print(&self) {
         println!("DebruijnGraph {{ len: {}, K: {} }} :", self.len(), K::k());
         for node in self.iter_nodes() {
@@ -614,11 +677,200 @@ impl<K: Kmer, D:Debug> DebruijnGraph<K, D> {
             println!("{:?} ({:?})", node, node.data());
         }
     }
+
+    pub fn to_supernova_bv(&self, w: &mut Write) -> Result<(), Error> {
+        use byteorder::{LittleEndian, WriteBytesExt};
+
+        w.write(b"BINWRITE")?;   // magic number
+
+        let num_nodes = self.len();
+        w.write_u64::<LittleEndian>(num_nodes as u64)?;
+
+        let mut byte_buf = Vec::new();
+
+		debug!( "writing a graph of {} nodes", num_nodes );
+
+        for i in 0 .. num_nodes {
+            let node = self.get_node(i);
+            let l = node.len();
+            w.write_u32::<LittleEndian>(l as u32)?;
+
+            let seq = node.sequence();
+
+            let mut v = 0 as u8;
+            byte_buf.clear();
+            for j in 0..(l as usize) {
+                let offset = (j % 4) * 2;
+                v = v | ((seq.get(j)) << offset);
+
+                if j % 4 == 3 {
+                    byte_buf.push(v);
+                    v = 0;
+                }
+            }
+
+            if l % 4 > 0 {
+                byte_buf.push(v)
+            }
+            w.write(&byte_buf)?;
+        }
+
+        Ok(())
+    }
+
+    pub fn max_path_beam<F, F2>(&self, beam: usize, score: F, _solid_path: F2) -> Vec<(usize, Dir)>
+    where
+        F: Fn(&D) -> f32,
+        F2: Fn(&D) -> bool,
+    {
+
+        if self.len() == 0 {
+            return vec![];
+        }
+
+        let mut states = Vec::new();
+
+        for i in 0..self.len() {
+            let node = self.get_node(i);
+
+            // Initialize beam search on terminal nodes
+            if node.exts().num_exts_l() == 0 || node.exts().num_exts_r() == 0 {
+                let dir = if node.exts().num_exts_l() > 0 {
+                    Dir::Right
+                } else {
+                    Dir::Left
+                };
+
+                let status = if node.exts().num_exts_l() == 0 && node.exts().num_exts_r() == 0 {
+                    Status::End
+                } else {
+                    Status::Active
+                };
+
+                let mut path = SmallVec8::new();
+                path.push((i as u32, dir));
+
+                let s = State {
+                    path,
+                    status,
+                    score: score(node.data()),
+                };
+                states.push(s);
+            }
+        }
+
+        // No end nodes -- just start on the first node
+        if states.len() == 0 {
+            // Make a start
+            let node = self.get_node(0);
+            let mut path = SmallVec8::new();
+            path.push((0, Dir::Left));
+            states.push(State {
+                path: path,
+                status: Status::Active,
+                score: score(node.data()),
+            });
+        }
+
+        // Beam search until we can't find any more expansions
+        let mut active = true;
+        while active {
+            let mut new_states = Vec::new();
+            active = false;
+
+            for s in states {
+                if s.status == Status::Active {
+                    active = true;
+                    let expanded = self.expand_state(&s, &score);
+                    new_states.extend(expanded);
+                } else {
+                    new_states.push(s)
+                }
+            }
+
+            // workaround to sort by descending score - will panic if there are NaN scores
+            new_states.sort_by(|a, b| (-(a.score)).partial_cmp(&-(b.score)).unwrap());
+            new_states.truncate(beam);
+            states = new_states;
+        }
+
+        for i in 0..min(5, states.len()) {
+            trace!("i:{}  -- {:?}", i, states[i]);
+        }
+
+        // convert back to using usize for node_id
+        states[0]
+            .path
+            .iter()
+            .map(|&(node, dir)| (node as usize, dir))
+            .collect()
+    }
+
+    fn expand_state<F>(&self, state: &State, score: &F) -> SmallVec4<State>
+    where
+        F: Fn(&D) -> f32,
+    {
+
+        if state.status != Status::Active {
+            panic!("only attempt to expand active states")
+        }
+
+        let (node_id, dir) = state.path[state.path.len() - 1];
+        let node = self.get_node(node_id as usize);
+        let mut new_states = SmallVec4::new();
+
+        for (next_node_id, incoming_dir, _) in node.edges(dir.flip()) {
+            let next_node = self.get_node(next_node_id);
+            let new_score = state.score + score(next_node.data());
+
+            let cycle = state.path.iter().any(|&(prev_node, _)| {
+                prev_node == (next_node_id as u32)
+            });
+
+            let status = if cycle {
+                Status::Cycle
+            } else if next_node.edges(incoming_dir.flip()).len() == 0 {
+                Status::End
+            } else {
+                Status::Active
+            };
+
+            let mut new_path = state.path.clone();
+            new_path.push((next_node_id as u32, incoming_dir));
+
+            let next_state = State {
+                path: new_path,
+                score: new_score,
+                status: status,
+            };
+
+            new_states.push(next_state);
+        }
+
+        new_states
+    }
 }
 
+#[derive(Debug, Eq, PartialEq)]
+enum Status {
+    Active,
+    End,
+    Cycle,
+}
+
+#[derive(Debug)]
+struct State {
+    path: SmallVec8<(u32, Dir)>,
+    score: f32,
+    status: Status,
+}
+
+impl State {}
+
+/// Iterator over nodes in a `DeBruijnGraph`
 pub struct NodeIter<'a, K: Kmer + 'a, D: Debug + 'a> {
-    graph: &'a DebruijnGraph<K,D>,
-    node_id: usize
+    graph: &'a DebruijnGraph<K, D>,
+    node_id: usize,
 }
 
 impl<'a, K: Kmer + 'a, D: Debug + 'a> Iterator for NodeIter<'a, K, D> {
@@ -643,7 +895,6 @@ pub struct Node<'a, K: Kmer + 'a, D: 'a> {
 }
 
 impl<'a, K: Kmer, D: Debug> Node<'a, K, D> {
-
     /// Length of the sequence of this node
     pub fn len(&self) -> usize {
         self.graph.base.sequences.get(self.node_id).len()
@@ -696,14 +947,15 @@ impl<'a, K: Kmer, D: Debug> Node<'a, K, D> {
         let mut wrote = false;
         let edges = self.r_edges();
         for (idx, &(id, incoming_dir, _)) in edges.iter().enumerate() {
-            write!(f,
-                     "{{\"source\":\"{}\",\"target\":\"{}\",\"D\":\"{}\"}}",
-                     self.node_id,
-                     id,
-                     match incoming_dir {
-                         Dir::Left => "L",
-                         Dir::Right => "R",
-                     }
+            write!(
+                f,
+                "{{\"source\":\"{}\",\"target\":\"{}\",\"D\":\"{}\"}}",
+                self.node_id,
+                id,
+                match incoming_dir {
+                    Dir::Left => "L",
+                    Dir::Right => "R",
+                }
             ).unwrap();
 
             if idx < edges.len() - 1 {
@@ -724,8 +976,19 @@ impl<'a, K: Kmer, D> fmt::Debug for Node<'a, K, D> where D:Debug {
 }
 */
 
-impl<'a, K: Kmer, D> fmt::Debug for Node<'a, K, D> where D: Debug {
+impl<'a, K: Kmer, D> fmt::Debug for Node<'a, K, D>
+where
+    D: Debug,
+{
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "Node {{ id:{}, Exts: {:?}, L:{:?} R:{:?}, Seq: {:?} }}", self.node_id, self.exts(), self.l_edges(), self.r_edges(), self.sequence())
+        write!(
+            f,
+            "Node {{ id:{}, Exts: {:?}, L:{:?} R:{:?}, Seq: {:?} }}",
+            self.node_id,
+            self.exts(),
+            self.l_edges(),
+            self.r_edges(),
+            self.sequence()
+        )
     }
 }

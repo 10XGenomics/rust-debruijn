@@ -1,11 +1,34 @@
-// Copyright 2014 Johannes Köster.
+// Copyright 2014 Johannes Köster and 10x Genomics
 // Licensed under the MIT license (http://opensource.org/licenses/MIT)
 // This file may not be copied, modified, or distributed
 // except according to those terms.
 
 //! A 2-bit encoding of arbitrary length DNA sequences.
+//!
+//! Store arbitrary-length DNA strings in a packed 2-bit encoding. Individual base values are encoded
+//! as the integers 0,1,2,3 corresponding to A,C,G,T.
+//!
+//! # Example
+//! ```
+//! use debruijn::Kmer;
+//! use debruijn::dna_string::*;
+//! use debruijn::kmer::Kmer16;
+//! use debruijn::Vmer;
+//!
+//! // Construct a new DNA string
+//! let dna_string1 = DnaString::from_dna_string("ACAGCAGCAGCACGTATGACAGATAGTGACAGCAGTTTGTGACCGCAAGAGCAGTAATATGATG");
+//!
+//! // Get an immutable view into the sequence
+//! let slice1 = dna_string1.slice(10, 40);
+//!
+//! // Get a kmer from the DNA string
+//! let first_kmer: Kmer16 = slice1.get_kmer(0);
+//! assert_eq!(first_kmer, Kmer16::from_ascii(b"CACGTATGACAGATAG"))
+
 
 use std::fmt;
+use std::borrow::Borrow;
+
 use Kmer;
 use bits_to_base;
 use base_to_bits;
@@ -22,7 +45,7 @@ const WIDTH: usize = 2;
 
 const MASK: u64 = 0x3;
 
-/// A sequence of DnaStringoded values. This implementation is specialized to 2-bit alphabets
+/// A container for sequence of DNA bases.
 #[derive(Ord, PartialOrd, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct DnaString {
     storage: Vec<u64>,
@@ -69,7 +92,8 @@ impl Mer for DnaString {
 }
 
 impl<K> Vmer<K> for DnaString
-    where K: Kmer
+where
+    K: Kmer,
 {
     fn new(len: usize) -> Self {
         Self::empty(len)
@@ -115,7 +139,7 @@ impl<K> Vmer<K> for DnaString
 
 
 impl DnaString {
-    /// Create a new instance with a given encoding width (e.g. width=2 for using two bits per value).
+    /// Create an empty DNA string
     pub fn new() -> DnaString {
         DnaString {
             storage: Vec::new(),
@@ -123,13 +147,14 @@ impl DnaString {
         }
     }
 
+    /// Length of the sequence
     pub fn len(&self) -> usize {
         self.len
     }
 
     /// Create a new instance with a given capacity.
     pub fn empty(n: usize) -> Self {
-        let blocks = (n*WIDTH >> 6) + (if n*WIDTH & 0x3F > 0 { 1 } else { 0 });
+        let blocks = (n * WIDTH >> 6) + (if n * WIDTH & 0x3F > 0 { 1 } else { 0 });
         let storage = vec![0; blocks];
 
         DnaString {
@@ -138,6 +163,7 @@ impl DnaString {
         }
     }
 
+    /// Create a DnaString corresponding to an ACGT-encoded str.
     pub fn from_dna_string(dna: &str) -> DnaString {
         let mut dna_string = DnaString {
             storage: Vec::new(),
@@ -151,6 +177,7 @@ impl DnaString {
         dna_string
     }
 
+    /// Create a DnaString from an ACGT-encoded byte slice
     pub fn from_acgt_bytes(bytes: &[u8]) -> DnaString {
         let mut dna_string = DnaString {
             storage: Vec::new(),
@@ -164,6 +191,7 @@ impl DnaString {
         dna_string
     }
 
+    /// Create a DnaString from a 0-4 encoded byte slice
     pub fn from_bytes(bytes: &[u8]) -> DnaString {
         let mut dna_string = DnaString {
             storage: Vec::new(),
@@ -177,7 +205,8 @@ impl DnaString {
         dna_string
     }
 
-    pub fn to_dna_string(&self) -> String {
+    /// Convert sequence to a String
+    pub fn to_string(&self) -> String {
         let mut dna: String = String::new();
         for v in self.iter() {
             dna.push(bits_to_base(v));
@@ -185,12 +214,14 @@ impl DnaString {
         dna
     }
 
+    /// Convert sequence to a Vector of 0-4 encoded bytes
     pub fn to_bytes(&self) -> Vec<u8> {
         let mut bytes = Vec::new();
         bytes.extend(self.iter());
         bytes
     }
 
+    /// Convert sequence to a Vector of ascii-encoded bytes
     pub fn to_ascii_vec(&self) -> Vec<u8> {
         let mut res = Vec::new();
         for v in self.iter() {
@@ -199,7 +230,7 @@ impl DnaString {
         res
     }
 
-    /// Append a value.
+    /// Append a 0-4 encoded base.
     pub fn push(&mut self, value: u8) {
         let (block, bit) = self.addr(self.len);
         if bit == 0 && block >= self.storage.len() {
@@ -209,15 +240,17 @@ impl DnaString {
         self.len += 1;
     }
 
-    /// Push values read from a byte array.
+    /// Push 0-4 encoded bases from a byte array.
     ///
     /// # Arguments
     /// `bytes`: byte array to read values from
     /// `seq_length`: how many values to read from the byte array. Note that this
     /// is number of values not number of elements of the byte array.
     pub fn push_bytes(&mut self, bytes: &Vec<u8>, seq_length: usize) {
-        assert!(seq_length <= bytes.len() * 8 / WIDTH,
-                "Number of elements to push exceeds array length");
+        assert!(
+            seq_length <= bytes.len() * 8 / WIDTH,
+            "Number of elements to push exceeds array length"
+        );
 
         for i in 0..seq_length {
             let byte_index = (i * WIDTH) / 8;
@@ -229,47 +262,6 @@ impl DnaString {
             self.push(bits);
         }
     }
-
-    /// Append `n` times the given value.
-    pub fn push_values(&mut self, mut n: usize, value: u8) {
-        {
-            // fill the last block
-            let (block, mut bit) = self.addr(self.len);
-            if bit > 0 {
-                // TODO use step_by once it has been stabilized: for bit in (bit..64).step_by(self.width) {
-                while bit <= 64 {
-                    self.set_by_addr(block, bit, value);
-                    n -= 1;
-                    bit = bit + WIDTH
-                }
-            }
-        }
-
-        // pack the value into a block
-        let mut value_block = 0;
-        {
-            let mut v = value as u64;
-            for _ in 0..(64 / WIDTH) {
-                value_block |= v;
-                v <<= WIDTH;
-            }
-        }
-
-        // push as many value blocks as needed
-        let i = self.len + n;
-        let (block, bit) = self.addr(i);
-        for _ in self.storage.len()..block {
-            self.storage.push(value_block);
-        }
-
-        if bit > 0 {
-            // add the remaining values to a final block
-            self.storage.push(value_block >> (64 - bit));
-        }
-
-        self.len = i;
-    }
-
 
     /// Iterate over stored values (values will be unpacked into bytes).
     pub fn iter(&self) -> DnaStringIter {
@@ -301,10 +293,6 @@ impl DnaString {
         (k / BLOCK_BITS, k % BLOCK_BITS)
     }
 
-    pub fn width(&self) -> usize {
-        WIDTH
-    }
-
     pub fn is_empty(&self) -> bool {
         self.len == 0
     }
@@ -332,7 +320,7 @@ impl DnaString {
         }
     }
 
-    /// Get the length `k` suffix of the DnaString
+    /// Get slice containing the interval [`start`, `end`) of `self`
     pub fn slice(&self, start: usize, end: usize) -> DnaStringSlice {
         assert!(start <= self.len, "coordinate exceeds number of elements.");
         assert!(end <= self.len, "coordinate exceeds number of elements.");
@@ -345,7 +333,7 @@ impl DnaString {
         }
     }
 
-
+    /// Create a fresh DnaString containing the reverse of `self`
     pub fn reverse(&self) -> DnaString {
         let values: Vec<u8> = self.iter().collect();
         let mut dna_string = DnaString::new();
@@ -408,7 +396,7 @@ impl<'a> IntoIterator for &'a DnaString {
 }
 
 
-
+/// An immutable slice into a DnaString
 #[derive(Eq, PartialEq, Clone)]
 pub struct DnaStringSlice<'a> {
     pub dna_string: &'a DnaString,
@@ -444,11 +432,11 @@ impl<'a> Mer for DnaStringSlice<'a> {
     }
 
     fn rc(&self) -> DnaStringSlice<'a> {
-        DnaStringSlice{ 
+        DnaStringSlice {
             dna_string: self.dna_string,
             start: self.start,
-            length: self.length, 
-            is_rc: !self.is_rc 
+            length: self.length,
+            is_rc: !self.is_rc,
         }
     }
 
@@ -462,7 +450,8 @@ impl<'a> Mer for DnaStringSlice<'a> {
 }
 
 impl<'a, K> Vmer<K> for DnaStringSlice<'a>
-    where K: Kmer
+where
+    K: Kmer,
 {
     fn new(_: usize) -> Self {
         unimplemented!()
@@ -482,23 +471,30 @@ impl<'a, K> Vmer<K> for DnaStringSlice<'a>
 
 
 impl<'a> DnaStringSlice<'a> {
-
     pub fn is_palindrome(&self) -> bool {
         unimplemented!();
     }
 
+    pub fn bytes(&self) -> Vec<u8> {
+        let mut v = Vec::new();
+        for pos in 0..self.length {
+            v.push(self.get(pos));
+        }
+        v
+    }
+
     pub fn ascii(&self) -> Vec<u8> {
         let mut v = Vec::new();
-        for pos in self.start..(self.start + self.length) {
-            v.push(bits_to_ascii(self.dna_string.get(pos)));
+        for pos in 0..self.length {
+            v.push(bits_to_ascii(self.get(pos)));
         }
         v
     }
 
     pub fn to_dna_string(&self) -> String {
         let mut dna: String = String::new();
-        for pos in self.start..(self.start + self.length) {
-            dna.push(bits_to_base(self.dna_string.get(pos)));
+        for pos in 0..self.length {
+            dna.push(bits_to_base(self.get(pos)));
         }
         dna
     }
@@ -509,23 +505,41 @@ impl<'a> DnaStringSlice<'a> {
 
     pub fn to_owned(&self) -> DnaString {
         let mut be = DnaString::empty(self.length);
-        for pos in 0 .. self.length {
-            be.set_mut(pos, self.dna_string.get(self.start + pos));
+        for pos in 0..self.length {
+            be.set_mut(pos, self.get(pos));
         }
 
         be
     }
+        /// Get slice containing the interval [`start`, `end`) of `self`
+    pub fn slice(&self, start: usize, end: usize) -> DnaStringSlice {
+        assert!(start <= self.length, "coordinate exceeds number of elements.");
+        assert!(end <= self.length, "coordinate exceeds number of elements.");
+
+        DnaStringSlice {
+            dna_string: self.dna_string,
+            start: self.start + start,
+            length: end - start,
+            is_rc: false,
+        }
+    }
+
 }
 
 
 impl<'a> fmt::Debug for DnaStringSlice<'a> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let mut s = String::new();
-        for pos in self.start..(self.start + self.length) {
-            s.push(bits_to_base(self.dna_string.get(pos)))
+        if self.length < 256 {
+            for pos in self.start..(self.start + self.length) {
+                s.push(bits_to_base(self.dna_string.get(pos)))
+            }
+            write!(f, "{}", s)
+        } else {
+            write!(f, "start: {}, len: {}, is_rc: {}", self.start, self.length, self.is_rc)
         }
 
-        write!(f, "{}", s)
+        
     }
 }
 
@@ -538,6 +552,67 @@ impl<'a> IntoIterator for &'a DnaStringSlice<'a> {
     }
 }
 
+
+/// Container for many distinct sequences, concatenated into a single DnaString.  Each
+/// sequence is accessible by index as a DnaStringSlice.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PackedDnaStringSet {
+    pub sequence: DnaString,
+    pub start: Vec<usize>,
+    pub length: Vec<u32>,
+}
+
+impl<'a> PackedDnaStringSet {
+    /// Create an empty `PackedDnaStringSet`
+    pub fn new() -> Self {
+        PackedDnaStringSet {
+            sequence: DnaString::new(),
+            start: Vec::new(),
+            length: Vec::new(),
+        }
+    }
+
+    /// Get a `DnaStringSlice` containing `i`th sequence in the set
+    pub fn get(&'a self, i: usize) -> DnaStringSlice<'a> {
+        DnaStringSlice {
+            dna_string: &self.sequence,
+            start: self.start[i],
+            length: self.length[i] as usize,
+            is_rc: false,
+        }
+    }
+
+    /// Get a `DnaStringSlice` containing `i`th sequence in the set
+    pub fn slice(&'a self, i: usize, start: usize, end: usize) -> DnaStringSlice<'a> {
+        assert!(start <= self.length[i] as usize);
+        assert!(end <= self.length[i] as usize);
+
+        DnaStringSlice {
+            dna_string: &self.sequence,
+            start: self.start[i] + start,
+            length: end - start,
+            is_rc: false,
+        }
+    }
+
+
+    /// Number of sequences in the set
+    pub fn len(&self) -> usize {
+        self.start.len()
+    }
+
+    pub fn add<'b, R: Borrow<u8>, S: IntoIterator<Item = R>>(&mut self, sequence: S) {
+        let start = self.sequence.len();
+        self.start.push(start);
+
+        let mut length = 0;
+        for b in sequence {
+            self.sequence.push(b.borrow().clone());
+            length += 1;
+        }
+        self.length.push(length as u32);
+    }
+}
 
 
 #[cfg(test)]
@@ -556,13 +631,6 @@ mod tests {
         dna_string.set_mut(1, 3);
         values = dna_string.iter().collect();
         assert_eq!(values, [0, 3, 1]);
-    }
-
-    #[test]
-    fn test_push_values() {
-        let mut dna_string = DnaString::new();
-        dna_string.push_values(32, 0);
-        assert_eq!(dna_string.storage, [0]);
     }
 
     #[test]
@@ -593,7 +661,7 @@ mod tests {
         assert_eq!(dna_string.len, 8);
         assert_eq!(values, [0, 1, 2, 3, 0, 1, 2, 3]);
 
-        let dna_cp = dna_string.to_dna_string();
+        let dna_cp = dna_string.to_string();
         assert_eq!(dna, dna_cp);
     }
 
@@ -674,7 +742,7 @@ mod tests {
     #[test]
     fn test_kmers() {
         let dna = "TGCATTAGAAAACTCCTTGCCTGTCAGCCCGACAGGTAGAAACTCATTAATCCACACATTGA".to_string() +
-                  "CTCTATTTCAGGTAAATATGACGTCAACTCCTGCATGTTGAAGGCAGTGAGTGGCTGAAACAGCATCAAGGCGTGAAGGC";
+            "CTCTATTTCAGGTAAATATGACGTCAACTCCTGCATGTTGAAGGCAGTGAGTGGCTGAAACAGCATCAAGGCGTGAAGGC";
         let dna_string = DnaString::from_dna_string(&dna);
 
         let kmers: Vec<IntKmer<u64>> = dna_string.iter_kmers().collect();
