@@ -1,6 +1,6 @@
 // Copyright 2017 10x Genomics
 
-//! Methods for filtering observed kmers before De Bruijn graph construction, and summarizing 'color' annotations.
+//! Methods for converting sequences into kmers, filtering observed kmers before De Bruijn graph construction, and summarizing 'color' annotations.
 use std::mem;
 use itertools::Itertools;
 use std::marker::PhantomData;
@@ -16,15 +16,28 @@ fn bucket<K: Kmer>(kmer: K) -> usize {
     kmer.get(0) as usize
 }
 
+/// Implement this trait to control how multiple observations of a kmer
+/// are carried forward into a DeBruijn graph.
 pub trait KmerSummarizer<DI, DO> {
+    /// The input `items` is an iterator over kmer observations. Input observation
+    /// is a tuple of (kmer, extensions, data). The summarize function inspects the 
+    /// data and returns a tuple indicating:
+    /// * whether this kmer passes the filtering criteria (e.g. is there a sufficient number of observation)
+    /// * the accumulated Exts of the kmer 
+    /// * a summary data object of type `DO` that will be used as a color annotation in the DeBruijn graph.
     fn summarize<K, F: Iterator<Item = (K, Exts, DI)>>(&self, items: F) -> (bool, Exts, DO);
 }
 
+/// A simple KmerSummarizer that only accepts kmers that are observed 
+/// at least a given number of times. The metadata returned about a Kmer
+/// is the number of times it was observed, capped at 2^16.
 pub struct CountFilter {
     min_kmer_obs: usize,
 }
 
 impl CountFilter {
+    /// Construct a `CountFilter` KmerSummarizer only accepts kmers that are observed 
+    /// at least `min_kmer_obs` times.
     pub fn new(min_kmer_obs: usize) -> CountFilter {
         CountFilter { min_kmer_obs: min_kmer_obs }
     }
@@ -43,12 +56,17 @@ impl<D> KmerSummarizer<D, u16> for CountFilter {
     }
 }
 
+/// A simple KmerSummarizer that only accepts kmers that are observed 
+/// at least a given number of times. The metadata returned about a Kmer
+/// is a vector of the unique data values observed for that kmer.
 pub struct CountFilterSet<D> {
     min_kmer_obs: usize,
     phantom: PhantomData<D>,
 }
 
 impl<D> CountFilterSet<D> {
+    /// Construct a `CountFilterSet` KmerSummarizer only accepts kmers that are observed 
+    /// at least `min_kmer_obs` times.
     pub fn new(min_kmer_obs: usize) -> CountFilterSet<D> {
         CountFilterSet {
             min_kmer_obs: min_kmer_obs,
@@ -78,12 +96,43 @@ impl<D: Ord> KmerSummarizer<D, Vec<D>> for CountFilterSet<D> {
 }
 
 
-/// Read a shard and determine the valid kmers
-/// Low memory implementation that should consume < 4G of temporary memory
-/// To reduce memory consumption, set track_bcs to false to forget about BC lists.
+/// Process DNA sequences into kmers and determine the set of valid kmers, 
+/// their extensions, and summarize associated label/'color' data. The input 
+/// sequences are converted to kmers of type `K`, and like kmers are grouped together.
+/// All instances of each kmer, along with their label data are passed to 
+/// `summarizer`, an implementation of the `KmerSummarizer` which decides if 
+/// the kmer is 'valid' by an arbitrary predicate of the kmer data, and 
+/// summarizes the the individual label into a single label data structure 
+/// for the kmer. Care is taken to keep the memory consumption small. 
+/// Less than 4G of temporary memory should be allocated to hold intermediate kmers.
+/// 
+/// 
+/// # Arguments
+/// 
+/// * `seqs` a slice of (sequence, extensions, data) tuples. Each tuple
+///   represents an input sequence. The input sequence must implement `Vmer<K`> The data slot is an arbitrary data
+///   structure labeling the input sequence.
+///   If complete sequences are passed in, the extensions entry should be
+///   set to `Exts::empty()`.
+///   In sharded DBG construction (for example when minimizer-based partitioning 
+///   of the input strings), the input sequence is a sub-string of the original input string. 
+///   In this case the extensions of the sub-string in the original string
+///   should be passed in the extensions.
+/// * `summarizer` is an implementation of `KmerSummarizer<D1,DS>` that decides
+///   whether a kmer is valid (e.g. based on the number of observation of the kmer),
+///   and summarizes the data about the individual kmer observations. See `CountFilter`
+///   and `CountFilterSet` for examples.
+/// * `stranded`: if true, preserve the strandedness of the input sequences, effectively
+///   assuming they are all in the positive strand. If false, the kmers will be canonicalized
+///   to the lexicographic minimum of the kmer and it's reverse complement.
+///
+/// # Returns
+/// Returns a tuple of valid kmers and invalid kmers. Valid kmers are a vector of
+/// (valid kmer, (extensions, summarized data)) tuples, invalid kmers are a vector of
+/// invalid kmers.
 #[inline(never)]
 pub fn filter_kmers<K: Kmer, V: Vmer<K>, D1: Clone, DS, S: KmerSummarizer<D1, DS>>(
-    seqs: &Vec<(V, Exts, D1)>,
+    seqs: &[(V, Exts, D1)],
     summarizer: S,
     stranded: bool,
 ) -> (Vec<(K, (Exts, DS))>, Vec<K>) {
