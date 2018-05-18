@@ -604,14 +604,14 @@ struct CompressFromHash<'a, K: 'a + Kmer, D: 'a, S: CompressionSpec<D>> {
 /// Compression of paths in Debruijn graph
 impl<'a, K: Kmer, D: Clone + Debug, S: CompressionSpec<D>> CompressFromHash<'a, K, D, S> {
     fn get_kmer_data(&'a self, kmer: &K) -> (&Exts, &'a D) {
-        match self.index.get_data_for_kmer(kmer) {
+        match self.index.get(kmer) {
             Some(data) => data,
             None => panic!("couldn't find kmer {:?}", kmer),
         }
     }
 
     fn get_kmer_id(&self, kmer: &K) -> Result<usize, usize> {
-        self.index.get_kmer_id(kmer).map_or(None, |v| Some(v as usize)).ok_or_else(|| 0 as usize)
+        self.index.get_key_id(kmer).map_or(None, |v| Some(v as usize)).ok_or_else(|| 0 as usize)
     }
 
     /// Attempt to extend kmer v in direction dir. Return:
@@ -788,7 +788,7 @@ impl<'a, K: Kmer, D: Clone + Debug, S: CompressionSpec<D>> CompressFromHash<'a, 
         index: &boomphf::BoomHashMap2<K, Exts, D>,
     ) -> BaseGraph<K, D> {
 
-        let n_kmers = index.num_elem();
+        let n_kmers = index.len();
         let mut available_kmers = BitSet::with_capacity(n_kmers);
         for i in 0..n_kmers {
             available_kmers.insert(i);
@@ -816,7 +816,7 @@ impl<'a, K: Kmer, D: Clone + Debug, S: CompressionSpec<D>> CompressFromHash<'a, 
             let start_kmer = index.get_key(kmer_counter).expect("Index out of bound");
             if comp.available_kmers.contains(kmer_counter) {
                 let (node_exts, node_data) =
-                    comp.build_node(start_kmer, &mut path_buf, &mut edge_seq_buf);
+                    comp.build_node(start_kmer.clone(), &mut path_buf, &mut edge_seq_buf);
                 graph.add(&edge_seq_buf, node_exts, node_data);
             }
         }
