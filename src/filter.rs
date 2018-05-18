@@ -16,9 +16,9 @@ use std::io::Write;
 use std::fmt::Debug;
 use smallvec::SmallVec;
 
-fn bucket<K: Kmer>(kmer: K) -> usize {
+pub fn bucket<K: Kmer>(kmer: K) -> usize {
     // FIXME - make 256 mins
-    kmer.get(0) as usize
+    (kmer.get(0) as usize) << 6 | (kmer.get(1) as usize) << 4 | (kmer.get(2) as usize) << 2 | (kmer.get(3) as usize)
 }
 
 /// Implement this trait to control how multiple observations of a kmer

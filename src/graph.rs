@@ -988,7 +988,7 @@ where
             self.exts(),
             self.l_edges(),
             self.r_edges(),
-            self.sequence()
+            self.sequence().len()
         )
     }
 }
