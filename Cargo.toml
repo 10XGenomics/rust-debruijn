@@ -13,6 +13,7 @@ bit-set = "0.4.0"
 itertools = ">=0.6"
 pdqsort = "*"
 byteorder = "*"
+boomphf = { path = "../rust-boomphf"  }
 
 [dev-dependencies]
 pretty_assertions = "0.5.1"

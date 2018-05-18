@@ -9,7 +9,12 @@ use Dir;
 use Kmer;
 use Exts;
 use Vmer;
+use boomphf;
 use pdqsort;
+use std::io;
+use std::io::Write;
+use std::fmt::Debug;
+use smallvec::SmallVec;
 
 fn bucket<K: Kmer>(kmer: K) -> usize {
     // FIXME - make 256 mins
@@ -95,6 +100,39 @@ impl<D: Ord> KmerSummarizer<D, Vec<D>> for CountFilterSet<D> {
     }
 }
 
+// Small Ints bases implemenatation
+pub struct CountFilterSmallInt<D> {
+    min_kmer_obs: usize,
+    phantom: PhantomData<D>,
+}
+
+impl<D> CountFilterSmallInt<D> {
+    pub fn new(min_kmer_obs: usize) -> CountFilterSmallInt<D> {
+        CountFilterSmallInt {
+            min_kmer_obs: min_kmer_obs,
+            phantom: PhantomData,
+        }
+    }
+}
+
+
+impl<D: Ord+Debug> KmerSummarizer<D, SmallVec<[D; 4]>> for CountFilterSmallInt<D> {
+    fn summarize<K, F: Iterator<Item = (K, Exts, D)>>(&self, items: F) -> (bool, Exts, SmallVec<[D; 4]>) {
+        let mut all_exts = Exts::empty();
+        let mut out_data = SmallVec::<[D; 4]>::new();
+
+        let mut nobs = 0;
+        for (_, exts, d) in items {
+            out_data.push(d);
+            all_exts = all_exts.add(exts);
+            nobs += 1;
+        }
+
+        out_data.sort();  out_data.dedup();
+
+        (nobs as usize >= self.min_kmer_obs, all_exts, out_data)
+    }
+}
 
 /// Process DNA sequences into kmers and determine the set of valid kmers, 
 /// their extensions, and summarize associated label/'color' data. The input 
@@ -125,29 +163,35 @@ impl<D: Ord> KmerSummarizer<D, Vec<D>> for CountFilterSet<D> {
 /// * `stranded`: if true, preserve the strandedness of the input sequences, effectively
 ///   assuming they are all in the positive strand. If false, the kmers will be canonicalized
 ///   to the lexicographic minimum of the kmer and it's reverse complement.
-///
+/// * `report_all_kmers`: if true returns the vector of all the observed kmers and performs the
+///   kmer based filtering
+/// * `memory_size`: gives the size bound on the memory in GB to use and automatically determines
+///   the number of passes needed.
 /// # Returns
-/// Returns a tuple of valid kmers and invalid kmers. Valid kmers are a vector of
-/// (valid kmer, (extensions, summarized data)) tuples, invalid kmers are a vector of
-/// invalid kmers.
+/// BoomHashMap2 Object, check rust-boomphf for details
 #[inline(never)]
 pub fn filter_kmers<K: Kmer, V: Vmer<K>, D1: Clone, DS, S: KmerSummarizer<D1, DS>>(
     seqs: &[(V, Exts, D1)],
     summarizer: S,
     stranded: bool,
-) -> (Vec<(K, (Exts, DS))>, Vec<K>) {
+    report_all_kmers: bool,
+    memory_size: usize,
+)  -> ( boomphf::BoomHashMap2<K, Exts, DS>, Vec<K> )
+where DS: Debug{
 
     let rc_norm = !stranded;
 
     let mut all_kmers = Vec::new();
     let mut valid_kmers = Vec::new();
+    let mut valid_exts = Vec::new();
+    let mut valid_data = Vec::new();
 
     // Estimate memory consumed by Kmer vectors, and set iteration count appropriately
     let input_kmers: usize = seqs.iter()
         .map(|&(ref vmer, _, _)| vmer.len().saturating_sub(K::k() - 1))
         .sum();
     let kmer_mem = input_kmers * mem::size_of::<(K, D1)>();
-    let max_mem = 4 * (10 as usize).pow(9);
+    let max_mem = memory_size * (10 as usize).pow(9);
     let slices = kmer_mem / max_mem + 1;
     let sz = 256 / slices + 1;
 
@@ -168,12 +212,17 @@ pub fn filter_kmers<K: Kmer, V: Vmer<K>, D1: Clone, DS, S: KmerSummarizer<D1, DS
         );
     }
 
+    let mut pass_counter = 0;
     for bucket_range in bucket_ranges {
 
         let mut kmer_buckets: Vec<Vec<(K, Exts, D1)>> = Vec::new();
         for _ in 0..256 {
             kmer_buckets.push(Vec::new());
         }
+
+        pass_counter += 1;
+        print!("\r Performing {} pass", pass_counter);
+        io::stdout().flush().ok().expect("Could not flush stdout");
 
         for &(ref seq, seq_exts, ref d) in seqs {
             for (kmer, exts) in seq.iter_kmer_exts(seq_exts) {
@@ -200,17 +249,23 @@ pub fn filter_kmers<K: Kmer, V: Vmer<K>, D1: Clone, DS, S: KmerSummarizer<D1, DS
 
             for (kmer, kmer_obs_iter) in &kmer_vec.into_iter().group_by(|elt| elt.0) {
                 let (is_valid, exts, summary_data) = summarizer.summarize(kmer_obs_iter);
-                all_kmers.push(kmer);
+                if report_all_kmers { all_kmers.push(kmer); }
                 if is_valid {
-                    valid_kmers.push((kmer, (exts, summary_data)));
+                    valid_kmers.push(kmer);
+                    valid_exts.push(exts);
+                    valid_data.push(summary_data);
                 }
             }
         }
     }
 
-    pdqsort::sort_by_key(&mut valid_kmers, |x| x.0);
-    pdqsort::sort(&mut all_kmers);
-    remove_censored_exts_sharded(stranded, &mut valid_kmers, &all_kmers);
+    // pdqsort::sort_by_key(&mut valid_kmers, |x| x.0);
+    // pdqsort::sort(&mut all_kmers);
+    // TODO: Have to modify this function is it requires the valid_kmers and we can't
+    // just pass the keys since it might alter the order of mphf
+    if report_all_kmers {
+        //remove_censored_exts_sharded(stranded, &mut valid_kmers, &all_kmers);
+    }
 
     info!(
         "filter kmers: sequences: {}, kmers: {}, unique kmers: {}. valid kmers: {}",
@@ -219,7 +274,7 @@ pub fn filter_kmers<K: Kmer, V: Vmer<K>, D1: Clone, DS, S: KmerSummarizer<D1, DS
         all_kmers.len(),
         valid_kmers.len()
     );
-    (valid_kmers, all_kmers)
+    ( boomphf::BoomHashMap2::new(valid_kmers, valid_exts, valid_data), all_kmers )
 }
 
 /// Remove extensions in valid_kmers that point to censored kmers. A censored kmer

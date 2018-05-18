@@ -29,6 +29,7 @@ extern crate smallvec;
 extern crate bit_set;
 extern crate itertools;
 extern crate pdqsort;
+extern crate boomphf;
 
 #[macro_use]
 extern crate log;
