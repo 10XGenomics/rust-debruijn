@@ -610,8 +610,8 @@ impl<'a, K: Kmer, D: Clone + Debug, S: CompressionSpec<D>> CompressFromHash<'a, 
         }
     }
 
-    fn get_kmer_id(&self, kmer: &K) -> Result<usize, usize> {
-        self.index.get_key_id(kmer).map_or(None, |v| Some(v as usize)).ok_or_else(|| 0 as usize)
+    fn get_kmer_id(&self, kmer: &K) -> Option<usize> {
+        self.index.get_key_id(kmer).map_or(None, |v| Some(v as usize))
     }
 
     /// Attempt to extend kmer v in direction dir. Return:
@@ -650,7 +650,7 @@ impl<'a, K: Kmer, D: Clone + Debug, S: CompressionSpec<D>> CompressFromHash<'a, 
 
             // Check condition a)
             match self.get_kmer_id(&next_kmer) {
-                Ok(id) if self.available_kmers.contains(id) => (),
+                Some(id) if self.available_kmers.contains(id) => (),
 
                 // This kmer isn't in this partition, or we've already used it
                 _ => return ExtMode::Terminal(exts.single_dir(dir))

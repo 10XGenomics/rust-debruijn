@@ -116,7 +116,7 @@ impl<D> CountFilterSmallInt<D> {
 }
 
 
-impl<D: Ord+Debug> KmerSummarizer<D, SmallVec<[D; 4]>> for CountFilterSmallInt<D> {
+impl<D: Ord> KmerSummarizer<D, SmallVec<[D; 4]>> for CountFilterSmallInt<D> {
     fn summarize<K, F: Iterator<Item = (K, Exts, D)>>(&self, items: F) -> (bool, Exts, SmallVec<[D; 4]>) {
         let mut all_exts = Exts::empty();
         let mut out_data = SmallVec::<[D; 4]>::new();
