@@ -204,8 +204,8 @@ where DS: Debug{
     assert!(bucket_ranges[bucket_ranges.len() - 1].end >= 256);
 
     if bucket_ranges.len() > 1 {
-        println!(
-            "filter_kmers: {} sequences, {} kmers, {} passes",
+        info!(
+            "{} sequences, {} kmers, {} passes",
             seqs.len(),
             input_kmers,
             bucket_ranges.len()
@@ -221,7 +221,7 @@ where DS: Debug{
         }
 
         pass_counter += 1;
-        print!("\r Performing {} pass", pass_counter);
+        eprint!("\r Performing {} pass", pass_counter);
         io::stdout().flush().ok().expect("Could not flush stdout");
 
         for &(ref seq, seq_exts, ref d) in seqs {
@@ -266,13 +266,11 @@ where DS: Debug{
     if report_all_kmers {
         //remove_censored_exts_sharded(stranded, &mut valid_kmers, &all_kmers);
     }
-
-    println!(
-        "\nfilter kmers: sequences: {}, kmers: {}, unique kmers: {}. valid kmers: {}",
-        seqs.len(),
-        input_kmers,
+    eprintln!("");
+    info!(
+        "Unique kmers: {}, All kmers (if returned): {}",
+        valid_kmers.len(),
         all_kmers.len(),
-        valid_kmers.len()
     );
     ( boomphf::BoomHashMap2::new(valid_kmers, valid_exts, valid_data), all_kmers )
 }

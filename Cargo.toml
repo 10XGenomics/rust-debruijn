@@ -13,7 +13,7 @@ bit-set = "0.4.0"
 itertools = ">=0.6"
 pdqsort = "*"
 byteorder = "*"
-boomphf = { git = "https://github.com/10XGenomics/rust-boomphf", branch = "master"   }
+boomphf = { path = "../rust-boomphf" }# git = "https://github.com/10XGenomics/rust-boomphf", branch = "master"   }
 
 [dev-dependencies]
 pretty_assertions = "0.5.1"
