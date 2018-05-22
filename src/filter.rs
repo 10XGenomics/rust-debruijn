@@ -4,6 +4,8 @@
 use std::mem;
 use itertools::Itertools;
 use std::marker::PhantomData;
+use std::collections::HashMap;
+use std::hash::Hash;
 
 use Dir;
 use Kmer;
@@ -134,6 +136,65 @@ impl<D: Ord> KmerSummarizer<D, SmallVec<[D; 4]>> for CountFilterSmallInt<D> {
     }
 }
 
+//Equivalence class bases implementation
+pub type EqClassIdType = u32 ;
+pub struct CountFilterEqClass<D: Eq + Hash> {
+    min_kmer_obs: usize,
+    eq_classes: HashMap<Vec<D>, EqClassIdType>,
+}
+
+impl<D: Eq + Hash> CountFilterEqClass<D> {
+    pub fn new(min_kmer_obs: usize) -> CountFilterEqClass<D> {
+        CountFilterEqClass {
+            min_kmer_obs: min_kmer_obs,
+            eq_classes: HashMap::<Vec<D>, EqClassIdType>::new(),
+        }
+    }
+    pub fn get_eq_classes(self) -> HashMap<Vec<D>, EqClassIdType>{
+        self.eq_classes
+    }
+}
+
+/// Implement this trait to control how multiple observations of a kmer
+/// are carried forward into a DeBruijn graph.
+pub trait MutKmerSummarizer<DI, DO> {
+    /// The input `items` is an iterator over kmer observations. Input observation
+    /// is a tuple of (kmer, extensions, data). The summarize function inspects the
+    /// data and returns a tuple indicating:
+    /// * whether this kmer passes the filtering criteria (e.g. is there a sufficient number of observation)
+    /// * the accumulated Exts of the kmer
+    /// * a summary data object of type `DO` that will be used as a color annotation in the DeBruijn graph.
+    fn summarize<K, F: Iterator<Item = (K, Exts, DI)>>(&mut self, items: F) -> (bool, Exts, DO);
+}
+
+impl<D: Eq + Ord + Hash> MutKmerSummarizer<D, EqClassIdType> for CountFilterEqClass<D> {
+    fn summarize<K, F: Iterator<Item = (K, Exts, D)>>(&mut self, items: F) -> (bool, Exts, EqClassIdType) {
+        let mut all_exts = Exts::empty();
+        let mut out_data = Vec::new();
+
+        let mut nobs = 0;
+        for (_, exts, d) in items {
+            out_data.push(d);
+            all_exts = all_exts.add(exts);
+            nobs += 1;
+        }
+
+        out_data.sort();  out_data.dedup();
+
+        let eq_id: EqClassIdType;
+        if self.eq_classes.contains_key(&out_data){
+            eq_id = *self.eq_classes.get(&out_data).expect("Can't find key, HashMap Error");
+        }
+        else{
+            eq_id = self.eq_classes.len() as u32 + 1;
+            self.eq_classes.insert(out_data, eq_id);
+        }
+
+        (nobs as usize >= self.min_kmer_obs, all_exts, eq_id)
+    }
+}
+
+
 /// Process DNA sequences into kmers and determine the set of valid kmers,
 /// their extensions, and summarize associated label/'color' data. The input
 /// sequences are converted to kmers of type `K`, and like kmers are grouped together.
@@ -170,9 +231,9 @@ impl<D: Ord> KmerSummarizer<D, SmallVec<[D; 4]>> for CountFilterSmallInt<D> {
 /// # Returns
 /// BoomHashMap2 Object, check rust-boomphf for details
 #[inline(never)]
-pub fn filter_kmers<K: Kmer, V: Vmer<K>, D1: Clone, DS, S: KmerSummarizer<D1, DS>>(
+pub fn filter_kmers<K: Kmer, V: Vmer<K>, D1: Clone, DS, S: MutKmerSummarizer<D1, DS>>(
     seqs: &[(V, Exts, D1)],
-    summarizer: S,
+    summarizer: &mut S,
     stranded: bool,
     report_all_kmers: bool,
     memory_size: usize,
@@ -272,7 +333,7 @@ where DS: Debug{
         valid_kmers.len(),
         all_kmers.len(),
     );
-    ( boomphf::BoomHashMap2::new(valid_kmers, valid_exts, valid_data), all_kmers )
+    ( boomphf::BoomHashMap2::new(valid_kmers, valid_exts, valid_data), all_kmers)
 }
 
 /// Remove extensions in valid_kmers that point to censored kmers. A censored kmer
