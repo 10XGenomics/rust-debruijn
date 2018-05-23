@@ -32,7 +32,7 @@ pub trait KmerSummarizer<DI, DO> {
     /// * whether this kmer passes the filtering criteria (e.g. is there a sufficient number of observation)
     /// * the accumulated Exts of the kmer
     /// * a summary data object of type `DO` that will be used as a color annotation in the DeBruijn graph.
-    fn summarize<K, F: Iterator<Item = (K, Exts, DI)>>(&self, items: F) -> (bool, Exts, DO);
+    fn summarize<K, F: Iterator<Item = (K, Exts, DI)>>(&mut self, items: F) -> (bool, Exts, DO);
 }
 
 /// A simple KmerSummarizer that only accepts kmers that are observed
@@ -51,7 +51,7 @@ impl CountFilter {
 }
 
 impl<D> KmerSummarizer<D, u16> for CountFilter {
-    fn summarize<K, F: Iterator<Item = (K, Exts, D)>>(&self, items: F) -> (bool, Exts, u16) {
+    fn summarize<K, F: Iterator<Item = (K, Exts, D)>>(&mut self, items: F) -> (bool, Exts, u16) {
         let mut all_exts = Exts::empty();
         let mut count = 0u16;
         for (_, exts, _) in items {
@@ -84,7 +84,7 @@ impl<D> CountFilterSet<D> {
 
 
 impl<D: Ord> KmerSummarizer<D, Vec<D>> for CountFilterSet<D> {
-    fn summarize<K, F: Iterator<Item = (K, Exts, D)>>(&self, items: F) -> (bool, Exts, Vec<D>) {
+    fn summarize<K, F: Iterator<Item = (K, Exts, D)>>(&mut self, items: F) -> (bool, Exts, Vec<D>) {
         let mut all_exts = Exts::empty();
 
         let mut out_data: Vec<D> = Vec::new();
@@ -98,40 +98,6 @@ impl<D: Ord> KmerSummarizer<D, Vec<D>> for CountFilterSet<D> {
 
         out_data.sort();
         out_data.dedup();
-        (nobs as usize >= self.min_kmer_obs, all_exts, out_data)
-    }
-}
-
-// Small Ints bases implemenatation
-pub struct CountFilterSmallInt<D> {
-    min_kmer_obs: usize,
-    phantom: PhantomData<D>,
-}
-
-impl<D> CountFilterSmallInt<D> {
-    pub fn new(min_kmer_obs: usize) -> CountFilterSmallInt<D> {
-        CountFilterSmallInt {
-            min_kmer_obs: min_kmer_obs,
-            phantom: PhantomData,
-        }
-    }
-}
-
-
-impl<D: Ord> KmerSummarizer<D, SmallVec<[D; 4]>> for CountFilterSmallInt<D> {
-    fn summarize<K, F: Iterator<Item = (K, Exts, D)>>(&self, items: F) -> (bool, Exts, SmallVec<[D; 4]>) {
-        let mut all_exts = Exts::empty();
-        let mut out_data = SmallVec::<[D; 4]>::new();
-
-        let mut nobs = 0;
-        for (_, exts, d) in items {
-            out_data.push(d);
-            all_exts = all_exts.add(exts);
-            nobs += 1;
-        }
-
-        out_data.sort();  out_data.dedup();
-
         (nobs as usize >= self.min_kmer_obs, all_exts, out_data)
     }
 }
@@ -155,19 +121,7 @@ impl<D: Eq + Hash> CountFilterEqClass<D> {
     }
 }
 
-/// Implement this trait to control how multiple observations of a kmer
-/// are carried forward into a DeBruijn graph.
-pub trait MutKmerSummarizer<DI, DO> {
-    /// The input `items` is an iterator over kmer observations. Input observation
-    /// is a tuple of (kmer, extensions, data). The summarize function inspects the
-    /// data and returns a tuple indicating:
-    /// * whether this kmer passes the filtering criteria (e.g. is there a sufficient number of observation)
-    /// * the accumulated Exts of the kmer
-    /// * a summary data object of type `DO` that will be used as a color annotation in the DeBruijn graph.
-    fn summarize<K, F: Iterator<Item = (K, Exts, DI)>>(&mut self, items: F) -> (bool, Exts, DO);
-}
-
-impl<D: Eq + Ord + Hash> MutKmerSummarizer<D, EqClassIdType> for CountFilterEqClass<D> {
+impl<D: Eq + Ord + Hash> KmerSummarizer<D, EqClassIdType> for CountFilterEqClass<D> {
     fn summarize<K, F: Iterator<Item = (K, Exts, D)>>(&mut self, items: F) -> (bool, Exts, EqClassIdType) {
         let mut all_exts = Exts::empty();
         let mut out_data = Vec::new();
@@ -231,7 +185,7 @@ impl<D: Eq + Ord + Hash> MutKmerSummarizer<D, EqClassIdType> for CountFilterEqCl
 /// # Returns
 /// BoomHashMap2 Object, check rust-boomphf for details
 #[inline(never)]
-pub fn filter_kmers<K: Kmer, V: Vmer<K>, D1: Clone, DS, S: MutKmerSummarizer<D1, DS>>(
+pub fn filter_kmers<K: Kmer, V: Vmer<K>, D1: Clone, DS, S: KmerSummarizer<D1, DS>>(
     seqs: &[(V, Exts, D1)],
     summarizer: &mut S,
     stranded: bool,
