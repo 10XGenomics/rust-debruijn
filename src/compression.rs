@@ -324,7 +324,7 @@ impl<'a, K: Kmer, D: Debug + Clone, S: CompressionSpec<D>> CompressFromGraph<'a,
 
         if exts.num_ext_dir(dir) != 1 ||
             (!self.stranded && node.len() == K::k() &&
-                 Vmer::<K>::get_kmer(&bases, 0).is_palindrome())
+                bases.get_kmer::<K>(0).is_palindrome())
         {
             ExtModeNode::Terminal(exts.single_dir(dir))
         } else {

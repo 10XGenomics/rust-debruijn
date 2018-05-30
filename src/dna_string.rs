@@ -91,9 +91,7 @@ impl Mer for DnaString {
     }
 }
 
-impl<K> Vmer<K> for DnaString
-where
-    K: Kmer,
+impl Vmer for DnaString
 {
     fn new(len: usize) -> Self {
         Self::empty(len)
@@ -104,7 +102,7 @@ where
     }
 
     /// Get the kmer starting at position pos
-    fn get_kmer(&self, pos: usize) -> K {
+    fn get_kmer<K: Kmer>(&self, pos: usize) -> K {
         assert!(self.len() - pos >= K::k());
 
         // Which block has the first base
@@ -424,7 +422,7 @@ impl<'a> Mer for DnaStringSlice<'a> {
     fn set_mut(&mut self, _: usize, _: u8) {
         unimplemented!()
         //debug_assert!(i < self.length);
-        //self.dna_string.set_mut(i + self.start, value);
+        //self.dna_string.set(i + self.start, value);
     }
 
     fn set_slice_mut(&mut self, _: usize, _: usize, _: u64) {
@@ -449,9 +447,7 @@ impl<'a> Mer for DnaStringSlice<'a> {
     }
 }
 
-impl<'a, K> Vmer<K> for DnaStringSlice<'a>
-where
-    K: Kmer,
+impl<'a> Vmer for DnaStringSlice<'a>
 {
     fn new(_: usize) -> Self {
         unimplemented!()
@@ -462,7 +458,7 @@ where
     }
 
     /// Get the kmer starting at position pos
-    fn get_kmer(&self, pos: usize) -> K {
+    fn get_kmer<K: Kmer>(&self, pos: usize) -> K {
         debug_assert!(pos + K::k() <= self.length);
         self.dna_string.get_kmer(self.start + pos)
     }
@@ -504,6 +500,7 @@ impl<'a> DnaStringSlice<'a> {
     }
 
     pub fn to_owned(&self) -> DnaString {
+        // FIXME make this faster
         let mut be = DnaString::empty(self.length);
         for pos in 0..self.length {
             be.set_mut(pos, self.get(pos));

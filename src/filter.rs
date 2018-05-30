@@ -12,8 +12,7 @@ use Vmer;
 use pdqsort;
 
 fn bucket<K: Kmer>(kmer: K) -> usize {
-    // FIXME - make 256 mins
-    kmer.get(0) as usize
+    (kmer.get(0) as usize) << 6 | (kmer.get(1) as usize) << 4 | (kmer.get(2) as usize) << 2 | (kmer.get(3) as usize)
 }
 
 /// Implement this trait to control how multiple observations of a kmer
@@ -95,7 +94,6 @@ impl<D: Ord> KmerSummarizer<D, Vec<D>> for CountFilterSet<D> {
     }
 }
 
-
 /// Process DNA sequences into kmers and determine the set of valid kmers, 
 /// their extensions, and summarize associated label/'color' data. The input 
 /// sequences are converted to kmers of type `K`, and like kmers are grouped together.
@@ -131,7 +129,7 @@ impl<D: Ord> KmerSummarizer<D, Vec<D>> for CountFilterSet<D> {
 /// (valid kmer, (extensions, summarized data)) tuples, invalid kmers are a vector of
 /// invalid kmers.
 #[inline(never)]
-pub fn filter_kmers<K: Kmer, V: Vmer<K>, D1: Clone, DS, S: KmerSummarizer<D1, DS>>(
+pub fn filter_kmers<K: Kmer, V: Vmer, D1: Clone, DS, S: KmerSummarizer<D1, DS>>(
     seqs: &[(V, Exts, D1)],
     summarizer: S,
     stranded: bool,
@@ -176,7 +174,7 @@ pub fn filter_kmers<K: Kmer, V: Vmer<K>, D1: Clone, DS, S: KmerSummarizer<D1, DS
         }
 
         for &(ref seq, seq_exts, ref d) in seqs {
-            for (kmer, exts) in seq.iter_kmer_exts(seq_exts) {
+            for (kmer, exts) in seq.iter_kmer_exts::<K>(seq_exts) {
                 let (min_kmer, flip_exts) = if rc_norm {
                     let (min_kmer, flip) = kmer.min_rc_flip();
                     let flip_exts = if flip { exts.rc() } else { exts };
@@ -208,8 +206,10 @@ pub fn filter_kmers<K: Kmer, V: Vmer<K>, D1: Clone, DS, S: KmerSummarizer<D1, DS
         }
     }
 
-    pdqsort::sort_by_key(&mut valid_kmers, |x| x.0);
-    pdqsort::sort(&mut all_kmers);
+    // Add test to ensure the valid_kmers is sorted
+    // (we shouldn't need to sort here)
+    //pdqsort::sort_by_key(&mut valid_kmers, |x| x.0);
+    //pdqsort::sort(&mut all_kmers);
     remove_censored_exts_sharded(stranded, &mut valid_kmers, &all_kmers);
 
     info!(

@@ -271,14 +271,12 @@ impl<K: Kmer, D: Debug> DebruijnGraph<K, D> {
                     let ret_edges = next.edges(return_dir);
                     if ret_edges.len() == 1 {
 
-                        if n.len() == K::k() &&
-                            Vmer::<K>::first_kmer(&n.sequence()).is_palindrome()
+                        if n.len() == K::k() && n.sequence().first_kmer::<K>().is_palindrome()
                         {
                             return None;
                         }
 
-                        if next.len() == K::k() &&
-                            Vmer::<K>::first_kmer(&next.sequence()).is_palindrome()
+                        if next.len() == K::k() && next.sequence().first_kmer::<K>().is_palindrome()
                         {
                             return None;
                         }

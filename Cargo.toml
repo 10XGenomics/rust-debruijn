@@ -18,7 +18,7 @@ byteorder = "*"
 pretty_assertions = "0.5.1"
 
 [dependencies.extprim]
-version = "^1.4.0"
+version = ">=1.6.0"
 features = ["serde"]
 
 [dependencies.num]

@@ -10,43 +10,13 @@ use std::iter::Iterator;
 use Kmer;
 use Vmer;
 use Exts;
+use DnaSlice;
 
-#[inline(never)]
-fn compute_pvals(p: usize, seq: &[u8]) -> Vec<u32> {
-    if p > 16 {
-        panic!("p can't be greater than 16");
-    }
-
-    let mut c: u32 = 0;
-    let mut pvals: Vec<u32> = Vec::with_capacity(seq.len());
-
-    if seq.len() < p {
-        return pvals;
-    }
-
-    for i in 0..p {
-        c = (c << 2) | ((seq[i as usize] as u32) & 0x3)
-    }
-
-    // v is the array of p-mers starting a each position of seq
-
-    pvals.push(c);
-
-    // Mask for the largest possible p-mer
-    let mask: u32 = (1u32 << (2 * p)) - 1;
-
-    for i in p..seq.len() {
-        c = ((c << 2) | ((seq[i] as u32) & 0x3)) & mask;
-        pvals.push(c);
-    }
-
-    pvals
-}
-
-#[inline(never)]
-fn rc(seq: &[u8]) -> Vec<u8> {
-    let rc: Vec<u8> = seq.iter().rev().map(|x| 3 - x).collect();
-    rc
+#[derive(Debug)]
+pub struct MspInterval {
+    bucket: u16,
+    start: u32,
+    len: u16,  
 }
 
 /// Determine MSP substrings of seq, for given k and p.
@@ -55,42 +25,46 @@ fn rc(seq: &[u8]) -> Vec<u8> {
 /// permutation is a permutation of the lexicographically-sorted set of all pmers.
 /// A permutation of pmers sorted by their inverse frequency in the dataset will give the
 /// most even bucketing of MSPs over pmers.
-pub fn simple_scan(
+pub fn simple_scan<V: Vmer, P: Kmer>(
     k: usize,
-    p: usize,
-    seq: &[u8],
-    permutation: &Vec<usize>,
-) -> Vec<(u32, usize, usize, usize)> {
+    seq: &V,
+    permutation: &[usize],
+    rc: bool,
+) -> Vec<MspInterval> {
 
     // Can't partition strings shorter than k
     assert!(seq.len() >= k);
+    assert!(P::k() <= 8);
+    assert!(seq.len() < 1<<32);
 
-    let pfwd = compute_pvals(p, seq);
-    let prev: Vec<u32> = compute_pvals(p, &rc(seq)[..]).into_iter().rev().collect();
+    let p = P::k();
 
-    let mut pvals: Vec<u32> = Vec::new();
-    for (x, y) in pfwd.iter().zip(prev.iter()) {
-        let mv = min(
-            permutation[*x as usize] as u32,
-            permutation[*y as usize] as u32,
-        );
-        pvals.push(mv);
-    }
+    let pval = |i: usize| {
+        let pi = seq.get_kmer::<P>(i);
 
-    let pmin = |i: usize, j: usize| if pvals[i] <= pvals[j] { i } else { j };
+        if rc {
+            min(
+                permutation[pi.to_u64() as usize],
+                permutation[pi.rc().to_u64() as usize])
+        } else {
+            permutation[pi.to_u64() as usize]
+        }
+    };
+
+    let pmin = |i: usize, j: usize| if pval(i) <= pval(j) { i } else { j };
 
     let m = seq.len();
 
     let find_min = |start, stop| {
         let mut pos = start;
         let mut min_pos = start;
-        let mut min_val = pvals[start];
+        let mut min_val = pval(start);
 
         while pos < stop {
             pos = pos + 1;
-            if pvals[pos] < min_val {
+            if pval(pos) < min_val {
                 min_pos = pos;
-                min_val = pvals[pos];
+                min_val = pval(pos);
             }
         }
 
@@ -121,50 +95,61 @@ pub fn simple_scan(
     for p in 0..min_positions.len() - 1 {
         let (start_pos, min_pos) = min_positions[p];
         let (next_pos, _) = min_positions[p + 1];
-        slices.push((
-            pvals[min_pos],
-            min_pos,
-            start_pos,
-            next_pos + k - 1 - start_pos,
-        ));
+
+        let interval = MspInterval {
+            bucket: pval(min_pos) as u16,
+            start: start_pos as u32,
+            len: (next_pos + k - 1 - start_pos) as u16
+        };
+        slices.push(interval);
     }
 
     let (last_pos, min_pos) = min_positions[min_positions.len() - 1];
-    slices.push((pvals[min_pos], min_pos, last_pos, m - last_pos));
+    let last_interval = MspInterval {
+        bucket: pval(min_pos) as u16,
+        start: last_pos as u32,
+        len: (m - last_pos) as u16,
+    };
+    slices.push(last_interval);
 
     slices
 }
 
 
-pub fn msp_sequence<K, V>(
-    p: usize,
+pub fn msp_sequence<P, V>(
+    k: usize,
     seq: &[u8],
-    permutation: Option<&Vec<usize>>,
+    permutation: Option<&[usize]>,
+    rc: bool,
 ) -> Vec<(u32, Exts, V)>
 where
-    K: Kmer,
-    V: Vmer<K>,
+    P: Kmer,
+    V: Vmer,
 {
+    let p = P::k();
 
     // Make sure the substrings will fit into the Vmers
-    assert!(V::max_len() >= 2 * K::k() - p);
+    assert!(V::max_len() >= 2 * k - p);
 
-    if seq.len() < K::k() {
+    if seq.len() < k {
         return Vec::new();
     }
 
-    // FIXME - handle permutation == None
-    //let perm = permutation.or_else(|| {
-    //    (0..1<<p).collect()
-    //});
+    let default_perm: Option<Vec<usize>> =
+        match permutation {
+            Some(_) => None,
+            None => Some( (0..1<<(2*p)).collect()),
+        };
 
-    let msp_parts = simple_scan(K::k(), p, seq, permutation.unwrap());
+    let perm = permutation.unwrap_or_else(|| default_perm.as_ref().unwrap());
+
+    let msp_parts = simple_scan::<_, P>(k, &DnaSlice(seq), perm, rc);
 
     let mut msps = Vec::new();
-    for (shard, _, start_pos, slice_length) in msp_parts {
-        let v = V::from_slice(&seq[start_pos..start_pos + slice_length]);
-        let exts = Exts::from_slice_bounds(seq, start_pos, slice_length);
-        msps.push((shard, exts, v));
+    for msp in msp_parts {
+        let v = V::from_slice(&seq[(msp.start as usize)..(msp.start as usize + msp.len as usize)]);
+        let exts = Exts::from_slice_bounds(seq, msp.start as usize, msp.len as usize);
+        msps.push((msp.bucket as u32, exts, v));
     }
 
     msps
@@ -178,18 +163,20 @@ mod tests {
     use super::*;
     use std::collections::HashSet;
     use std::iter::FromIterator;
+    use kmer::{Kmer8, Kmer5};
+    use DnaSlice;
 
     fn all_kmers<T>(k: usize, seq: &[T]) -> Vec<&[T]> {
         (0..(seq.len() - k + 1)).map(|i| &seq[i..i + k]).collect()
     }
 
-    fn test_all_kmers(k: usize, full_seq: &[u8], slices: Vec<(u32, usize, usize, usize)>) {
+    fn test_all_kmers(k: usize, full_seq: &[u8], slices: Vec<MspInterval>) {
         let start_kmers = HashSet::from_iter(all_kmers(k, full_seq));
 
         let mut sliced_kmers = HashSet::new();
 
-        for (_, _, slc_start, slc_len) in slices {
-            let slc = &full_seq[slc_start..(slc_start + slc_len)];
+        for msp in slices {
+            let slc = &full_seq[(msp.start as usize)..(msp.start as usize + msp.len as usize)];
             sliced_kmers.extend(all_kmers(k, slc));
         }
 
@@ -237,7 +224,7 @@ mod tests {
             let k = 50usize;
             let dna = test::random_dna(150);
             println!("{:?}", dna);
-            let slices = super::simple_scan(k, p, &dna[..], &permutation);
+            let slices = super::simple_scan::<_, Kmer8>(k, &DnaSlice(&dna), &permutation, true);
             println!(
                 "Made {} slices from dna of length {:?}",
                 slices.len(),
@@ -764,8 +751,8 @@ mod tests {
         let p = 5;
         let permutation: Vec<usize> = (0..(1 << 2 * p)).collect();
 
-        let s1 = super::simple_scan(35, 5, &v1[..], &permutation);
-        let s2 = super::simple_scan(35, 5, &v2[..], &permutation);
+        let s1 = super::simple_scan::<_, Kmer5>(35, &DnaSlice(&mut &v1), &permutation, true);
+        let s2 = super::simple_scan::<_, Kmer5>(35, &DnaSlice(&mut &v2), &permutation, true);
 
         println!("{:?}", s1);
         println!("{:?}", s2);

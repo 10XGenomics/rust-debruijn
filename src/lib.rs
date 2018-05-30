@@ -177,7 +177,6 @@ impl<'a, M: 'a + Mer> Iterator for MerIter<'a, M> {
     }
 }
 
-
 /// Encapsulates a Kmer sequence with statically known K.
 pub trait Kmer: Mer + Sized + Copy + PartialEq + PartialOrd + Eq + Ord + Hash {
     /// Create a Kmer initialized to all A's
@@ -326,28 +325,38 @@ where
 
 
 /// A DNA sequence with run-time variable length, up to a statically known maximum length
-pub trait Vmer<K: Kmer>: Mer + PartialEq + Eq + Clone {
+pub trait Vmer: Mer + PartialEq + Eq {
     /// Create a new sequence with length `len`, initialized to all A's
     fn new(len: usize) -> Self;
 
     /// Maximum sequence length that can be stored in this type
     fn max_len() -> usize;
 
+    /// Create a Vmer from a sequence of bytes
+    fn from_slice(seq: &[u8]) -> Self {
+        let mut vmer = Self::new(seq.len());
+        for i in 0..seq.len() {
+            vmer.set_mut(i, seq[i]);
+        }
+
+        vmer
+    }
+
     /// Efficiently extract a Kmer from the sequence
-    fn get_kmer(&self, pos: usize) -> K;
+    fn get_kmer<K: Kmer>(&self, pos: usize) -> K;
 
     /// Get the first Kmer from the sequence
-    fn first_kmer(&self) -> K {
+    fn first_kmer<K: Kmer>(&self) -> K {
         self.get_kmer(0)
     }
 
     /// Get the last kmer in the sequence
-    fn last_kmer(&self) -> K {
+    fn last_kmer<K: Kmer>(&self) -> K {
         self.get_kmer(self.len() - K::k())
     }
 
     /// Get the terminal kmer of the sequence, on the side of the sequence given by dir
-    fn term_kmer(&self, dir: Dir) -> K {
+    fn term_kmer<K: Kmer>(&self, dir: Dir) -> K {
         match dir {
             Dir::Left => self.first_kmer(),
             Dir::Right => self.last_kmer(),
@@ -355,7 +364,7 @@ pub trait Vmer<K: Kmer>: Mer + PartialEq + Eq + Clone {
     }
 
     /// Iterate over the kmers in the sequence
-    fn iter_kmers(&self) -> KmerIter<K, Self> {
+    fn iter_kmers<K: Kmer>(&self) -> KmerIter<K, Self> {
 
         let kmer = if self.len() >= K::k() {
             self.first_kmer()
@@ -372,7 +381,7 @@ pub trait Vmer<K: Kmer>: Mer + PartialEq + Eq + Clone {
     }
 
     /// Iterate over the kmers and their extensions, given the extensions of the whole sequence
-    fn iter_kmer_exts(&self, seq_exts: Exts) -> KmerExtsIter<K, Self> {
+    fn iter_kmer_exts<K: Kmer>(&self, seq_exts: Exts) -> KmerExtsIter<K, Self> {
         let kmer = if self.len() >= K::k() {
             self.first_kmer()
         } else {
@@ -386,16 +395,6 @@ pub trait Vmer<K: Kmer>: Mer + PartialEq + Eq + Clone {
             kmer: kmer,
             pos: K::k(),
         }
-    }
-
-    /// Create a Vmer from a sequence of bytes
-    fn from_slice(seq: &[u8]) -> Self {
-        let mut vmer = Self::new(seq.len());
-        for i in 0..seq.len() {
-            vmer.set_mut(i, seq[i]);
-        }
-
-        vmer
     }
 }
 
@@ -443,7 +442,7 @@ impl Mer for DnaBytes {
     }
 }
 
-impl<K: Kmer> Vmer<K> for DnaBytes {
+impl Vmer for DnaBytes {
     /// Create a new sequence with length `len`, initialized to all A's
     fn new(len: usize) -> Self {
         DnaBytes(vec![0u8; len])
@@ -456,10 +455,74 @@ impl<K: Kmer> Vmer<K> for DnaBytes {
     }
 
     /// Efficiently extract a Kmer from the sequence
-    fn get_kmer(&self, pos: usize) -> K {
+    fn get_kmer<K: Kmer>(&self, pos: usize) -> K {
         K::from_bytes(&self.0[pos..pos + K::k()])
     }
 }
+
+
+// Note DnaBytes newtype is required to prevent various
+// Vec methods from being overridden by Mer / Vmer methods.
+#[derive(Debug, Eq, PartialEq, Ord, PartialOrd)]
+pub struct DnaSlice<'a>(&'a [u8]);
+
+impl<'a> Mer for DnaSlice<'a> {
+    fn len(&self) -> usize {
+        self.0.len()
+    }
+
+    fn get(&self, pos: usize) -> u8 {
+        self.0[pos]
+    }
+
+    /// Set base at `pos` to 2-bit encoded base `val`
+    fn set_mut(&mut self, _pos: usize, _val: u8) {
+        unimplemented!()
+    }
+
+    /// Set `nbases` positions in the sequence, starting at `pos`.
+    /// Values must  be packed into the upper-most bits of `value`.
+    fn set_slice_mut(&mut self, _pos: usize, _nbases: usize, _value: u64) {
+        unimplemented!();
+        //for i in pos .. (pos + nbases) {
+        //
+        //}
+    }
+
+    /// Return a new object containing the reverse complement of the sequence
+    fn rc(&self) -> Self {
+        unimplemented!();
+    }
+
+    /// Add the base `v` to the left side of the sequence, and remove the rightmost base
+    fn extend_left(&self, _v: u8) -> Self {
+        unimplemented!()
+    }
+
+    /// Add the base `v` to the right side of the sequence, and remove the leftmost base
+    fn extend_right(&self, _v: u8) -> Self {
+        unimplemented!();
+    }
+}
+
+impl<'a> Vmer for DnaSlice<'a> {
+    /// Create a new sequence with length `len`, initialized to all A's
+    fn new(_len: usize) -> Self {
+        unimplemented!();
+    }
+
+    /// Maximum sequence length that can be stored in this type
+    fn max_len() -> usize {
+        //usize::MAX_VALUE;
+        99999999999
+    }
+
+    /// Efficiently extract a Kmer from the sequence
+    fn get_kmer<K: Kmer>(&self, pos: usize) -> K {
+        K::from_bytes(&self.0[pos..pos + K::k()])
+    }
+}
+
 
 
 /// Direction of motion in a DeBruijn graph

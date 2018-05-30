@@ -47,7 +47,7 @@ pub fn random_kmer<K: Kmer>() -> K {
     kmer
 }
 
-pub fn random_vmer<K: Kmer, V: Vmer<K>>() -> V {
+pub fn random_vmer<K: Kmer, V: Vmer>() -> V {
     let mut r = rand::thread_rng();
     let len = Range::new(K::k(), min(200, V::max_len())).ind_sample(&mut r);
     let mut lmer = V::new(len);
@@ -145,7 +145,7 @@ mod tests {
     use {Kmer, Dir, Exts};
     use clean_graph::CleanGraph;
     use std::collections::{HashSet, HashMap};
-    use graph::{BaseGraph, DebruijnGraph};
+    use graph::{BaseGraph};
     use compression::{SimpleCompress, compress_kmers, compress_graph};
     use std::iter::FromIterator;
     use DnaBytes;
@@ -153,6 +153,7 @@ mod tests {
     use std::ops::Sub;
     use msp;
     use kmer::IntKmer;
+    use kmer::Kmer6;
     use dna_string::DnaString;
     use filter;
 
@@ -204,7 +205,7 @@ mod tests {
     fn simplify_from_kmers<K: Kmer>(mut contigs: Vec<Vec<u8>>, stranded: bool) {
 
         use DnaBytes;
-        let seqs = contigs
+        let seqs : Vec<(DnaBytes, Exts, ())> = contigs
             .drain(..)
             .map(|x| (DnaBytes(x), Exts::empty(), ()))
             .collect();
@@ -234,7 +235,7 @@ mod tests {
 
     // Take some input contig, which likely form a complicated graph,
     // and test the kmer, bsp, sedge and edge construction machinery
-    fn reassemble_contigs<K: Kmer + Copy, V: Vmer<K>>(contigs: Vec<Vec<u8>>, stranded: bool) {
+    fn reassemble_contigs<K: Kmer + Copy, V: Vmer + Clone>(contigs: Vec<Vec<u8>>, stranded: bool) {
         let ctg_lens: Vec<_> = contigs.iter().map(|c| c.len()).collect();
         println!("Reassembling contig sizes: {:?}", ctg_lens);
 
@@ -250,12 +251,12 @@ mod tests {
         kmer_set.extend(kmers.iter());
 
         // Bsps of kmers
-        let P = 6;
+        let p = 6;
 
         let mut seqs: Vec<(V, Exts, u8)> = Vec::new();
-        let permutation = (0..1 << (2 * P)).collect();
+        let permutation: Vec<usize> = (0..1 << (2 * p)).collect();
         for c in contigs.iter() {
-            let msps = msp::msp_sequence::<K, V>(P, c.as_slice(), Some(&permutation));
+            let msps = msp::msp_sequence::<Kmer6, V>(K::k(), c.as_slice(), Some(&permutation), true);
             seqs.extend(msps.clone().into_iter().map(|(_, e, v)| (v, e, 0u8)));
             seqs.extend(msps.into_iter().map(|(_, e, v)| (v, e, 1u8)));
         }
@@ -263,7 +264,7 @@ mod tests {
         // kmer set from bsps
         let mut msp_kmers = HashSet::new();
         for &(ref v, _, _) in seqs.iter() {
-            for k in v.iter_kmers() {
+            for k in v.iter_kmers::<K>() {
                 msp_kmers.insert(k.min_rc());
             }
         }
@@ -347,7 +348,7 @@ mod tests {
 
     // Take some input contig, which likely form a complicated graph,
     // and the msp / shard_asm / main_asm loop
-    fn reassemble_sharded<K: Kmer + Copy, V: Vmer<K>>(contigs: Vec<Vec<u8>>, stranded: bool) {
+    fn reassemble_sharded<K: Kmer + Copy, V: Vmer + Clone>(contigs: Vec<Vec<u8>>, stranded: bool) {
         let ctg_lens: Vec<_> = contigs.iter().map(|c| c.len()).collect();
         println!("Reassembling contig sizes: {:?}", ctg_lens);
 
@@ -359,13 +360,10 @@ mod tests {
         }
 
         // Bsps of kmers
-        let P = 6;
-
         let mut shards = HashMap::new();
-        let permutation = (0..1 << (2 * P)).collect();
 
         for ctg in contigs.iter() {
-            let msps = msp::msp_sequence::<K, V>(P, ctg.as_slice(), Some(&permutation));
+            let msps = msp::msp_sequence::<Kmer6, V>(K::k(), ctg.as_slice(), None, true);
 
             for (shard, exts, seq) in msps {
                 let shard_vec = shards.entry(shard).or_insert_with(|| Vec::new());
@@ -379,7 +377,7 @@ mod tests {
         // Do a subassembly in each shard
         for seqs in shards.values() {
             // Check the correctness of the process_kmer_shard kmer filtering function
-            let (valid_kmers, _) = filter::filter_kmers(&seqs, filter::CountFilter::new(2), stranded);
+            let (valid_kmers, _) = filter::filter_kmers::<K,_,_,_,_>(&seqs, filter::CountFilter::new(2), stranded);
 
             // Generate compress DBG for this shard
             let spec = SimpleCompress::new(|d1: u16, d2: &u16| d1.saturating_add(*d2));
