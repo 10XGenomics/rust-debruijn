@@ -597,7 +597,7 @@ impl KmerSize for K5 {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use rand::{self, Rng};
+    use rand::{self, Rng, RngCore};
     use extprim::u128::u128;
 
     use vmer::Lmer;

@@ -7,8 +7,8 @@ use Vmer;
 use complement;
 
 use std::cmp::{min, max};
-use rand::{self, Rng};
-use rand::distributions::{IndependentSample, Gamma, Range};
+use rand::{self, Rng, RngCore};
+use rand::distributions::{Distribution, Gamma, Range};
 
 /// Generate a uniformly random base
 pub fn random_base() -> u8 {
@@ -31,7 +31,7 @@ pub fn random_dna(len: usize) -> Vec<u8> {
 /// Randomly mutate each base with probability `p`
 pub fn edit_dna<R: Rng>(seq: &mut Vec<u8>, p: f64, r: &mut R) {
     for b in seq.iter_mut() {
-        if r.next_f64() < p {
+        if r.gen_range(0.0,1.0) < p {
             *b = random_base();
         }
     }
@@ -49,7 +49,7 @@ pub fn random_kmer<K: Kmer>() -> K {
 
 pub fn random_vmer<K: Kmer, V: Vmer>() -> V {
     let mut r = rand::thread_rng();
-    let len = Range::new(K::k(), min(200, V::max_len())).ind_sample(&mut r);
+    let len = r.gen_range(K::k(), min(200, V::max_len()));
     let mut lmer = V::new(len);
 
     for pos in 0..len {
@@ -108,7 +108,7 @@ pub fn random_contigs() -> Vec<Vec<u8>> {
 
     let gamma_dist = Gamma::new(0.6, 25.0);
 
-    let nchunks = max(5, gamma_dist.ind_sample(&mut rng) as u32);
+    let nchunks = max(5, gamma_dist.sample(&mut rng) as u32);
     let chunk_sample = Range::new(0, nchunks);
 
     let length_dist = Gamma::new(1.5, 200.0);
@@ -116,21 +116,21 @@ pub fn random_contigs() -> Vec<Vec<u8>> {
 
     let mut chunks: Vec<Vec<u8>> = Vec::new();
     for _ in 0..nchunks {
-        let len = max(10, length_dist.ind_sample(&mut rng) as usize);
+        let len = max(10, length_dist.sample(&mut rng) as usize);
         let seq = random_dna(len);
         chunks.push(seq);
     }
 
     // Now make a bunch of chromosomes by pasting together chunks
-    let nchrom = max(4, gamma_dist.ind_sample(&mut rng) as u32);
+    let nchrom = max(4, gamma_dist.sample(&mut rng) as u32);
 
     let mut chroms = Vec::new();
     for _ in 0..nchrom {
-        let chrom_chunks = max(4, gamma_dist.ind_sample(&mut rng) as u32);
+        let chrom_chunks = max(4, gamma_dist.sample(&mut rng) as u32);
 
         let mut chrom_seq = Vec::new();
         for _ in 0..chrom_chunks {
-            let chunk_idx = chunk_sample.ind_sample(&mut rng) as usize;
+            let chunk_idx = chunk_sample.sample(&mut rng) as usize;
             chrom_seq.extend(chunks[chunk_idx].clone());
         }
         chroms.push(chrom_seq);
