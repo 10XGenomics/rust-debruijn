@@ -16,7 +16,6 @@ use pdqsort;
 use std::io;
 use std::io::Write;
 use std::fmt::Debug;
-use smallvec::SmallVec;
 
 pub fn bucket<K: Kmer>(kmer: K) -> usize {
     // FIXME - make 256 mins
@@ -102,7 +101,7 @@ impl<D: Ord> KmerSummarizer<D, Vec<D>> for CountFilterSet<D> {
     }
 }
 
-//Equivalence class bases implementation
+//Equivalence class based implementation
 pub type EqClassIdType = u32 ;
 pub struct CountFilterEqClass<D: Eq + Hash> {
     min_kmer_obs: usize,
@@ -140,7 +139,7 @@ impl<D: Eq + Ord + Hash> KmerSummarizer<D, EqClassIdType> for CountFilterEqClass
             eq_id = *self.eq_classes.get(&out_data).expect("Can't find key, HashMap Error");
         }
         else{
-            eq_id = self.eq_classes.len() as u32 + 1;
+            eq_id = self.eq_classes.len() as u32;
             self.eq_classes.insert(out_data, eq_id);
         }
 
@@ -209,6 +208,7 @@ where DS: Debug{
     let max_mem = memory_size * (10 as usize).pow(9);
     let slices = kmer_mem / max_mem + 1;
     let sz = 256 / slices + 1;
+    let seq_lens = seqs.len();
 
     let mut bucket_ranges = Vec::new();
     let mut start = 0;
