@@ -7,6 +7,7 @@
 
 use std::cmp::min;
 use std::iter::Iterator;
+use std::ops::Range;
 use Kmer;
 use Vmer;
 use Exts;
@@ -17,6 +18,24 @@ pub struct MspInterval {
     bucket: u16,
     start: u32,
     len: u16,  
+}
+
+impl MspInterval {
+    pub fn start(&self) -> usize {
+        self.start as usize
+    }
+
+    pub fn len(&self) -> usize {
+        self.len as usize
+    }
+
+    pub fn range(&self) -> Range<usize> {
+        self.start() .. self.start() + self.len()
+    }
+
+    pub fn bucket(&self) -> u16 {
+        self.bucket
+    }
 }
 
 /// Determine MSP substrings of seq, for given k and p.

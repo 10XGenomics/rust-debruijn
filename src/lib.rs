@@ -464,7 +464,7 @@ impl Vmer for DnaBytes {
 // Note DnaBytes newtype is required to prevent various
 // Vec methods from being overridden by Mer / Vmer methods.
 #[derive(Debug, Eq, PartialEq, Ord, PartialOrd)]
-pub struct DnaSlice<'a>(&'a [u8]);
+pub struct DnaSlice<'a>(pub &'a [u8]);
 
 impl<'a> Mer for DnaSlice<'a> {
     fn len(&self) -> usize {
