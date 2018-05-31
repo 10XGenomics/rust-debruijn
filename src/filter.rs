@@ -17,8 +17,7 @@ use std::io;
 use std::io::Write;
 use std::fmt::Debug;
 
-pub fn bucket<K: Kmer>(kmer: K) -> usize {
-    // FIXME - make 256 mins
+fn bucket<K: Kmer>(kmer: K) -> usize {
     (kmer.get(0) as usize) << 6 | (kmer.get(1) as usize) << 4 | (kmer.get(2) as usize) << 2 | (kmer.get(3) as usize)
 }
 
@@ -184,7 +183,7 @@ impl<D: Eq + Ord + Hash> KmerSummarizer<D, EqClassIdType> for CountFilterEqClass
 /// # Returns
 /// BoomHashMap2 Object, check rust-boomphf for details
 #[inline(never)]
-pub fn filter_kmers<K: Kmer, V: Vmer<K>, D1: Clone, DS, S: KmerSummarizer<D1, DS>>(
+pub fn filter_kmers<K: Kmer, V: Vmer, D1: Clone, DS, S: KmerSummarizer<D1, DS>>(
     seqs: &[(V, Exts, D1)],
     summarizer: &mut S,
     stranded: bool,
@@ -240,7 +239,7 @@ where DS: Debug{
         io::stdout().flush().ok().expect("Could not flush stdout");
 
         for &(ref seq, seq_exts, ref d) in seqs {
-            for (kmer, exts) in seq.iter_kmer_exts(seq_exts) {
+            for (kmer, exts) in seq.iter_kmer_exts::<K>(seq_exts) {
                 let (min_kmer, flip_exts) = if rc_norm {
                     let (min_kmer, flip) = kmer.min_rc_flip();
                     let flip_exts = if flip { exts.rc() } else { exts };
@@ -282,6 +281,7 @@ where DS: Debug{
         //remove_censored_exts_sharded(stranded, &mut valid_kmers, &all_kmers);
     }
     eprintln!("");
+
     info!(
         "Unique kmers: {}, All kmers (if returned): {}",
         valid_kmers.len(),

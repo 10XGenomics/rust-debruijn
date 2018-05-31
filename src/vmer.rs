@@ -2,7 +2,6 @@
 
 //! Variable-length DNA strings packed into fixed-size structs.
 
-use std::marker::PhantomData;
 use std::cmp::{max, min};
 use std::fmt;
 use std::hash::Hash;
@@ -25,20 +24,19 @@ fn block_get(kmer: u64, pos: usize) -> u8 {
     ((kmer >> offset) & 3) as u8
 }
 
-pub type Lmer1 = Lmer<IntKmer<u64>, [u64; 1]>;
-pub type Lmer2 = Lmer<IntKmer<u64>, [u64; 2]>;
-pub type Lmer3 = Lmer<IntKmer<u64>, [u64; 3]>;
+pub type Lmer1 = Lmer<[u64; 1]>;
+pub type Lmer2 = Lmer<[u64; 2]>;
+pub type Lmer3 = Lmer<[u64; 3]>;
 
 /// Store a variable-length DNA sequence in a packed 2-bit encoding, up 92bp in length
 /// The length of the sequence is stored in the lower 8 bits of storage
 #[derive(Hash, Copy, Clone, PartialEq, PartialOrd, Eq, Ord, Serialize, Deserialize)]
-pub struct Lmer<K: Kmer, A: Array> {
+pub struct Lmer<A: Array> {
     storage: A,
-    phantom: PhantomData<K>,
 }
 
 
-impl<K: Kmer, A: Array<Item = u64> + Copy + Eq + Ord + Hash> Mer for Lmer<K, A> {
+impl<A: Array<Item = u64> + Copy + Eq + Ord + Hash> Mer for Lmer<A> {
     /// The length of the DNA string
     fn len(&self) -> usize {
         (self.storage.as_slice()[A::size() - 1] & 0xff) as usize
@@ -123,14 +121,14 @@ impl<K: Kmer, A: Array<Item = u64> + Copy + Eq + Ord + Hash> Mer for Lmer<K, A> 
 }
 
 
-impl<K: Kmer, A: Array<Item = u64> + Copy + Eq + Ord + Hash> Vmer<K> for Lmer<K, A> {
+impl<A: Array<Item = u64> + Copy + Eq + Ord + Hash> Vmer for Lmer<A> {
     fn max_len() -> usize {
         (A::size() * 64 - 8) / 2
     }
 
     /// Initialize an blank Lmer of length len.
     /// Will initially represent all A's.
-    fn new(len: usize) -> Lmer<K, A> {
+    fn new(len: usize) -> Lmer<A> {
         let mut arr = A::new();
         {
             let slc = arr.as_mut_slice();
@@ -140,12 +138,11 @@ impl<K: Kmer, A: Array<Item = u64> + Copy + Eq + Ord + Hash> Vmer<K> for Lmer<K,
         }
         Lmer {
             storage: arr,
-            phantom: PhantomData,
         }
     }
 
     /// Get the kmer starting at position pos
-    fn get_kmer(&self, pos: usize) -> K {
+    fn get_kmer<K: Kmer>(&self, pos: usize) -> K {
         assert!(self.len() - pos >= K::k());
         let slc = self.storage.as_slice();
 
@@ -178,7 +175,7 @@ impl<K: Kmer, A: Array<Item = u64> + Copy + Eq + Ord + Hash> Vmer<K> for Lmer<K,
     }
 }
 
-impl<K: Kmer, A: Array<Item = u64> + Copy + Eq + Ord + Hash> fmt::Debug for Lmer<K, A> {
+impl<A: Array<Item = u64> + Copy + Eq + Ord + Hash> fmt::Debug for Lmer<A> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let mut s = String::new();
         for pos in 0..self.len() {

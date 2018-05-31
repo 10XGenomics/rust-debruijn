@@ -7,7 +7,7 @@ authors = ["Patrick Marks <patrick@10xgenomics.com>"]
 serde = "^1"
 serde_derive = "^1"
 serde_json = "^1"
-rand = "*"
+rand = "0.5"
 smallvec = "*"
 bit-set = "0.4.0"
 itertools = ">=0.6"
@@ -19,7 +19,7 @@ boomphf = { path = "../rust-boomphf" }# git = "https://github.com/10XGenomics/ru
 pretty_assertions = "0.5.1"
 
 [dependencies.extprim]
-version = "^1.4.0"
+version = ">=1.6.0"
 features = ["serde"]
 
 [dependencies.num]

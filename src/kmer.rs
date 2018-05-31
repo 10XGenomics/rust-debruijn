@@ -73,7 +73,8 @@ pub type Kmer14 = VarIntKmer<u32, K14>;
 /// 16-base kmer, backed by a single u16
 pub type Kmer8 = IntKmer<u16>;
 
-
+pub type Kmer6 = VarIntKmer<u16, K6>;
+pub type Kmer5 = VarIntKmer<u16, K5>;
 
 /// Trait for specialized integer operations used in DeBruijn Graph
 pub trait IntHelp: PrimInt + FromPrimitive {
@@ -559,7 +560,7 @@ impl KmerSize for K24 {
     }
 }
 
-/// Marker trait for generating K=24 Kmers
+/// Marker trait for generating K=14 Kmers
 #[derive(Debug, Hash, Copy, Clone, Ord, PartialOrd, Eq, PartialEq)]
 pub struct K14;
 
@@ -570,13 +571,33 @@ impl KmerSize for K14 {
     }
 }
 
+/// Marker trait for generating K=6 Kmers
+#[derive(Debug, Hash, Copy, Clone, Ord, PartialOrd, Eq, PartialEq)]
+pub struct K6;
 
+impl KmerSize for K6 {
+    #[inline]
+    fn K() -> usize {
+        6
+    }
+}
+
+/// Marker trait for generating K=6 Kmers
+#[derive(Debug, Hash, Copy, Clone, Ord, PartialOrd, Eq, PartialEq)]
+pub struct K5;
+
+impl KmerSize for K5 {
+    #[inline]
+    fn K() -> usize {
+        5
+    }
+}
 
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use rand::{self, Rng};
+    use rand::{self, Rng, RngCore};
     use extprim::u128::u128;
 
     use vmer::Lmer;
@@ -586,6 +607,8 @@ mod tests {
 
     // Generate random kmers & test the methods for manipulating them
     fn check_kmer<T: Kmer>() {
+
+        #[allow(non_snake_case)]
         let K = T::k();
 
         // Random kmer
@@ -623,6 +646,14 @@ mod tests {
         assert!(ext_l.get(0) == nb);
         assert!(ext_l.get(1) == km.get(0));
 
+        // Extend left with an A -- should sort lower
+        let lt = km.extend_left(0);
+        assert!(lt <= km);
+
+        // Extend left with T -- should sort higher
+        let gt = km.extend_left(3);
+        assert!(gt >= km);
+
         // Shift twice
         let l_base = random_base();
         let r_base = random_base();
@@ -641,7 +672,7 @@ mod tests {
         }
     }
 
-    fn check_vmer<V: Vmer<T>, T: Kmer>() {
+    fn check_vmer<V: Vmer + MerImmut, T: Kmer>() {
 
         let vm = random_vmer::<V, T>();
         let l = vm.len();
@@ -682,23 +713,23 @@ mod tests {
                 assert_eq!(kmer.get(i), vm.get(i + pos))
             }
 
-            if vm.get_kmer(pos) != *kmer {
+            if vm.get_kmer::<T>(pos) != *kmer {
                 println!(
                     "didn't get same kmer: i:{}, vm: {:?} kmer_iter: {:?}, kmer_get: {:?}",
                     pos,
                     vm,
                     kmer,
-                    vm.get_kmer(pos)
+                    vm.get_kmer::<T>(pos)
                 )
             }
-            assert_eq!(vm.get_kmer(pos), *kmer);
+            assert_eq!(*kmer, vm.get_kmer(pos));
         }
 
-        assert!(vm.first_kmer() == kmers[0]);
-        assert!(vm.last_kmer() == kmers[kmers.len() - 1]);
+        assert!(kmers[0] == vm.first_kmer());
+        assert!(kmers[kmers.len() - 1] == vm.last_kmer());
     }
 
-    pub fn random_vmer<V: Vmer<T>, T: Kmer>() -> V {
+    pub fn random_vmer<V: Vmer + MerImmut, T: Kmer>() -> V {
         let mut r = rand::thread_rng();
         let len = r.gen_range(T::k(), V::max_len());
 
@@ -728,42 +759,42 @@ mod tests {
     #[test]
     fn test_lmer_3_kmer_64() {
         for _ in 0..10000 {
-            check_vmer::<Lmer<IntKmer<u128>, [u64; 3]>, IntKmer<u128>>();
+            check_vmer::<Lmer<[u64; 3]>, IntKmer<u128>>();
         }
     }
 
     #[test]
     fn test_lmer_3_kmer_48() {
         for _ in 0..10000 {
-            check_vmer::<Lmer<VarIntKmer<u128, K48>, [u64; 3]>, VarIntKmer<u128, K48>>();
+            check_vmer::<Lmer<[u64; 3]>, VarIntKmer<u128, K48>>();
         }
     }
 
     #[test]
     fn test_lmer_3_kmer_32() {
         for _ in 0..10000 {
-            check_vmer::<Lmer<IntKmer<u64>, [u64; 3]>, IntKmer<u64>>();
+            check_vmer::<Lmer<[u64; 3]>, IntKmer<u64>>();
         }
     }
 
     #[test]
     fn test_lmer_2_kmer_32() {
         for _ in 0..10000 {
-            check_vmer::<Lmer<IntKmer<u64>, [u64; 3]>, IntKmer<u64>>();
+            check_vmer::<Lmer<[u64; 3]>, IntKmer<u64>>();
         }
     }
 
     #[test]
     fn test_lmer_1_kmer_24() {
         for _ in 0..10000 {
-            check_vmer::<Lmer<VarIntKmer<u64, K24>, [u64; 1]>, VarIntKmer<u64, K24>>();
+            check_vmer::<Lmer<[u64; 1]>, VarIntKmer<u64, K24>>();
         }
     }
 
     #[test]
     fn test_lmer_1_kmer_16() {
         for _ in 0..10000 {
-            check_vmer::<Lmer<IntKmer<u32>, [u64; 1]>, IntKmer<u32>>();
+            check_vmer::<Lmer<[u64; 1]>, IntKmer<u32>>();
         }
     }
 
@@ -813,6 +844,20 @@ mod tests {
     fn test_kmer_8() {
         for _ in 0..10000 {
             check_kmer::<IntKmer<u16>>();
+        }
+    }
+
+    #[test]
+    fn test_kmer_6() {
+        for _ in 0..10000 {
+            check_kmer::<Kmer6>();
+        }
+    }
+
+        #[test]
+    fn test_kmer_5() {
+        for _ in 0..10000 {
+            check_kmer::<Kmer5>();
         }
     }
 }
