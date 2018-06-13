@@ -3,6 +3,7 @@
 //! Methods for converting sequences into kmers, filtering observed kmers before De Bruijn graph construction, and summarizing 'color' annotations.
 use std::mem;
 use itertools::Itertools;
+use std::sync::{Arc, RwLock};
 use std::marker::PhantomData;
 use std::collections::HashMap;
 use std::hash::Hash;
@@ -13,8 +14,6 @@ use Exts;
 use Vmer;
 use boomphf;
 use pdqsort;
-use std::io;
-use std::io::Write;
 use std::fmt::Debug;
 
 fn bucket<K: Kmer>(kmer: K) -> usize {
@@ -30,7 +29,7 @@ pub trait KmerSummarizer<DI, DO> {
     /// * whether this kmer passes the filtering criteria (e.g. is there a sufficient number of observation)
     /// * the accumulated Exts of the kmer
     /// * a summary data object of type `DO` that will be used as a color annotation in the DeBruijn graph.
-    fn summarize<K, F: Iterator<Item = (K, Exts, DI)>>(&mut self, items: F) -> (bool, Exts, DO);
+    fn summarize<K, F: Iterator<Item = (K, Exts, DI)>>(&self, items: F) -> (bool, Exts, DO);
 }
 
 /// A simple KmerSummarizer that only accepts kmers that are observed
@@ -49,7 +48,7 @@ impl CountFilter {
 }
 
 impl<D> KmerSummarizer<D, u16> for CountFilter {
-    fn summarize<K, F: Iterator<Item = (K, Exts, D)>>(&mut self, items: F) -> (bool, Exts, u16) {
+    fn summarize<K, F: Iterator<Item = (K, Exts, D)>>(&self, items: F) -> (bool, Exts, u16) {
         let mut all_exts = Exts::empty();
         let mut count = 0u16;
         for (_, exts, _) in items {
@@ -82,7 +81,7 @@ impl<D> CountFilterSet<D> {
 
 
 impl<D: Ord> KmerSummarizer<D, Vec<D>> for CountFilterSet<D> {
-    fn summarize<K, F: Iterator<Item = (K, Exts, D)>>(&mut self, items: F) -> (bool, Exts, Vec<D>) {
+    fn summarize<K, F: Iterator<Item = (K, Exts, D)>>(&self, items: F) -> (bool, Exts, Vec<D>) {
         let mut all_exts = Exts::empty();
 
         let mut out_data: Vec<D> = Vec::new();
@@ -102,25 +101,27 @@ impl<D: Ord> KmerSummarizer<D, Vec<D>> for CountFilterSet<D> {
 
 //Equivalence class based implementation
 pub type EqClassIdType = u32 ;
+#[derive(Debug)]
 pub struct CountFilterEqClass<D: Eq + Hash> {
     min_kmer_obs: usize,
-    eq_classes: HashMap<Vec<D>, EqClassIdType>,
+    eq_classes: Arc<RwLock<HashMap<Vec<D>, EqClassIdType>>>,
 }
 
 impl<D: Eq + Hash> CountFilterEqClass<D> {
     pub fn new(min_kmer_obs: usize) -> CountFilterEqClass<D> {
         CountFilterEqClass {
             min_kmer_obs: min_kmer_obs,
-            eq_classes: HashMap::<Vec<D>, EqClassIdType>::new(),
+            eq_classes: Arc::new(RwLock::new(HashMap::<Vec<D>, EqClassIdType>::new())),
         }
     }
-    pub fn get_eq_classes(self) -> HashMap<Vec<D>, EqClassIdType>{
+
+    pub fn get_eq_classes(self) -> Arc<RwLock<HashMap<Vec<D>, EqClassIdType>>>{
         self.eq_classes
     }
 }
 
 impl<D: Eq + Ord + Hash> KmerSummarizer<D, EqClassIdType> for CountFilterEqClass<D> {
-    fn summarize<K, F: Iterator<Item = (K, Exts, D)>>(&mut self, items: F) -> (bool, Exts, EqClassIdType) {
+    fn summarize<K, F: Iterator<Item = (K, Exts, D)>>(&self, items: F) -> (bool, Exts, EqClassIdType) {
         let mut all_exts = Exts::empty();
         let mut out_data = Vec::new();
 
@@ -133,13 +134,21 @@ impl<D: Eq + Ord + Hash> KmerSummarizer<D, EqClassIdType> for CountFilterEqClass
 
         out_data.sort();  out_data.dedup();
 
+        let found: bool;
         let eq_id: EqClassIdType;
-        if self.eq_classes.contains_key(&out_data){
-            eq_id = *self.eq_classes.get(&out_data).expect("Can't find key, HashMap Error");
+        {
+            let eq_class_read_lock = self.eq_classes.read().unwrap();
+            found = eq_class_read_lock.contains_key(&out_data);
+            if found{
+                eq_id = *eq_class_read_lock.get(&out_data).expect("Can't find key, HashMap Error");
+            }
+            else{
+                eq_id = eq_class_read_lock.len() as EqClassIdType;
+            }
         }
-        else{
-            eq_id = self.eq_classes.len() as u32;
-            self.eq_classes.insert(out_data, eq_id);
+        if !found {
+            let mut eq_class_write_lock = self.eq_classes.write().unwrap();
+            eq_class_write_lock.insert(out_data, eq_id);
         }
 
         (nobs as usize >= self.min_kmer_obs, all_exts, eq_id)
@@ -185,7 +194,7 @@ impl<D: Eq + Ord + Hash> KmerSummarizer<D, EqClassIdType> for CountFilterEqClass
 #[inline(never)]
 pub fn filter_kmers<K: Kmer, V: Vmer, D1: Clone, DS, S: KmerSummarizer<D1, DS>>(
     seqs: &[(V, Exts, D1)],
-    summarizer: &mut S,
+    summarizer: &Arc<S>,
     stranded: bool,
     report_all_kmers: bool,
     memory_size: usize,
@@ -207,7 +216,6 @@ where DS: Debug{
     let max_mem = memory_size * (10 as usize).pow(9);
     let slices = kmer_mem / max_mem + 1;
     let sz = 256 / slices + 1;
-    let seq_lens = seqs.len();
 
     let mut bucket_ranges = Vec::new();
     let mut start = 0;
@@ -226,17 +234,12 @@ where DS: Debug{
         );
     }
 
-    let mut pass_counter = 0;
     for bucket_range in bucket_ranges {
 
         let mut kmer_buckets: Vec<Vec<(K, Exts, D1)>> = Vec::new();
         for _ in 0..256 {
             kmer_buckets.push(Vec::new());
         }
-
-        pass_counter += 1;
-        eprint!("\r Performing {} pass", pass_counter);
-        io::stdout().flush().ok().expect("Could not flush stdout");
 
         for &(ref seq, seq_exts, ref d) in seqs {
             for (kmer, exts) in seq.iter_kmer_exts::<K>(seq_exts) {
@@ -280,7 +283,7 @@ where DS: Debug{
     if report_all_kmers {
         //remove_censored_exts_sharded(stranded, &mut valid_kmers, &all_kmers);
     }
-    eprintln!("");
+    //eprintln!("");
 
     info!(
         "Unique kmers: {}, All kmers (if returned): {}",

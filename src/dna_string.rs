@@ -33,6 +33,7 @@ use Kmer;
 use bits_to_base;
 use base_to_bits;
 use bits_to_ascii;
+use dna_only_base_to_bits;
 use std::cmp::min;
 use kmer::IntHelp;
 
@@ -174,6 +175,32 @@ impl DnaString {
 
         dna_string
     }
+
+    /// Create a DnaString corresponding to an ACGT-encoded str.
+    pub fn from_dna_only_string(dna: &str) -> Vec<DnaString> {
+        let mut dna_vector: Vec<DnaString> = Vec::new();
+        let mut dna_string = DnaString::new();
+
+        for c in dna.chars() {
+            match dna_only_base_to_bits(c as u8) {
+                Some(bit) => {
+                    dna_string.push(bit);
+                }
+                None => {
+                    if dna_string.len() > 0 {
+                        dna_vector.push(dna_string);
+                        dna_string = DnaString::new();
+                    }
+                }
+            }
+        }
+        if dna_string.len() > 0 {
+            dna_vector.push(dna_string);
+        }
+
+        dna_vector
+    }
+
 
     /// Create a DnaString from an ACGT-encoded byte slice
     pub fn from_acgt_bytes(bytes: &[u8]) -> DnaString {

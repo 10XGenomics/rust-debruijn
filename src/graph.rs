@@ -35,7 +35,7 @@ use dna_string::{DnaString, DnaStringSlice, PackedDnaStringSet};
 /// This type does not carry the sorted index arrays the allow the graph
 /// to be walked efficiently. The `DeBruijnGraph` type wraps this type and add those
 /// vectors.
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct BaseGraph<K, D> {
     pub sequences: PackedDnaStringSet,
     pub exts: Vec<Exts>,
@@ -130,7 +130,7 @@ impl<K: Kmer, D> BaseGraph<K, D> {
 /// A compressed DeBruijn graph carrying auxiliary data on each node of type `D`.
 /// The struct carries sorted index arrays the allow the graph
 /// to be walked efficiently.
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug)]
 pub struct DebruijnGraph<K, D> {
     pub base: BaseGraph<K, D>,
     left_order: Vec<u32>,

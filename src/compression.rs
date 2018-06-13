@@ -92,7 +92,7 @@ where D: Debug
     }
 }
 
-struct CompressFromGraph<'a, K: 'a + Kmer, D: 'a, S: CompressionSpec<D>> {
+struct CompressFromGraph<'a, K: 'a + Kmer, D: 'a + PartialEq, S: CompressionSpec<D>> {
     stranded: bool,
     d: PhantomData<D>,
     spec: S,
@@ -100,7 +100,7 @@ struct CompressFromGraph<'a, K: 'a + Kmer, D: 'a, S: CompressionSpec<D>> {
     graph: &'a DebruijnGraph<K, D>,
 }
 
-impl<'a, K: Kmer, D: Debug + Clone, S: CompressionSpec<D>> CompressFromGraph<'a, K, D, S> {
+impl<'a, K: Kmer, D: Debug + Clone + PartialEq, S: CompressionSpec<D>> CompressFromGraph<'a, K, D, S> {
     #[inline(never)]
     fn try_extend_node(&mut self, node: usize, dir: Dir) -> ExtModeNode {
 
@@ -160,13 +160,16 @@ impl<'a, K: Kmer, D: Debug + Clone, S: CompressionSpec<D>> CompressFromGraph<'a,
             // a) it exists in the partition, and is still unused
             // b) the kmer we go to has a unique extension back in our direction
             // c) the new edge is not of length K and a palindrome
+            // d) the color of the current and next node is same
 
             if !self.available_nodes.contains(next_node_id) ||
-                (!self.stranded && next_kmer.is_palindrome())
+                (!self.stranded && next_kmer.is_palindrome()) ||
+                (node.data() != next_node.data())
             {
                 // Next kmer isn't in this partition,
                 // or we've already used it,
                 // or it's palindrom and we are not stranded
+                // or the colors were not same
                 return ExtModeNode::Terminal(exts.single_dir(dir));
             }
 
@@ -177,10 +180,12 @@ impl<'a, K: Kmer, D: Debug + Clone, S: CompressionSpec<D>> CompressFromGraph<'a,
             let outgoing_exts = next_exts.single_dir(next_side_outgoing);
 
             if incoming_count == 0 {
+                // WARNING: Exiting earlier
+                return ExtModeNode::Terminal(exts.single_dir(dir));
                 println!("dir: {:?}, Lmer: {:?}, exts: {:?}", dir, bases, exts);
                 println!("end kmer: {:?}", end_kmer);
                 println!("next_node: {:?}", next_node);
-
+                println!("next_node data: {:?}", next_node.sequence());
                 panic!("unreachable");
             } else if incoming_count == 1 {
                 // We have a unique path to next_kmer -- include it
@@ -335,7 +340,7 @@ impl<'a, K: Kmer, D: Debug + Clone, S: CompressionSpec<D>> CompressFromGraph<'a,
 }
 
 /// Perform path-compression on a (possibly partially compressed) DeBruijn graph
-pub fn compress_graph<K: Kmer, D: Clone + Debug, S: CompressionSpec<D>>(
+pub fn compress_graph<K: Kmer, D: Clone + Debug + PartialEq, S: CompressionSpec<D>>(
     stranded: bool,
     spec: S,
     old_graph: DebruijnGraph<K, D>,
@@ -349,18 +354,18 @@ pub fn compress_graph<K: Kmer, D: Clone + Debug, S: CompressionSpec<D>>(
 // Compress from Hash a new Struct
 //////////////////////////////
 /// Generate a compressed DeBruijn graph from hash_index
-struct CompressFromHash<'a, K: 'a + Kmer, D: 'a, S: CompressionSpec<D>> {
+struct CompressFromHash<K: Kmer, D, S: CompressionSpec<D>> {
     stranded: bool,
     k: PhantomData<K>,
     d: PhantomData<D>,
     spec: S,
     available_kmers: BitSet,
-    index: &'a boomphf::BoomHashMap2<K, Exts, D>,
+    index: boomphf::BoomHashMap2<K, Exts, D>,
 }
 
 /// Compression of paths in Debruijn graph
-impl<'a, K: Kmer, D: Clone + Debug, S: CompressionSpec<D>> CompressFromHash<'a, K, D, S> {
-    fn get_kmer_data(&'a self, kmer: &K) -> (&Exts, &'a D) {
+impl<K: Kmer, D: Clone + Debug, S: CompressionSpec<D>> CompressFromHash<K, D, S> {
+    fn get_kmer_data(&self, kmer: &K) -> (&Exts, &D) {
         match self.index.get(kmer) {
             Some(data) => data,
             None => panic!("couldn't find kmer {:?}", kmer),
@@ -479,11 +484,12 @@ impl<'a, K: Kmer, D: Clone + Debug, S: CompressionSpec<D>> CompressFromHash<'a, 
     #[inline(never)]
     fn build_node(
         &mut self,
-        seed: K,
+        seed_id: usize,
         path: &mut Vec<(K, Dir)>,
         edge_seq: &mut VecDeque<u8>,
     ) -> (Exts, D) {
 
+        let seed: K = *self.index.get_key(seed_id).expect("Index out of bound");
         edge_seq.clear();
         for i in 0..K::k() {
             edge_seq.push_back(seed.get(i));
@@ -542,7 +548,7 @@ impl<'a, K: Kmer, D: Clone + Debug, S: CompressionSpec<D>> CompressFromHash<'a, 
     pub fn compress_kmers(
         stranded: bool,
         spec: S,
-        index: &boomphf::BoomHashMap2<K, Exts, D>,
+        index: boomphf::BoomHashMap2<K, Exts, D>,
     ) -> BaseGraph<K, D> {
 
         let n_kmers = index.len();
@@ -570,10 +576,9 @@ impl<'a, K: Kmer, D: Clone + Debug, S: CompressionSpec<D>> CompressFromHash<'a, 
         let mut edge_seq_buf = VecDeque::new();
 
         for kmer_counter in 0..n_kmers {
-            let start_kmer = index.get_key(kmer_counter).expect("Index out of bound");
             if comp.available_kmers.contains(kmer_counter) {
                 let (node_exts, node_data) =
-                    comp.build_node(start_kmer.clone(), &mut path_buf, &mut edge_seq_buf);
+                    comp.build_node(kmer_counter, &mut path_buf, &mut edge_seq_buf);
                 graph.add(&edge_seq_buf, node_exts, node_data);
             }
         }
@@ -587,7 +592,7 @@ impl<'a, K: Kmer, D: Clone + Debug, S: CompressionSpec<D>> CompressFromHash<'a, 
 pub fn compress_kmers_with_hash<K: Kmer, D: Clone + Debug, S: CompressionSpec<D>>(
     stranded: bool,
     spec: S,
-    index: &boomphf::BoomHashMap2<K, Exts, D>,
+    index: boomphf::BoomHashMap2<K, Exts, D>,
 ) -> BaseGraph<K, D> {
     CompressFromHash::<K, D, S>::compress_kmers(stranded, spec, index)
 }
