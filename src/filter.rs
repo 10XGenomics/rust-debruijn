@@ -104,18 +104,18 @@ pub type EqClassIdType = u32 ;
 #[derive(Debug)]
 pub struct CountFilterEqClass<D: Eq + Hash> {
     min_kmer_obs: usize,
-    eq_classes: Arc<RwLock<HashMap<Vec<D>, EqClassIdType>>>,
+    eq_classes: RwLock<HashMap<Vec<D>, EqClassIdType>>,
 }
 
 impl<D: Eq + Hash> CountFilterEqClass<D> {
     pub fn new(min_kmer_obs: usize) -> CountFilterEqClass<D> {
         CountFilterEqClass {
             min_kmer_obs: min_kmer_obs,
-            eq_classes: Arc::new(RwLock::new(HashMap::<Vec<D>, EqClassIdType>::new())),
+            eq_classes: RwLock::new(HashMap::<Vec<D>, EqClassIdType>::new()),
         }
     }
 
-    pub fn get_eq_classes(self) -> Arc<RwLock<HashMap<Vec<D>, EqClassIdType>>>{
+    pub fn get_eq_classes<'a>(self) -> RwLock<HashMap<Vec<D>, EqClassIdType>>{
         self.eq_classes
     }
 }

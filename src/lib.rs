@@ -368,6 +368,11 @@ pub trait Vmer: Mer + PartialEq + Eq {
         self.get_kmer(self.len() - K::k())
     }
 
+    /// Get the terminal kmer of the sequence, on the both side of the sequence
+    fn both_term_kmer<K: Kmer>(&self) -> (K, K) {
+        (self.first_kmer(), self.last_kmer())
+    }
+
     /// Get the terminal kmer of the sequence, on the side of the sequence given by dir
     fn term_kmer<K: Kmer>(&self, dir: Dir) -> K {
         match dir {
