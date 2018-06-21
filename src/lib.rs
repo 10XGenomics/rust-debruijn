@@ -16,6 +16,7 @@
 //! which expects bases encoded as the integers 0,1,2,3, and a separate form names 'ascii',
 //! which expects bases encoded as the ASCII letters A,C,G,T.
 
+
 extern crate num;
 extern crate extprim;
 extern crate rand;
@@ -450,8 +451,7 @@ impl Vmer for DnaBytes {
 
     /// Maximum sequence length that can be stored in this type
     fn max_len() -> usize {
-        //usize::MAX_VALUE;
-        99999999999
+        1<<48
     }
 
     /// Efficiently extract a Kmer from the sequence
@@ -513,8 +513,7 @@ impl<'a> Vmer for DnaSlice<'a> {
 
     /// Maximum sequence length that can be stored in this type
     fn max_len() -> usize {
-        //usize::MAX_VALUE;
-        99999999999
+        1<<48
     }
 
     /// Efficiently extract a Kmer from the sequence
