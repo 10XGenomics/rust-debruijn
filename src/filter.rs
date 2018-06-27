@@ -3,10 +3,11 @@
 //! Methods for converting sequences into kmers, filtering observed kmers before De Bruijn graph construction, and summarizing 'color' annotations.
 use std::mem;
 use itertools::Itertools;
-use std::sync::{Arc, RwLock};
+use std::sync::Arc;
 use std::marker::PhantomData;
-use std::collections::HashMap;
 use std::hash::Hash;
+use concurrent_hashmap::*;
+use std::sync::atomic::{AtomicUsize, Ordering};
 
 use Dir;
 use Kmer;
@@ -101,26 +102,45 @@ impl<D: Ord> KmerSummarizer<D, Vec<D>> for CountFilterSet<D> {
 
 //Equivalence class based implementation
 pub type EqClassIdType = u32 ;
-#[derive(Debug)]
-pub struct CountFilterEqClass<D: Eq + Hash> {
+pub struct CountFilterEqClass<D: Eq + Hash + Send + Sync + Debug + Clone> {
     min_kmer_obs: usize,
-    eq_classes: RwLock<HashMap<Vec<D>, EqClassIdType>>,
+    eq_classes: ConcHashMap<Vec<D>, EqClassIdType>,
+    num_eq_classes: AtomicUsize,
 }
 
-impl<D: Eq + Hash> CountFilterEqClass<D> {
+impl<D: Eq + Hash + Send + Sync + Debug + Clone> CountFilterEqClass<D> {
     pub fn new(min_kmer_obs: usize) -> CountFilterEqClass<D> {
         CountFilterEqClass {
             min_kmer_obs: min_kmer_obs,
-            eq_classes: RwLock::new(HashMap::<Vec<D>, EqClassIdType>::new()),
+            eq_classes: ConcHashMap::<Vec<D>, EqClassIdType>::new(),
+            num_eq_classes: AtomicUsize::new(0),
         }
     }
 
-    pub fn get_eq_classes<'a>(self) -> RwLock<HashMap<Vec<D>, EqClassIdType>>{
-        self.eq_classes
+    pub fn get_eq_classes(self) -> Vec<Vec<D>>{
+        let mut eq_class_vec = Vec::new();
+
+        for (key, value) in self.eq_classes.iter() {
+            let num_classes = eq_class_vec.len();
+            if *value as usize >= num_classes {
+                eq_class_vec.resize((value+1) as usize, Vec::new());
+            }
+            eq_class_vec[*value as usize] = key.clone();
+        }
+
+        eq_class_vec
+    }
+
+    pub fn get_number_of_eq_classes(&self) -> usize{
+        self.num_eq_classes.load(Ordering::SeqCst)
+    }
+
+    pub fn fetch_add(&self) -> usize {
+        self.num_eq_classes.fetch_add(1, Ordering::SeqCst)
     }
 }
 
-impl<D: Eq + Ord + Hash> KmerSummarizer<D, EqClassIdType> for CountFilterEqClass<D> {
+impl<D: Eq + Ord + Hash + Send + Sync + Debug + Clone> KmerSummarizer<D, EqClassIdType> for CountFilterEqClass<D> {
     fn summarize<K, F: Iterator<Item = (K, Exts, D)>>(&self, items: F) -> (bool, Exts, EqClassIdType) {
         let mut all_exts = Exts::empty();
         let mut out_data = Vec::new();
@@ -134,22 +154,14 @@ impl<D: Eq + Ord + Hash> KmerSummarizer<D, EqClassIdType> for CountFilterEqClass
 
         out_data.sort();  out_data.dedup();
 
-        let found: bool;
-        let eq_id: EqClassIdType;
-        {
-            let eq_class_read_lock = self.eq_classes.read().unwrap();
-            found = eq_class_read_lock.contains_key(&out_data);
-            if found{
-                eq_id = *eq_class_read_lock.get(&out_data).expect("Can't find key, HashMap Error");
-            }
-            else{
-                eq_id = eq_class_read_lock.len() as EqClassIdType;
-            }
-        }
-        if !found {
-            let mut eq_class_write_lock = self.eq_classes.write().unwrap();
-            eq_class_write_lock.insert(out_data, eq_id);
-        }
+        let eq_id: EqClassIdType = match self.eq_classes.find(&out_data) {
+            Some(val) => *val.get(),
+            None => {
+                let val = self.fetch_add() as EqClassIdType;
+                self.eq_classes.insert(out_data, val);
+                val
+            },
+        };
 
         (nobs as usize >= self.min_kmer_obs, all_exts, eq_id)
     }

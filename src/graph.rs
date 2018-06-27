@@ -15,8 +15,10 @@ use std::fmt::{self, Debug};
 use std::borrow::Borrow;
 use std::cmp::min;
 use std::io::Error;
-
+use std::hash::Hash;
 use std::f32;
+
+use boomphf::BoomHashMap;
 
 use serde_json;
 use serde_json::Value;
@@ -109,20 +111,26 @@ impl<K: Kmer, D> BaseGraph<K, D> {
 
         let mut left_sort: Vec<u32> = Vec::with_capacity(self.len());
         let mut right_sort: Vec<u32> = Vec::with_capacity(self.len());
+        let mut left_kmers: Vec<K> = Vec::with_capacity(self.len());
+        let mut right_kmers: Vec<K> = Vec::with_capacity(self.len());
+
         for i in 0..self.len() {
             left_sort.push(i as u32);
             right_sort.push(i as u32);
         }
 
-        left_sort.sort_by_key(|idx| -> K {
-            self.sequences.get(*idx as usize).first_kmer()
-        });
-        right_sort.sort_by_key(|idx| -> K { self.sequences.get(*idx as usize).last_kmer() });
+        for idx in &left_sort {
+            left_kmers.push( self.sequences.get(*idx as usize).first_kmer() );
+        }
+
+        for idx in &right_sort {
+            right_kmers.push( self.sequences.get(*idx as usize).last_kmer() );
+        }
 
         DebruijnGraph {
             base: self,
-            left_order: left_sort,
-            right_order: right_sort,
+            left_order: BoomHashMap::new( left_kmers, left_sort ),
+            right_order: BoomHashMap::new( right_kmers, right_sort ),
         }
     }
 }
@@ -131,10 +139,10 @@ impl<K: Kmer, D> BaseGraph<K, D> {
 /// The struct carries sorted index arrays the allow the graph
 /// to be walked efficiently.
 #[derive(Serialize, Deserialize, Debug)]
-pub struct DebruijnGraph<K, D> {
+pub struct DebruijnGraph<K: Hash, D> {
     pub base: BaseGraph<K, D>,
-    left_order: Vec<u32>,
-    right_order: Vec<u32>,
+    left_order: BoomHashMap<K, u32>,
+    right_order: BoomHashMap<K, u32>,
 }
 
 impl<K: Kmer, D: Debug> DebruijnGraph<K, D> {
@@ -187,21 +195,30 @@ impl<K: Kmer, D: Debug> DebruijnGraph<K, D> {
     fn search_kmer(&self, kmer: K, side: Dir) -> Option<usize> {
         match side {
             Dir::Left => {
-                let pos = self.left_order.binary_search_by_key(&kmer, |idx| {
-                    self.base.sequences.get(*idx as usize).first_kmer()
-                });
+                //let pos = self.left_order.binary_search_by_key(&kmer, |idx| {
+                //    self.base.sequences.get(*idx as usize).first_kmer()
+                //});
+                //match pos {
+                //    Ok(idx) => Some(self.left_order[idx] as usize),
+                //    _ => None,
+                //}
 
-                match pos {
-                    Ok(idx) => Some(self.left_order[idx] as usize),
+                match self.left_order.get( &kmer ) {
+                    Some(pos) => Some(*pos as usize),
                     _ => None,
                 }
             }
             Dir::Right => {
-                let pos = self.right_order.binary_search_by_key(&kmer, |idx| {
-                    self.base.sequences.get(*idx as usize).last_kmer()
-                });
-                match pos {
-                    Ok(idx) => Some(self.right_order[idx] as usize),
+                //let pos = self.right_order.binary_search_by_key(&kmer, |idx| {
+                //    self.base.sequences.get(*idx as usize).last_kmer()
+                //});
+                //match pos {
+                //    Ok(idx) => Some(self.right_order[idx] as usize),
+                //    _ => None,
+                //}
+
+                match self.right_order.get( &kmer ) {
+                    Some(pos) => Some(*pos as usize),
                     _ => None,
                 }
             }

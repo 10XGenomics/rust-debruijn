@@ -562,8 +562,6 @@ impl<'a> fmt::Debug for DnaStringSlice<'a> {
         } else {
             write!(f, "start: {}, len: {}, is_rc: {}", self.start, self.length, self.is_rc)
         }
-
-        
     }
 }
 

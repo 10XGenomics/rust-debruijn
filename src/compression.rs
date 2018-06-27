@@ -180,8 +180,6 @@ impl<'a, K: Kmer, D: Debug + Clone + PartialEq, S: CompressionSpec<D>> CompressF
             let outgoing_exts = next_exts.single_dir(next_side_outgoing);
 
             if incoming_count == 0 {
-                // WARNING: Exiting earlier
-                return ExtModeNode::Terminal(exts.single_dir(dir));
                 println!("dir: {:?}, Lmer: {:?}, exts: {:?}", dir, bases, exts);
                 println!("end kmer: {:?}", end_kmer);
                 println!("next_node: {:?}", next_node);
@@ -430,6 +428,8 @@ impl<K: Kmer, D: Clone + Debug, S: CompressionSpec<D>> CompressFromHash<K, D, S>
             let can_join = self.spec.join_test(kmer_data, next_kmer_data);
 
             if incoming_count == 0 && !is_palindrome {
+                println!("{:?}, {:?}, {:?}", kmer, exts, kmer_data);
+                println!("{:?}, {:?}, {:?}", next_kmer, next_kmer_exts, next_kmer_data);
                 panic!("unreachable");
             } else if can_join && incoming_count == 1 && !is_palindrome {
                 // We have a unique path to next_kmer -- include it

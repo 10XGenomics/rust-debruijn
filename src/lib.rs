@@ -20,6 +20,8 @@ extern crate num;
 extern crate extprim;
 extern crate rand;
 extern crate byteorder;
+extern crate boomphf;
+extern crate concurrent_hashmap;
 
 #[macro_use]
 extern crate serde_derive;
@@ -29,12 +31,11 @@ extern crate smallvec;
 extern crate bit_set;
 extern crate itertools;
 extern crate pdqsort;
-extern crate boomphf;
 
 #[macro_use]
 extern crate log;
 
-#[cfg(test)] 
+#[cfg(test)]
 #[macro_use]
 extern crate pretty_assertions;
 
@@ -652,6 +653,22 @@ impl Exts {
         };
         let r_extend = if start + length < src.len() {
             1u8 << src[start + length]
+        } else {
+            0u8
+        };
+
+        Exts { val: (r_extend << 4) | l_extend }
+    }
+
+    pub fn from_dna_string(src: &dna_string::DnaString,
+                           start: usize, length: usize) -> Exts {
+        let l_extend = if start > 0 {
+            1u8 << (src.get(start - 1))
+        } else {
+            0u8
+        };
+        let r_extend = if start + length < src.len() {
+            1u8 << src.get(start + length)
         } else {
             0u8
         };
