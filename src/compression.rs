@@ -100,7 +100,8 @@ struct CompressFromGraph<'a, K: 'a + Kmer, D: 'a + PartialEq, S: CompressionSpec
     graph: &'a DebruijnGraph<K, D>,
 }
 
-impl<'a, K: Kmer, D: Debug + Clone + PartialEq, S: CompressionSpec<D>> CompressFromGraph<'a, K, D, S> {
+impl<'a, K, D, S> CompressFromGraph<'a, K, D, S>
+where K: Kmer + Send + Sync, D: Debug + Clone + PartialEq, S: CompressionSpec<D> {
     #[inline(never)]
     fn try_extend_node(&mut self, node: usize, dir: Dir) -> ExtModeNode {
 
@@ -338,7 +339,7 @@ impl<'a, K: Kmer, D: Debug + Clone + PartialEq, S: CompressionSpec<D>> CompressF
 }
 
 /// Perform path-compression on a (possibly partially compressed) DeBruijn graph
-pub fn compress_graph<K: Kmer, D: Clone + Debug + PartialEq, S: CompressionSpec<D>>(
+pub fn compress_graph<K: Kmer + Send + Sync, D: Clone + Debug + PartialEq, S: CompressionSpec<D>>(
     stranded: bool,
     spec: S,
     old_graph: DebruijnGraph<K, D>,

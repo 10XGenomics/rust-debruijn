@@ -99,38 +99,32 @@ impl<K: Kmer, D> BaseGraph<K, D> {
         &mut self,
         sequence: S,
         exts: Exts,
-        data: D,
-    ) {
-        //pub fn add<'a, S: IntoIterator<Item = u8>>(&mut self, sequence: S, exts: Exts, data: D) {
+        data: D,) {
         self.sequences.add(sequence);
         self.exts.push(exts);
         self.data.push(data);
     }
+}
 
+impl<K: Kmer + Send + Sync, D> BaseGraph<K, D> {
     pub fn finish(self) -> DebruijnGraph<K, D> {
+        let indices: Vec<u32> = (0..self.len() as u32).collect();
 
-        let mut left_sort: Vec<u32> = Vec::with_capacity(self.len());
-        let mut right_sort: Vec<u32> = Vec::with_capacity(self.len());
         let mut left_kmers: Vec<K> = Vec::with_capacity(self.len());
         let mut right_kmers: Vec<K> = Vec::with_capacity(self.len());
 
-        for i in 0..self.len() {
-            left_sort.push(i as u32);
-            right_sort.push(i as u32);
-        }
-
-        for idx in &left_sort {
+        for idx in &indices {
             left_kmers.push( self.sequences.get(*idx as usize).first_kmer() );
         }
 
-        for idx in &right_sort {
+        for idx in &indices {
             right_kmers.push( self.sequences.get(*idx as usize).last_kmer() );
         }
 
         DebruijnGraph {
             base: self,
-            left_order: BoomHashMap::new( left_kmers, left_sort ),
-            right_order: BoomHashMap::new( right_kmers, right_sort ),
+            left_order: BoomHashMap::new_parallel( left_kmers, indices.clone() ),
+            right_order: BoomHashMap::new_parallel( right_kmers, indices ),
         }
     }
 }
@@ -167,6 +161,15 @@ impl<K: Kmer, D: Debug> DebruijnGraph<K, D> {
         }
     }
 
+    /// Return an iterator over all nodes in the graph
+    pub fn iter_kmers<'a>(&'a self) -> NodeKmerIter<'a, K, D> {
+        NodeKmerIter {
+            graph: self,
+            node_id: 0,
+            kmer_id: 0,
+        }
+    }
+
     /// Find the edges leaving node `node_id` in direction `Dir`. Should generally be
     /// accessed via a Node wrapper object
     fn find_edges(&self, node_id: usize, dir: Dir) -> SmallVec4<(usize, Dir, bool)> {
@@ -195,28 +198,12 @@ impl<K: Kmer, D: Debug> DebruijnGraph<K, D> {
     fn search_kmer(&self, kmer: K, side: Dir) -> Option<usize> {
         match side {
             Dir::Left => {
-                //let pos = self.left_order.binary_search_by_key(&kmer, |idx| {
-                //    self.base.sequences.get(*idx as usize).first_kmer()
-                //});
-                //match pos {
-                //    Ok(idx) => Some(self.left_order[idx] as usize),
-                //    _ => None,
-                //}
-
                 match self.left_order.get( &kmer ) {
                     Some(pos) => Some(*pos as usize),
                     _ => None,
                 }
             }
             Dir::Right => {
-                //let pos = self.right_order.binary_search_by_key(&kmer, |idx| {
-                //    self.base.sequences.get(*idx as usize).last_kmer()
-                //});
-                //match pos {
-                //    Ok(idx) => Some(self.right_order[idx] as usize),
-                //    _ => None,
-                //}
-
                 match self.right_order.get( &kmer ) {
                     Some(pos) => Some(*pos as usize),
                     _ => None,
@@ -899,6 +886,52 @@ impl<'a, K: Kmer + 'a, D: Debug + 'a> Iterator for NodeIter<'a, K, D> {
         } else {
             None
         }
+    }
+}
+
+/// Iterator over nodes in a `DeBruijnGraph`
+pub struct NodeKmerIter<'a, K: Kmer + 'a, D: Debug + 'a> {
+    graph: &'a DebruijnGraph<K, D>,
+    node_id: usize,
+    kmer_id: usize,
+}
+
+impl<'a, K: Kmer + 'a, D: Debug + 'a> Iterator for NodeKmerIter<'a, K, D> {
+    type Item = K;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let kmer_length = K::k();
+
+        if self.node_id < self.graph.len() {
+            let mut node = self.graph.get_node(self.node_id);
+            let last_kmer_id = node.len() - kmer_length + 1;
+
+            if self.kmer_id >= last_kmer_id {
+                if self.node_id+1 >= self.graph.len() {
+                    return None;
+                }
+
+                self.node_id += 1;
+                self.kmer_id = 0;
+                node = self.graph.get_node(self.node_id);
+            }
+
+            let kmer = node.sequence().get_kmer::<K>(self.kmer_id);
+            self.kmer_id += 1;
+
+            Some(kmer)
+        } else {
+            None
+        }
+    }
+}
+
+impl<'a, K: Kmer + 'a, D: Debug + 'a> IntoIterator for &'a DebruijnGraph<K, D> {
+    type Item = K;
+    type IntoIter = NodeKmerIter<'a, K, D>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.iter_kmers()
     }
 }
 
