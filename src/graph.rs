@@ -18,7 +18,7 @@ use std::io::Error;
 use std::hash::Hash;
 use std::f32;
 
-use boomphf::BoomHashMap;
+use boomphf::{BoomHashMap, FastIteration};
 
 use serde_json;
 use serde_json::Value;
@@ -167,6 +167,8 @@ impl<K: Kmer, D: Debug> DebruijnGraph<K, D> {
             graph: self,
             node_id: 0,
             kmer_id: 0,
+            node_seq_slice: self.get_node(0).sequence(),
+            node_len: self.get_node(0).sequence().len(),
         }
     }
 
@@ -894,6 +896,31 @@ pub struct NodeKmerIter<'a, K: Kmer + 'a, D: Debug + 'a> {
     graph: &'a DebruijnGraph<K, D>,
     node_id: usize,
     kmer_id: usize,
+    node_seq_slice: DnaStringSlice<'a>,
+    node_len: usize,
+}
+
+impl<'a, K: Kmer + 'a, D: Debug + 'a> FastIteration for NodeKmerIter<'a, K, D> {
+    fn skip_next(&mut self) {
+        let kmer_length = K::k();
+
+        if self.node_id < self.graph.len() {
+            let last_kmer_id = self.node_len - kmer_length + 1;
+
+            if self.kmer_id >= last_kmer_id {
+                if self.node_id+1 >= self.graph.len() {
+                    panic!("Iterator should not reach here");
+                }
+
+                self.node_id += 1;
+                self.kmer_id = 0;
+                self.node_seq_slice = self.graph.get_node(self.node_id).sequence();
+                self.node_len = self.node_seq_slice.len();
+            }
+
+            self.kmer_id += 1;
+        }
+    }
 }
 
 impl<'a, K: Kmer + 'a, D: Debug + 'a> Iterator for NodeKmerIter<'a, K, D> {
@@ -903,8 +930,7 @@ impl<'a, K: Kmer + 'a, D: Debug + 'a> Iterator for NodeKmerIter<'a, K, D> {
         let kmer_length = K::k();
 
         if self.node_id < self.graph.len() {
-            let mut node = self.graph.get_node(self.node_id);
-            let last_kmer_id = node.len() - kmer_length + 1;
+            let last_kmer_id = self.node_len - kmer_length + 1;
 
             if self.kmer_id >= last_kmer_id {
                 if self.node_id+1 >= self.graph.len() {
@@ -913,10 +939,11 @@ impl<'a, K: Kmer + 'a, D: Debug + 'a> Iterator for NodeKmerIter<'a, K, D> {
 
                 self.node_id += 1;
                 self.kmer_id = 0;
-                node = self.graph.get_node(self.node_id);
+                self.node_seq_slice = self.graph.get_node(self.node_id).sequence();
+                self.node_len = self.node_seq_slice.len();
             }
 
-            let kmer = node.sequence().get_kmer::<K>(self.kmer_id);
+            let kmer = self.node_seq_slice.get_kmer::<K>(self.kmer_id);
             self.kmer_id += 1;
 
             Some(kmer)

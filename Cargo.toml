@@ -13,10 +13,13 @@ bit-set = "0.4.0"
 itertools = ">=0.6"
 pdqsort = "*"
 byteorder = "*"
-boomphf = { path = "../rust-boomphf" }# git = "https://github.com/10XGenomics/rust-boomphf", branch = "master"   }
 
 [dev-dependencies]
 pretty_assertions = "0.5.1"
+
+[dependencies.boomphf]
+path = "../rust-boomphf"
+features = ["serde"]
 
 [dependencies.concurrent-hashmap]
 version = "0.2.1"
@@ -28,7 +31,7 @@ features = ["serde"]
 
 [dependencies.num]
 version = "*"
-default-features = false 
+default-features = false
 features = ["serde"]
 
 [dependencies.log]
