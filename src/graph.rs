@@ -18,7 +18,7 @@ use std::io::Error;
 use std::hash::Hash;
 use std::f32;
 
-use boomphf::{BoomHashMap, FastIteration};
+use boomphf::{BoomHashMap, FastIteration, NodeSize};
 
 use serde_json;
 use serde_json::Value;
@@ -158,17 +158,6 @@ impl<K: Kmer, D: Debug> DebruijnGraph<K, D> {
         NodeIter {
             graph: self,
             node_id: 0,
-        }
-    }
-
-    /// Return an iterator over all nodes in the graph
-    pub fn iter_kmers<'a>(&'a self) -> NodeKmerIter<'a, K, D> {
-        NodeKmerIter {
-            graph: self,
-            node_id: 0,
-            kmer_id: 0,
-            node_seq_slice: self.get_node(0).sequence(),
-            node_len: self.get_node(0).sequence().len(),
         }
     }
 
@@ -891,34 +880,78 @@ impl<'a, K: Kmer + 'a, D: Debug + 'a> Iterator for NodeIter<'a, K, D> {
     }
 }
 
-/// Iterator over nodes in a `DeBruijnGraph`
-pub struct NodeKmerIter<'a, K: Kmer + 'a, D: Debug + 'a> {
-    graph: &'a DebruijnGraph<K, D>,
-    node_id: usize,
-    kmer_id: usize,
-    node_seq_slice: DnaStringSlice<'a>,
-    node_len: usize,
+impl<'a, K: Kmer + 'a, D: Debug + 'a> IntoIterator for &'a DebruijnGraph<K, D> {
+    type Item = NodeKmer<'a, K, D>;
+    type IntoIter = NodeIntoIter<'a, K, D>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        NodeIntoIter {
+            graph: self,
+            node_id: 0,
+        }
+    }
 }
 
-impl<'a, K: Kmer + 'a, D: Debug + 'a> FastIteration for NodeKmerIter<'a, K, D> {
-    fn skip_next(&mut self) {
-        let kmer_length = K::k();
+/// Iterator over nodes in a `DeBruijnGraph`
+pub struct NodeIntoIter<'a, K: Kmer + 'a, D: Debug + 'a> {
+    graph: &'a DebruijnGraph<K, D>,
+    node_id: usize,
+}
 
+impl<'a, K: Kmer + 'a, D: Debug + 'a> Iterator for NodeIntoIter<'a, K, D> {
+    type Item = NodeKmer<'a, K, D>;
+
+    fn next(&mut self) -> Option<Self::Item> {
         if self.node_id < self.graph.len() {
-            let last_kmer_id = self.node_len - kmer_length + 1;
+            let node = self.graph.get_node(self.node_id);
+            let node_seq = node.sequence();
 
-            if self.kmer_id >= last_kmer_id {
-                if self.node_id+1 >= self.graph.len() {
-                    panic!("Iterator should not reach here");
-                }
+            self.node_id += 1;
+            Some(
+                NodeKmer {
+                    node_seq_slice: node_seq,
+                    phantom_d: PhantomData,
+                    phantom_k: PhantomData,
+            })
+        } else {
+            None
+        }
+    }
+}
 
-                self.node_id += 1;
-                self.kmer_id = 0;
-                self.node_seq_slice = self.graph.get_node(self.node_id).sequence();
-                self.node_len = self.node_seq_slice.len();
-            }
+/// Iterator over nodes in a `DeBruijnGraph`
+pub struct NodeKmer<'a, K: Kmer + 'a, D: Debug + 'a> {
+    node_seq_slice: DnaStringSlice<'a>,
+    phantom_k: PhantomData<K>,
+    phantom_d: PhantomData<D>,
+}
 
-            self.kmer_id += 1;
+pub struct NodeKmerIter<'a, K: Kmer + 'a, D: Debug + 'a> {
+    kmer_id: usize,
+    num_kmers: usize,
+    node_seq_slice: DnaStringSlice<'a>,
+    phantom_k: PhantomData<K>,
+    phantom_d: PhantomData<D>,
+}
+
+
+impl<'a, K: Kmer + 'a, D: Debug + 'a> NodeSize for NodeKmer<'a, K, D> {
+    fn num_windows(&self) -> usize {
+        self.node_seq_slice.len() - K::k() + 1
+    }
+}
+
+impl<'a, K: Kmer + 'a, D: Debug + 'a> IntoIterator for NodeKmer<'a, K, D> {
+    type Item = K;
+    type IntoIter = NodeKmerIter<'a, K, D>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        NodeKmerIter {
+            kmer_id: 0,
+            num_kmers: self.node_seq_slice.len() - K::k() + 1,
+            node_seq_slice: self.node_seq_slice,
+            phantom_k: PhantomData,
+            phantom_d: PhantomData,
         }
     }
 }
@@ -927,41 +960,24 @@ impl<'a, K: Kmer + 'a, D: Debug + 'a> Iterator for NodeKmerIter<'a, K, D> {
     type Item = K;
 
     fn next(&mut self) -> Option<Self::Item> {
-        let kmer_length = K::k();
 
-        if self.node_id < self.graph.len() {
-            let last_kmer_id = self.node_len - kmer_length + 1;
-
-            if self.kmer_id >= last_kmer_id {
-                if self.node_id+1 >= self.graph.len() {
-                    return None;
-                }
-
-                self.node_id += 1;
-                self.kmer_id = 0;
-                self.node_seq_slice = self.graph.get_node(self.node_id).sequence();
-                self.node_len = self.node_seq_slice.len();
-            }
-
+        if self.num_kmers == self.kmer_id {
+            None
+        }
+        else{
             let kmer = self.node_seq_slice.get_kmer::<K>(self.kmer_id);
             self.kmer_id += 1;
 
             Some(kmer)
-        } else {
-            None
         }
     }
 }
 
-impl<'a, K: Kmer + 'a, D: Debug + 'a> IntoIterator for &'a DebruijnGraph<K, D> {
-    type Item = K;
-    type IntoIter = NodeKmerIter<'a, K, D>;
-
-    fn into_iter(self) -> Self::IntoIter {
-        self.iter_kmers()
+impl<'a, K: Kmer + 'a, D: Debug + 'a> FastIteration for NodeKmerIter<'a, K, D> {
+    fn skip_next(&mut self) {
+        self.kmer_id += 1;
     }
 }
-
 
 /// Unbranched sequence in the DeBruijn graph
 pub struct Node<'a, K: Kmer + 'a, D: 'a> {
