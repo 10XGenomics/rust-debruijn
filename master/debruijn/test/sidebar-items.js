@@ -1,0 +1,1 @@
+initSidebarItems({"fn":[["edit_dna","Randomly mutate each base with probability `p`"],["random_base","Generate a uniformly random base"],["random_contigs",""],["random_dna","Generate uniformly random DNA sequences"],["random_kmer",""],["random_vmer",""],["simple_random_contigs",""]]});
