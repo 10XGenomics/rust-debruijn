@@ -39,7 +39,6 @@ use std::hash::Hash;
 use std::fmt;
 use num::PrimInt;
 use num::FromPrimitive;
-use extprim::u128::u128;
 use std::marker::PhantomData;
 
 use Mer;
@@ -85,10 +84,25 @@ pub trait IntHelp: PrimInt + FromPrimitive {
 impl IntHelp for u128 {
     #[inline]
     fn reverse_by_twos(&self) -> u128 {
-        u128::from_parts(
-            self.low64().reverse_by_twos(),
-            self.high64().reverse_by_twos(),
-        )
+        // swap adjacent pairs
+        let mut r = ((self & 0x33333333333333333333333333333333u128) << 2) | ((self >> 2) & 0x33333333333333333333333333333333u128);
+
+        // swap nibbles
+        r = ((r & 0x0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0Fu128) << 4) | ((r >> 4) & 0x0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0Fu128);
+
+        // swap bytes
+        r = ((r & 0x00FF00FF00FF00FF00FF00FF00FF00FFu128) << 8) | ((r >> 8) & 0x00FF00FF00FF00FF00FF00FF00FF00FFu128);
+
+        // swap 2 bytes
+        r = ((r & 0x0000FFFF0000FFFF0000FFFF0000FFFFu128) << 16) | ((r >> 16) & 0x0000FFFF0000FFFF0000FFFF0000FFFFu128);
+
+        // swap 4 bytes
+        r = ((r & 0x00000000FFFFFFFF00000000FFFFFFFFu128) << 32) | ((r >> 32) & 0x00000000FFFFFFFF00000000FFFFFFFFu128);
+
+        // swap 8 bytes
+        r = ((r & 0x0000000000000000FFFFFFFFFFFFFFFFu128) << 64) | ((r >> 64) & 0x0000000000000000FFFFFFFFFFFFFFFFu128);
+
+        r
     }
 }
 
@@ -598,8 +612,6 @@ impl KmerSize for K5 {
 mod tests {
     use super::*;
     use rand::{self, Rng, RngCore};
-    use extprim::u128::u128;
-
     use vmer::Lmer;
 
     use Vmer;

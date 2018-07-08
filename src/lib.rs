@@ -18,7 +18,6 @@
 
 
 extern crate num;
-extern crate extprim;
 extern crate rand;
 extern crate byteorder;
 

@@ -13,18 +13,10 @@ bit-set = "0.4.0"
 itertools = ">=0.6"
 pdqsort = "*"
 byteorder = "*"
+num = "0.2"
 
 [dev-dependencies]
 pretty_assertions = "0.5.1"
-
-[dependencies.extprim]
-version = ">=1.6.0"
-features = ["serde"]
-
-[dependencies.num]
-version = "0.1"
-default-features = false 
-features = ["serde"]
 
 [dependencies.log]
 version = "^0.3.7"
