@@ -1,1 +1,0 @@
-initSidebarItems({"struct":[["DnaString","A sequence of DnaStringoded values. This implementation is specialized to 2-bit alphabets"],["DnaStringIter","Iterator over values of a DnaStringoded sequence (values will be unpacked into bytes)."],["DnaStringSlice",""]]});

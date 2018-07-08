@@ -1,1 +1,0 @@
-initSidebarItems({"mod":[["i128","Signed 128-bit integer."],["traits","Traits for conversion between the extra primitive types."],["u128","Unsigned 128-bit integer."]]});
