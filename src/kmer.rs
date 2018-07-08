@@ -278,19 +278,6 @@ impl<T: PrimInt + FromPrimitive + Hash + IntHelp> Mer for IntKmer<T> {
         // NOTE: IntKmer always fills the bits, so we don't need to shift here.
         IntKmer { storage: new }
     }
-
-    /// Shift the base v into the left end of the kmer
-    fn extend_left(&self, v: u8) -> Self {
-        let new = self.storage >> 2 | (Self::t_from_byte(v) << (Self::k() - 1) * 2);
-        IntKmer { storage: new }
-    }
-
-    fn extend_right(&self, v: u8) -> Self {
-        let new = self.storage << 2;
-        let mut kmer = IntKmer { storage: new };
-        kmer.set_mut(Self::k() - 1, v);
-        kmer
-    }
 }
 
 impl<T: PrimInt + FromPrimitive + Hash + IntHelp> Kmer for IntKmer<T> {
@@ -308,6 +295,19 @@ impl<T: PrimInt + FromPrimitive + Hash + IntHelp> Kmer for IntKmer<T> {
 
     fn to_u64(&self) -> u64 {
         T::to_u64(&self.storage).unwrap()
+    }
+
+    /// Shift the base v into the left end of the kmer
+    fn extend_left(&self, v: u8) -> Self {
+        let new = self.storage >> 2 | (Self::t_from_byte(v) << (Self::k() - 1) * 2);
+        IntKmer { storage: new }
+    }
+
+    fn extend_right(&self, v: u8) -> Self {
+        let new = self.storage << 2;
+        let mut kmer = IntKmer { storage: new };
+        kmer.set_mut(Self::k() - 1, v);
+        kmer
     }
 }
 
@@ -364,6 +364,27 @@ impl<T: PrimInt + FromPrimitive + Hash + IntHelp, KS: KmerSize> Kmer for VarIntK
 
     fn from_u64(v: u64) -> Self {
         VarIntKmer { storage: Self::t_from_u64(v), phantom: PhantomData}
+    }
+
+    /// Shift the base v into the left end of the kmer
+    fn extend_left(&self, v: u8) -> Self {
+        let new = self.storage >> 2;
+        let mut kmer = VarIntKmer {
+            storage: new,
+            phantom: PhantomData,
+        };
+        kmer.set_mut(0, v);
+        kmer
+    }
+
+    fn extend_right(&self, v: u8) -> Self {
+        let new = self.storage << 2 & !Self::top_mask(0);
+        let mut kmer = VarIntKmer {
+            storage: new,
+            phantom: PhantomData,
+        };
+        kmer.set_mut(Self::k() - 1, v);
+        kmer
     }
 }
 
@@ -495,27 +516,6 @@ impl<T: PrimInt + FromPrimitive + Hash + IntHelp, KS: KmerSize> Mer for VarIntKm
             storage: new,
             phantom: PhantomData,
         }
-    }
-
-    /// Shift the base v into the left end of the kmer
-    fn extend_left(&self, v: u8) -> Self {
-        let new = self.storage >> 2;
-        let mut kmer = VarIntKmer {
-            storage: new,
-            phantom: PhantomData,
-        };
-        kmer.set_mut(0, v);
-        kmer
-    }
-
-    fn extend_right(&self, v: u8) -> Self {
-        let new = self.storage << 2 & !Self::top_mask(0);
-        let mut kmer = VarIntKmer {
-            storage: new,
-            phantom: PhantomData,
-        };
-        kmer.set_mut(Self::k() - 1, v);
-        kmer
     }
 }
 

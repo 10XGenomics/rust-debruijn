@@ -81,14 +81,6 @@ impl Mer for DnaString {
         }
         dna_string
     }
-
-    fn extend_left(&self, _: u8) -> Self {
-        unimplemented!()
-    }
-
-    fn extend_right(&self, _: u8) -> Self {
-        unimplemented!()
-    }
 }
 
 impl Vmer for DnaString
@@ -436,14 +428,6 @@ impl<'a> Mer for DnaStringSlice<'a> {
             length: self.length,
             is_rc: !self.is_rc,
         }
-    }
-
-    fn extend_left(&self, _: u8) -> Self {
-        unimplemented!()
-    }
-
-    fn extend_right(&self, _: u8) -> Self {
-        unimplemented!()
     }
 }
 

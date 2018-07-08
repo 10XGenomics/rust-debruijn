@@ -22,7 +22,7 @@ version = ">=1.6.0"
 features = ["serde"]
 
 [dependencies.num]
-version = "*"
+version = "0.1"
 default-features = false 
 features = ["serde"]
 
