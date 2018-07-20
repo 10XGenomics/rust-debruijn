@@ -39,7 +39,6 @@ use std::hash::Hash;
 use std::fmt;
 use num::PrimInt;
 use num::FromPrimitive;
-use extprim::u128::u128;
 use std::marker::PhantomData;
 
 use Mer;
@@ -79,7 +78,7 @@ pub type Kmer8 = IntKmer<u16>;
 pub type Kmer6 = VarIntKmer<u16, K6>;
 pub type Kmer5 = VarIntKmer<u16, K5>;
 
-pub type Kmer4 = VarIntKmer<u8, K4>;
+pub type Kmer4 = IntKmer<u8>;
 pub type Kmer3 = VarIntKmer<u8, K3>;
 pub type Kmer2 = VarIntKmer<u8, K2>;
 
@@ -92,10 +91,25 @@ pub trait IntHelp: PrimInt + FromPrimitive {
 impl IntHelp for u128 {
     #[inline]
     fn reverse_by_twos(&self) -> u128 {
-        u128::from_parts(
-            self.low64().reverse_by_twos(),
-            self.high64().reverse_by_twos(),
-        )
+        // swap adjacent pairs
+        let mut r = ((self & 0x33333333333333333333333333333333u128) << 2) | ((self >> 2) & 0x33333333333333333333333333333333u128);
+
+        // swap nibbles
+        r = ((r & 0x0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0Fu128) << 4) | ((r >> 4) & 0x0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0Fu128);
+
+        // swap bytes
+        r = ((r & 0x00FF00FF00FF00FF00FF00FF00FF00FFu128) << 8) | ((r >> 8) & 0x00FF00FF00FF00FF00FF00FF00FF00FFu128);
+
+        // swap 2 bytes
+        r = ((r & 0x0000FFFF0000FFFF0000FFFF0000FFFFu128) << 16) | ((r >> 16) & 0x0000FFFF0000FFFF0000FFFF0000FFFFu128);
+
+        // swap 4 bytes
+        r = ((r & 0x00000000FFFFFFFF00000000FFFFFFFFu128) << 32) | ((r >> 32) & 0x00000000FFFFFFFF00000000FFFFFFFFu128);
+
+        // swap 8 bytes
+        r = ((r & 0x0000000000000000FFFFFFFFFFFFFFFFu128) << 64) | ((r >> 64) & 0x0000000000000000FFFFFFFFFFFFFFFFu128);
+
+        r
     }
 }
 
@@ -285,19 +299,6 @@ impl<T: PrimInt + FromPrimitive + Hash + IntHelp> Mer for IntKmer<T> {
         // NOTE: IntKmer always fills the bits, so we don't need to shift here.
         IntKmer { storage: new }
     }
-
-    /// Shift the base v into the left end of the kmer
-    fn extend_left(&self, v: u8) -> Self {
-        let new = self.storage >> 2 | (Self::t_from_byte(v) << (Self::k() - 1) * 2);
-        IntKmer { storage: new }
-    }
-
-    fn extend_right(&self, v: u8) -> Self {
-        let new = self.storage << 2;
-        let mut kmer = IntKmer { storage: new };
-        kmer.set_mut(Self::k() - 1, v);
-        kmer
-    }
 }
 
 impl<T: PrimInt + FromPrimitive + Hash + IntHelp> Kmer for IntKmer<T> {
@@ -315,6 +316,19 @@ impl<T: PrimInt + FromPrimitive + Hash + IntHelp> Kmer for IntKmer<T> {
 
     fn to_u64(&self) -> u64 {
         T::to_u64(&self.storage).unwrap()
+    }
+
+    /// Shift the base v into the left end of the kmer
+    fn extend_left(&self, v: u8) -> Self {
+        let new = self.storage >> 2 | (Self::t_from_byte(v) << (Self::k() - 1) * 2);
+        IntKmer { storage: new }
+    }
+
+    fn extend_right(&self, v: u8) -> Self {
+        let new = self.storage << 2;
+        let mut kmer = IntKmer { storage: new };
+        kmer.set_mut(Self::k() - 1, v);
+        kmer
     }
 }
 
@@ -371,6 +385,27 @@ impl<T: PrimInt + FromPrimitive + Hash + IntHelp, KS: KmerSize> Kmer for VarIntK
 
     fn from_u64(v: u64) -> Self {
         VarIntKmer { storage: Self::t_from_u64(v), phantom: PhantomData}
+    }
+
+    /// Shift the base v into the left end of the kmer
+    fn extend_left(&self, v: u8) -> Self {
+        let new = self.storage >> 2;
+        let mut kmer = VarIntKmer {
+            storage: new,
+            phantom: PhantomData,
+        };
+        kmer.set_mut(0, v);
+        kmer
+    }
+
+    fn extend_right(&self, v: u8) -> Self {
+        let new = self.storage << 2 & !Self::top_mask(0);
+        let mut kmer = VarIntKmer {
+            storage: new,
+            phantom: PhantomData,
+        };
+        kmer.set_mut(Self::k() - 1, v);
+        kmer
     }
 }
 
@@ -503,27 +538,6 @@ impl<T: PrimInt + FromPrimitive + Hash + IntHelp, KS: KmerSize> Mer for VarIntKm
             phantom: PhantomData,
         }
     }
-
-    /// Shift the base v into the left end of the kmer
-    fn extend_left(&self, v: u8) -> Self {
-        let new = self.storage >> 2;
-        let mut kmer = VarIntKmer {
-            storage: new,
-            phantom: PhantomData,
-        };
-        kmer.set_mut(0, v);
-        kmer
-    }
-
-    fn extend_right(&self, v: u8) -> Self {
-        let new = self.storage << 2 & !Self::top_mask(0);
-        let mut kmer = VarIntKmer {
-            storage: new,
-            phantom: PhantomData,
-        };
-        kmer.set_mut(Self::k() - 1, v);
-        kmer
-    }
 }
 
 impl<T: PrimInt + FromPrimitive + Hash + IntHelp, KS: KmerSize> fmt::Debug for VarIntKmer<T, KS> {
@@ -646,8 +660,6 @@ impl KmerSize for K2 {
 mod tests {
     use super::*;
     use rand::{self, Rng, RngCore};
-    use extprim::u128::u128;
-
     use vmer::Lmer;
 
     use Vmer;
@@ -902,10 +914,17 @@ mod tests {
         }
     }
 
-        #[test]
+    #[test]
     fn test_kmer_5() {
         for _ in 0..10000 {
             check_kmer::<Kmer5>();
+        }
+    }
+
+    #[test]
+    fn test_kmer_4() {
+        for _ in 0..10000 {
+            check_kmer::<Kmer4>();
         }
     }
 }

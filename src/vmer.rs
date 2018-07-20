@@ -110,14 +110,6 @@ impl<A: Array<Item = u64> + Copy + Eq + Ord + Hash> Mer for Lmer<A> {
 
         new_lmer
     }
-
-    fn extend_left(&self, _: u8) -> Self {
-        unimplemented!();
-    }
-
-    fn extend_right(&self, _: u8) -> Self {
-        unimplemented!();
-    }
 }
 
 

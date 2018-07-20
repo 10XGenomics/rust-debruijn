@@ -10,7 +10,7 @@ use Kmer;
 use Vmer;
 use Dir;
 use Exts;
-use boomphf;
+use boomphf::hashmap::BoomHashMap2;
 use graph::{DebruijnGraph, BaseGraph};
 use dna_string::DnaString;
 
@@ -353,17 +353,17 @@ pub fn compress_graph<K: Kmer + Send + Sync, D: Clone + Debug + PartialEq, S: Co
 // Compress from Hash a new Struct
 //////////////////////////////
 /// Generate a compressed DeBruijn graph from hash_index
-struct CompressFromHash<K: Kmer, D, S: CompressionSpec<D>> {
+struct CompressFromHash<'a, K: 'a + Kmer, D: 'a, S: CompressionSpec<D>> {
     stranded: bool,
     k: PhantomData<K>,
     d: PhantomData<D>,
     spec: S,
     available_kmers: BitSet,
-    index: boomphf::BoomHashMap2<K, Exts, D>,
+    index: &'a BoomHashMap2<K, Exts, D>,
 }
 
 /// Compression of paths in Debruijn graph
-impl<K: Kmer, D: Clone + Debug, S: CompressionSpec<D>> CompressFromHash<K, D, S> {
+impl<'a, K: Kmer, D: Clone + Debug, S: CompressionSpec<D>> CompressFromHash<'a, K, D, S> {
     fn get_kmer_data(&self, kmer: &K) -> (&Exts, &D) {
         match self.index.get(kmer) {
             Some(data) => data,
@@ -549,7 +549,7 @@ impl<K: Kmer, D: Clone + Debug, S: CompressionSpec<D>> CompressFromHash<K, D, S>
     pub fn compress_kmers(
         stranded: bool,
         spec: S,
-        index: boomphf::BoomHashMap2<K, Exts, D>,
+        index: &BoomHashMap2<K, Exts, D>,
     ) -> BaseGraph<K, D> {
 
         let n_kmers = index.len();
@@ -593,7 +593,30 @@ impl<K: Kmer, D: Clone + Debug, S: CompressionSpec<D>> CompressFromHash<K, D, S>
 pub fn compress_kmers_with_hash<K: Kmer, D: Clone + Debug, S: CompressionSpec<D>>(
     stranded: bool,
     spec: S,
-    index: boomphf::BoomHashMap2<K, Exts, D>,
+    index: &BoomHashMap2<K, Exts, D>,
 ) -> BaseGraph<K, D> {
     CompressFromHash::<K, D, S>::compress_kmers(stranded, spec, index)
+}
+
+
+/// Take a BoomHash Object and build a compressed DeBruijn graph.
+#[inline(never)]
+pub fn compress_kmers<K: Kmer, D: Clone + Debug, S: CompressionSpec<D>>(
+    stranded: bool,
+    spec: S,
+    kmer_exts: &Vec<(K, (Exts, D))>
+) -> BaseGraph<K, D> {
+
+    let mut keys = vec![];
+    let mut exts = vec![];
+    let mut data = vec![];
+
+    for (k, (e,d)) in kmer_exts {
+        keys.push(k.clone());
+        data.push(d.clone());
+        exts.push(e.clone());
+    }
+
+    let index = BoomHashMap2::new(keys, exts, data);
+    CompressFromHash::<K, D, S>::compress_kmers(stranded, spec, &index)
 }

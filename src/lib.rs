@@ -1,7 +1,7 @@
 // Copyright 2017 10x Genomics
 
 //! # debruijn-rs: a De Bruijn graph for DNA seqeunces in Rust.
-//! This library provides tools for efficiently construction de bruijn graphs
+//! This library provides tools for efficient construction DeBruijn graphs
 //! from DNA sequences, tracking arbitrary metadata associated with kmers in the
 //! graph, and performing path-compression of unbranched graph paths to improve
 //! speed and reduce memory consumption.
@@ -12,12 +12,12 @@
 //! sequences.
 //!
 //! # Encodings
-//! Most methods for ingesting sequence data into the library will have a form named 'bytes',
+//! Most methods for ingesting sequence data into the library have a form named 'bytes',
 //! which expects bases encoded as the integers 0,1,2,3, and a separate form names 'ascii',
 //! which expects bases encoded as the ASCII letters A,C,G,T.
 
+
 extern crate num;
-extern crate extprim;
 extern crate rand;
 extern crate byteorder;
 extern crate boomphf;
@@ -119,7 +119,7 @@ pub fn complement(base: u8) -> u8 {
 }
 
 
-/// Generic trait for interacting with DNA sequences
+/// Trait for interacting with DNA sequences
 pub trait Mer: Sized + fmt::Debug {
     /// Length of DNA sequence
     fn len(&self) -> usize;
@@ -137,12 +137,6 @@ pub trait Mer: Sized + fmt::Debug {
     /// Return a new object containing the reverse complement of the sequence
     fn rc(&self) -> Self;
 
-    /// Add the base `v` to the left side of the sequence, and remove the rightmost base
-    fn extend_left(&self, v: u8) -> Self;
-
-    /// Add the base `v` to the right side of the sequence, and remove the leftmost base
-    fn extend_right(&self, v: u8) -> Self;
-
     /// Iterate over the bases in the sequence
     fn iter<'a>(&'a self) -> MerIter<'a, Self> {
         MerIter {
@@ -150,27 +144,10 @@ pub trait Mer: Sized + fmt::Debug {
             i: 0,
         }
     }
-
-    /// Add the base `v` to the side of sequence given by `dir`, and remove a base at the opposite side
-    fn extend(&self, v: u8, dir: Dir) -> Self {
-        match dir {
-            Dir::Left => self.extend_left(v),
-            Dir::Right => self.extend_right(v),
-        }
-    }
-
-    /// Generate all the extension of this sequence given by `exts` in direction `Dir`
-    fn get_extensions(&self, exts: Exts, dir: Dir) -> Vec<Self> {
-        let ext_bases = exts.get(dir);
-        ext_bases
-            .iter()
-            .map(|b| self.extend(b.clone(), dir))
-            .collect()
-    }
 }
 
 
-/// Iterator over values of a DnaStringoded sequence (values will be unpacked into bytes).
+/// Iterator over bases of a DNA sequence (bases will be unpacked into bytes).
 pub struct MerIter<'a, M: 'a + Mer> {
     sequence: &'a M,
     i: usize,
@@ -206,6 +183,29 @@ pub trait Kmer: Mer + Sized + Copy + PartialEq + PartialOrd + Eq + Ord + Hash {
     // Construct a kmer from the given lexicographic rank of the kmer.
     // If K > 32, the leads bases will be A's.
     fn from_u64(value: u64) -> Self;
+
+    /// Add the base `v` to the left side of the sequence, and remove the rightmost base
+    fn extend_left(&self, v: u8) -> Self;
+
+    /// Add the base `v` to the right side of the sequence, and remove the leftmost base
+    fn extend_right(&self, v: u8) -> Self;
+
+    /// Add the base `v` to the side of sequence given by `dir`, and remove a base at the opposite side
+    fn extend(&self, v: u8, dir: Dir) -> Self {
+        match dir {
+            Dir::Left => self.extend_left(v),
+            Dir::Right => self.extend_right(v),
+        }
+    }
+
+    /// Generate all the extension of this sequence given by `exts` in direction `Dir`
+    fn get_extensions(&self, exts: Exts, dir: Dir) -> Vec<Self> {
+        let ext_bases = exts.get(dir);
+        ext_bases
+            .iter()
+            .map(|b| self.extend(b.clone(), dir))
+            .collect()
+    }
 
     /// Return the minimum of the kmer and it's reverse complement, and a flag indicating if sequence was flipped
     fn min_rc_flip(&self) -> (Self, bool) {
@@ -417,8 +417,8 @@ pub trait Vmer: Mer + PartialEq + Eq {
     }
 }
 
-// Note DnaBytes newtype is required to prevent various
-// Vec methods from being overridden by Mer / Vmer methods.
+/// A newtype wrapper around a `Vec<u8>` with implementations 
+// of the `Mer` and `Vmer` traits.
 #[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd)]
 pub struct DnaBytes(pub Vec<u8>);
 
@@ -449,16 +449,6 @@ impl Mer for DnaBytes {
     fn rc(&self) -> Self {
         unimplemented!();
     }
-
-    /// Add the base `v` to the left side of the sequence, and remove the rightmost base
-    fn extend_left(&self, _v: u8) -> Self {
-        unimplemented!()
-    }
-
-    /// Add the base `v` to the right side of the sequence, and remove the leftmost base
-    fn extend_right(&self, _v: u8) -> Self {
-        unimplemented!();
-    }
 }
 
 impl Vmer for DnaBytes {
@@ -469,8 +459,7 @@ impl Vmer for DnaBytes {
 
     /// Maximum sequence length that can be stored in this type
     fn max_len() -> usize {
-        //usize::MAX_VALUE;
-        99999999999
+        1<<48
     }
 
     /// Efficiently extract a Kmer from the sequence
@@ -480,8 +469,8 @@ impl Vmer for DnaBytes {
 }
 
 
-// Note DnaBytes newtype is required to prevent various
-// Vec methods from being overridden by Mer / Vmer methods.
+/// A newtype wrapper around a `&[u8]` with implementations 
+// of the `Mer` and `Vmer` traits.
 #[derive(Debug, Eq, PartialEq, Ord, PartialOrd)]
 pub struct DnaSlice<'a>(pub &'a [u8]);
 
@@ -512,16 +501,6 @@ impl<'a> Mer for DnaSlice<'a> {
     fn rc(&self) -> Self {
         unimplemented!();
     }
-
-    /// Add the base `v` to the left side of the sequence, and remove the rightmost base
-    fn extend_left(&self, _v: u8) -> Self {
-        unimplemented!()
-    }
-
-    /// Add the base `v` to the right side of the sequence, and remove the leftmost base
-    fn extend_right(&self, _v: u8) -> Self {
-        unimplemented!();
-    }
 }
 
 impl<'a> Vmer for DnaSlice<'a> {
@@ -532,8 +511,7 @@ impl<'a> Vmer for DnaSlice<'a> {
 
     /// Maximum sequence length that can be stored in this type
     fn max_len() -> usize {
-        //usize::MAX_VALUE;
-        99999999999
+        1<<48
     }
 
     /// Efficiently extract a Kmer from the sequence

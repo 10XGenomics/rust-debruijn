@@ -18,7 +18,8 @@ use std::io::Error;
 use std::hash::Hash;
 use std::f32;
 
-use boomphf::{BoomHashMap, FastIteration, NodeSize};
+use boomphf::FastIterator;
+use boomphf::hashmap::BoomHashMap;
 
 use serde_json;
 use serde_json::Value;
@@ -110,21 +111,54 @@ impl<K: Kmer + Send + Sync, D> BaseGraph<K, D> {
     pub fn finish(self) -> DebruijnGraph<K, D> {
         let indices: Vec<u32> = (0..self.len() as u32).collect();
 
-        let mut left_kmers: Vec<K> = Vec::with_capacity(self.len());
-        let mut right_kmers: Vec<K> = Vec::with_capacity(self.len());
+        let left_order = {
+            let mut kmers: Vec<K> = Vec::with_capacity(self.len());
+            for idx in &indices {
+                kmers.push( self.sequences.get(*idx as usize).first_kmer() );
+            }
+            BoomHashMap::new_parallel(kmers, indices.clone())
+        };
 
-        for idx in &indices {
-            left_kmers.push( self.sequences.get(*idx as usize).first_kmer() );
-        }
-
-        for idx in &indices {
-            right_kmers.push( self.sequences.get(*idx as usize).last_kmer() );
-        }
+        let right_order = {
+            let mut kmers: Vec<K> = Vec::with_capacity(self.len());
+            for idx in &indices {
+                kmers.push( self.sequences.get(*idx as usize).first_kmer() );
+            }
+            BoomHashMap::new_parallel(kmers, indices)
+        };
 
         DebruijnGraph {
             base: self,
-            left_order: BoomHashMap::new_parallel( left_kmers, indices.clone() ),
-            right_order: BoomHashMap::new_parallel( right_kmers, indices ),
+            left_order,
+            right_order,
+        }
+    }
+}
+
+impl<K: Kmer, D> BaseGraph<K, D> {
+    pub fn finish_serial(self) -> DebruijnGraph<K, D> {
+        let indices: Vec<u32> = (0..self.len() as u32).collect();
+
+        let left_order = {
+            let mut kmers: Vec<K> = Vec::with_capacity(self.len());
+            for idx in &indices {
+                kmers.push( self.sequences.get(*idx as usize).first_kmer() );
+            }
+            BoomHashMap::new(kmers, indices.clone())
+        };
+
+        let right_order = {
+            let mut kmers: Vec<K> = Vec::with_capacity(self.len());
+            for idx in &indices {
+                kmers.push( self.sequences.get(*idx as usize).first_kmer() );
+            }
+            BoomHashMap::new(kmers, indices)
+        };
+
+        DebruijnGraph {
+            base: self,
+            left_order,
+            right_order,
         }
     }
 }
@@ -934,13 +968,6 @@ pub struct NodeKmerIter<'a, K: Kmer + 'a, D: Debug + 'a> {
     phantom_d: PhantomData<D>,
 }
 
-
-impl<'a, K: Kmer + 'a, D: Debug + 'a> NodeSize for NodeKmer<'a, K, D> {
-    fn num_windows(&self) -> usize {
-        self.node_seq_slice.len() - K::k() + 1
-    }
-}
-
 impl<'a, K: Kmer + 'a, D: Debug + 'a> IntoIterator for NodeKmer<'a, K, D> {
     type Item = K;
     type IntoIter = NodeKmerIter<'a, K, D>;
@@ -971,9 +998,13 @@ impl<'a, K: Kmer + 'a, D: Debug + 'a> Iterator for NodeKmerIter<'a, K, D> {
             Some(kmer)
         }
     }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        return (self.num_kmers, Some(self.num_kmers))
+    }
 }
 
-impl<'a, K: Kmer + 'a, D: Debug + 'a> FastIteration for NodeKmerIter<'a, K, D> {
+impl<'a, K: Kmer + 'a, D: Debug + 'a> FastIterator for NodeKmerIter<'a, K, D> {
     fn skip_next(&mut self) {
         self.kmer_id += 1;
     }

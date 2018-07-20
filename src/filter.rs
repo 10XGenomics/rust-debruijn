@@ -3,7 +3,7 @@
 //! Methods for converting sequences into kmers, filtering observed kmers before De Bruijn graph construction, and summarizing 'color' annotations.
 use std::mem;
 use itertools::Itertools;
-use std::sync::Arc;
+use std::ops::Deref;
 use std::marker::PhantomData;
 use std::hash::Hash;
 use concurrent_hashmap::*;
@@ -13,7 +13,7 @@ use Dir;
 use Kmer;
 use Exts;
 use Vmer;
-use boomphf;
+use boomphf::hashmap::BoomHashMap2;
 use pdqsort;
 use std::fmt::Debug;
 
@@ -206,11 +206,11 @@ impl<D: Eq + Ord + Hash + Send + Sync + Debug + Clone> KmerSummarizer<D, EqClass
 #[inline(never)]
 pub fn filter_kmers<K: Kmer, V: Vmer, D1: Clone, DS, S: KmerSummarizer<D1, DS>>(
     seqs: &[(V, Exts, D1)],
-    summarizer: &Arc<S>,
+    summarizer: impl Deref<Target=S>,
     stranded: bool,
     report_all_kmers: bool,
     memory_size: usize,
-)  -> ( boomphf::BoomHashMap2<K, Exts, DS>, Vec<K> )
+)  -> ( BoomHashMap2<K, Exts, DS>, Vec<K> )
 where DS: Debug{
 
     let rc_norm = !stranded;
@@ -302,7 +302,7 @@ where DS: Debug{
         valid_kmers.len(),
         all_kmers.len(),
     );
-    ( boomphf::BoomHashMap2::new(valid_kmers, valid_exts, valid_data), all_kmers)
+    (BoomHashMap2::new(valid_kmers, valid_exts, valid_data), all_kmers)
 }
 
 /// Remove extensions in valid_kmers that point to censored kmers. A censored kmer
