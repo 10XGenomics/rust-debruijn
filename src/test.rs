@@ -213,6 +213,11 @@ mod tests {
             .collect();
         let (valid_kmers, _): (BoomHashMap2<K, Exts, u16>, _) = filter::filter_kmers(&seqs, &filter::CountFilter::new(1), stranded, false, 4);
 
+        let spec = SimpleCompress::new(|d1: u16, d2: &u16| d1 + d2);
+        let from_kmers = compress_kmers_with_hash(stranded, spec, &valid_kmers).finish();
+        from_kmers.print();
+        //println!("from_kmers: {:?}", from_kmers);
+
         // Create a DBG with one node per input kmer
         let mut base_graph: BaseGraph<K, u16> = BaseGraph::new(stranded);
 
