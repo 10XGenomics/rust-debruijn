@@ -103,7 +103,6 @@ pub fn simple_random_contigs() -> Vec<Vec<u8>> {
 // Generate random contigs with complicated repeats
 pub fn random_contigs() -> Vec<Vec<u8>> {
     // Generate a bunch of sequence chunks
-
     let mut rng = rand::thread_rng();
 
     let gamma_dist = Gamma::new(0.6, 25.0);
@@ -215,8 +214,12 @@ mod tests {
 
         let spec = SimpleCompress::new(|d1: u16, d2: &u16| d1 + d2);
         let from_kmers = compress_kmers_with_hash(stranded, spec, &valid_kmers).finish();
-        from_kmers.print();
-        //println!("from_kmers: {:?}", from_kmers);
+        let is_cmp = from_kmers.is_compressed();
+        if is_cmp.is_some() {
+            println!("not compressed: nodes: {:?}", is_cmp);
+            from_kmers.print();
+        }
+        assert!(from_kmers.is_compressed() == None);
 
         // Create a DBG with one node per input kmer
         let mut base_graph: BaseGraph<K, u16> = BaseGraph::new(stranded);

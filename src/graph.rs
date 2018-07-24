@@ -122,7 +122,7 @@ impl<K: Kmer + Send + Sync, D> BaseGraph<K, D> {
         let right_order = {
             let mut kmers: Vec<K> = Vec::with_capacity(self.len());
             for idx in &indices {
-                kmers.push( self.sequences.get(*idx as usize).first_kmer() );
+                kmers.push( self.sequences.get(*idx as usize).last_kmer() );
             }
             BoomHashMap::new_parallel(kmers, indices)
         };
@@ -150,7 +150,7 @@ impl<K: Kmer, D> BaseGraph<K, D> {
         let right_order = {
             let mut kmers: Vec<K> = Vec::with_capacity(self.len());
             for idx in &indices {
-                kmers.push( self.sequences.get(*idx as usize).first_kmer() );
+                kmers.push( self.sequences.get(*idx as usize).last_kmer() );
             }
             BoomHashMap::new(kmers, indices)
         };
@@ -937,12 +937,14 @@ impl<'a, K: Kmer + 'a, D: Debug + 'a> Iterator for NodeIntoIter<'a, K, D> {
 
     fn next(&mut self) -> Option<Self::Item> {
         if self.node_id < self.graph.len() {
-            let node = self.graph.get_node(self.node_id);
+            let node_id = self.node_id;
+            let node = self.graph.get_node(node_id);
             let node_seq = node.sequence();
 
             self.node_id += 1;
             Some(
                 NodeKmer {
+                    node_id: node_id,
                     node_seq_slice: node_seq,
                     phantom_d: PhantomData,
                     phantom_k: PhantomData,
@@ -955,6 +957,7 @@ impl<'a, K: Kmer + 'a, D: Debug + 'a> Iterator for NodeIntoIter<'a, K, D> {
 
 /// Iterator over nodes in a `DeBruijnGraph`
 pub struct NodeKmer<'a, K: Kmer + 'a, D: Debug + 'a> {
+    pub node_id: usize,
     node_seq_slice: DnaStringSlice<'a>,
     phantom_k: PhantomData<K>,
     phantom_d: PhantomData<D>,
