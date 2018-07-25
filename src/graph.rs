@@ -956,6 +956,7 @@ impl<'a, K: Kmer + 'a, D: Debug + 'a> Iterator for NodeIntoIter<'a, K, D> {
 }
 
 /// Iterator over nodes in a `DeBruijnGraph`
+#[derive(Clone)]
 pub struct NodeKmer<'a, K: Kmer + 'a, D: Debug + 'a> {
     pub node_id: usize,
     node_seq_slice: DnaStringSlice<'a>,
@@ -1012,6 +1013,8 @@ impl<'a, K: Kmer + 'a, D: Debug + 'a> FastIterator for NodeKmerIter<'a, K, D> {
         self.kmer_id += 1;
     }
 }
+
+impl<'a, K: Kmer + 'a, D: Debug + 'a> ExactSizeIterator for NodeKmerIter<'a, K, D> {}
 
 /// Unbranched sequence in the DeBruijn graph
 pub struct Node<'a, K: Kmer + 'a, D: 'a> {

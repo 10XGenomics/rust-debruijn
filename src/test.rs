@@ -156,7 +156,7 @@ mod tests {
     use kmer::Kmer6;
     use dna_string::DnaString;
     use filter;
-    
+
 
     use super::*;
 
@@ -210,7 +210,7 @@ mod tests {
             .drain(..)
             .map(|x| (DnaBytes(x), Exts::empty(), ()))
             .collect();
-        let (valid_kmers, _): (BoomHashMap2<K, Exts, u16>, _) = filter::filter_kmers(&seqs, &filter::CountFilter::new(1), stranded, false, 4);
+        let (valid_kmers, _): (BoomHashMap2<K, Exts, u16>, _) = filter::filter_kmers(&seqs, &Box::new(filter::CountFilter::new(1)), stranded, false, 4);
 
         let spec = SimpleCompress::new(|d1: u16, d2: &u16| d1 + d2);
         let from_kmers = compress_kmers_with_hash(stranded, spec, &valid_kmers).finish();
@@ -288,7 +288,7 @@ mod tests {
         assert!(kmer_set == msp_kmers);
 
         // Check the correctness of the process_kmer_shard kmer filtering function
-        let (valid_kmers, _): (BoomHashMap2<K, Exts, u16>, _) = filter::filter_kmers(&seqs, &filter::CountFilter::new(2), stranded, false, 4);
+        let (valid_kmers, _): (BoomHashMap2<K, Exts, u16>, _) = filter::filter_kmers(&seqs, &Box::new(filter::CountFilter::new(2)), stranded, false, 4);
         let mut process_kmer_set: HashSet<K> = HashSet::new();
         for k in valid_kmers.iter().map(|x| x.0) {
             process_kmer_set.insert(k.clone());
@@ -386,11 +386,11 @@ mod tests {
         // Do a subassembly in each shard
         for seqs in shards.values() {
             // Check the correctness of the process_kmer_shard kmer filtering function
-            let (valid_kmers, _): (BoomHashMap2<K, Exts, u16>, _) = filter::filter_kmers(&seqs, &filter::CountFilter::new(2), stranded, false, 4);
+            let (valid_kmers, _): (BoomHashMap2<K, Exts, u16>, _) = filter::filter_kmers(&seqs, &Box::new(filter::CountFilter::new(2)), stranded, false, 4);
 
             // Generate compress DBG for this shard
             let spec = SimpleCompress::new(|d1: u16, d2: &u16| d1.saturating_add(*d2));
-            
+
             print!("{:?}", valid_kmers);
             let graph = compress_kmers_with_hash(stranded, spec, &valid_kmers);
             shard_asms.push(graph.clone());
@@ -471,7 +471,7 @@ mod tests {
 
 
         // Assemble w/o tips
-        let (valid_kmers_clean, _): (BoomHashMap2<K, Exts, u16>, _) = filter::filter_kmers(&clean_seqs, &filter::CountFilter::new(2), stranded, false, 4);
+        let (valid_kmers_clean, _): (BoomHashMap2<K, Exts, u16>, _) = filter::filter_kmers(&clean_seqs, &Box::new(filter::CountFilter::new(2)), stranded, false, 4);
         let spec = SimpleCompress::new(|d1: u16, d2: &u16| d1 + d2);
         let graph = compress_kmers_with_hash(stranded, spec, &valid_kmers_clean);
         let graph1 = graph.finish();
@@ -479,7 +479,7 @@ mod tests {
 
         // Assemble w/ tips
         let (valid_kmers_errs, _): (BoomHashMap2<K, Exts, u16> ,_)=
-            filter::filter_kmers(&all_seqs, &filter::CountFilter::new(2), stranded, false, 4);
+            filter::filter_kmers(&all_seqs, &Box::new(filter::CountFilter::new(2)), stranded, false, 4);
         let spec = SimpleCompress::new(|d1: u16, d2: &u16| d1 + d2);
         let graph = compress_kmers_with_hash(stranded, spec, &valid_kmers_errs);
         let graph2 = graph.finish();

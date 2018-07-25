@@ -206,7 +206,7 @@ impl<D: Eq + Ord + Hash + Send + Sync + Debug + Clone> KmerSummarizer<D, EqClass
 #[inline(never)]
 pub fn filter_kmers<K: Kmer, V: Vmer, D1: Clone, DS, S: KmerSummarizer<D1, DS>>(
     seqs: &[(V, Exts, D1)],
-    summarizer: impl Deref<Target=S>,
+    summarizer: &Deref<Target=S>,
     stranded: bool,
     report_all_kmers: bool,
     memory_size: usize,
