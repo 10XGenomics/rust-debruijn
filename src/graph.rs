@@ -1111,12 +1111,13 @@ where
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(
             f,
-            "Node {{ id:{}, Exts: {:?}, L:{:?} R:{:?}, Seq: {:?} }}",
+            "Node {{ id:{}, Exts: {:?}, L:{:?} R:{:?}, Seq: {:?}, Data: {:?} }}",
             self.node_id,
             self.exts(),
             self.l_edges(),
             self.r_edges(),
-            self.sequence().len()
+            self.sequence().len(),
+            self.data()
         )
     }
 }

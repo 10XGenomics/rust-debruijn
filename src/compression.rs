@@ -333,7 +333,8 @@ where K: Kmer + Send + Sync, D: Debug + Clone + PartialEq, S: CompressionSpec<D>
         // We will have some hanging exts due to
         let mut dbg = graph.finish();
         dbg.fix_exts(None);
-        debug_assert!(dbg.is_compressed() == None);
+        // FIXME: Add check based on the color
+        //debug_assert!(dbg.is_compressed() == None);
         dbg
     }
 }
