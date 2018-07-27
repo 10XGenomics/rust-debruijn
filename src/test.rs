@@ -212,7 +212,7 @@ mod tests {
             .collect();
         let (valid_kmers, _): (BoomHashMap2<K, Exts, u16>, _) = filter::filter_kmers(&seqs, &Box::new(filter::CountFilter::new(1)), stranded, false, 4);
 
-        let spec = SimpleCompress::new(|d1: u16, d2: &u16| d1 + d2);
+        let spec = SimpleCompress::new(|d1: u16, d2: &u16| ( (d1 as u32 + *d2 as u32) % 65535 ) as u16 );
         let from_kmers = compress_kmers_with_hash(stranded, spec, &valid_kmers).finish();
         let is_cmp = from_kmers.is_compressed();
         if is_cmp.is_some() {
