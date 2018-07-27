@@ -165,7 +165,7 @@ where K: Kmer + Send + Sync, D: Debug + Clone + PartialEq, S: CompressionSpec<D>
 
             if !self.available_nodes.contains(next_node_id) ||
                 (!self.stranded && next_kmer.is_palindrome()) ||
-                (node.data() != next_node.data())
+                !self.spec.join_test(node.data(), next_node.data())
             {
                 // Next kmer isn't in this partition,
                 // or we've already used it,
@@ -333,8 +333,7 @@ where K: Kmer + Send + Sync, D: Debug + Clone + PartialEq, S: CompressionSpec<D>
         // We will have some hanging exts due to
         let mut dbg = graph.finish();
         dbg.fix_exts(None);
-        // FIXME: Add check based on the color
-        //debug_assert!(dbg.is_compressed() == None);
+        debug_assert!(dbg.is_compressed() == None);
         dbg
     }
 }

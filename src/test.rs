@@ -490,7 +490,7 @@ mod tests {
         let nodes_to_censor = cleaner.find_bad_nodes(&graph2);
 
         println!("censor: {:?}", nodes_to_censor);
-        let spec = SimpleCompress::new(|    d1: u16, d2: &u16| d1 + d2);
+        let spec = SimpleCompress::new(|d1: u16, d2: &u16| d1 + d2);
         let fixed = compress_graph(stranded, spec, graph2, Some(nodes_to_censor));
         fixed.print();
     }
