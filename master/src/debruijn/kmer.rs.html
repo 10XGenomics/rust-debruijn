@@ -873,6 +873,61 @@
 <span id="873">873</span>
 <span id="874">874</span>
 <span id="875">875</span>
+<span id="876">876</span>
+<span id="877">877</span>
+<span id="878">878</span>
+<span id="879">879</span>
+<span id="880">880</span>
+<span id="881">881</span>
+<span id="882">882</span>
+<span id="883">883</span>
+<span id="884">884</span>
+<span id="885">885</span>
+<span id="886">886</span>
+<span id="887">887</span>
+<span id="888">888</span>
+<span id="889">889</span>
+<span id="890">890</span>
+<span id="891">891</span>
+<span id="892">892</span>
+<span id="893">893</span>
+<span id="894">894</span>
+<span id="895">895</span>
+<span id="896">896</span>
+<span id="897">897</span>
+<span id="898">898</span>
+<span id="899">899</span>
+<span id="900">900</span>
+<span id="901">901</span>
+<span id="902">902</span>
+<span id="903">903</span>
+<span id="904">904</span>
+<span id="905">905</span>
+<span id="906">906</span>
+<span id="907">907</span>
+<span id="908">908</span>
+<span id="909">909</span>
+<span id="910">910</span>
+<span id="911">911</span>
+<span id="912">912</span>
+<span id="913">913</span>
+<span id="914">914</span>
+<span id="915">915</span>
+<span id="916">916</span>
+<span id="917">917</span>
+<span id="918">918</span>
+<span id="919">919</span>
+<span id="920">920</span>
+<span id="921">921</span>
+<span id="922">922</span>
+<span id="923">923</span>
+<span id="924">924</span>
+<span id="925">925</span>
+<span id="926">926</span>
+<span id="927">927</span>
+<span id="928">928</span>
+<span id="929">929</span>
+<span id="930">930</span>
 </pre><pre class="rust ">
 <span class="comment">// Copyright 2017 10x Genomics</span>
 
@@ -936,6 +991,9 @@
 <span class="doccomment">/// 32-base kmer, backed by a single u64</span>
 <span class="kw">pub</span> <span class="kw">type</span> <span class="ident">Kmer32</span> <span class="op">=</span> <span class="ident">IntKmer</span><span class="op">&lt;</span><span class="ident">u64</span><span class="op">&gt;</span>;
 
+<span class="doccomment">/// 30-base kmer, backed by a single u64</span>
+<span class="kw">pub</span> <span class="kw">type</span> <span class="ident">Kmer30</span> <span class="op">=</span> <span class="ident">VarIntKmer</span><span class="op">&lt;</span><span class="ident">u64</span>, <span class="ident">K30</span><span class="op">&gt;</span>;
+
 <span class="doccomment">/// 24-base kmer, backed by a single u64</span>
 <span class="kw">pub</span> <span class="kw">type</span> <span class="ident">Kmer24</span> <span class="op">=</span> <span class="ident">VarIntKmer</span><span class="op">&lt;</span><span class="ident">u64</span>, <span class="ident">K24</span><span class="op">&gt;</span>;
 
@@ -950,6 +1008,10 @@
 
 <span class="kw">pub</span> <span class="kw">type</span> <span class="ident">Kmer6</span> <span class="op">=</span> <span class="ident">VarIntKmer</span><span class="op">&lt;</span><span class="ident">u16</span>, <span class="ident">K6</span><span class="op">&gt;</span>;
 <span class="kw">pub</span> <span class="kw">type</span> <span class="ident">Kmer5</span> <span class="op">=</span> <span class="ident">VarIntKmer</span><span class="op">&lt;</span><span class="ident">u16</span>, <span class="ident">K5</span><span class="op">&gt;</span>;
+
+<span class="kw">pub</span> <span class="kw">type</span> <span class="ident">Kmer4</span> <span class="op">=</span> <span class="ident">IntKmer</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span>;
+<span class="kw">pub</span> <span class="kw">type</span> <span class="ident">Kmer3</span> <span class="op">=</span> <span class="ident">VarIntKmer</span><span class="op">&lt;</span><span class="ident">u8</span>, <span class="ident">K3</span><span class="op">&gt;</span>;
+<span class="kw">pub</span> <span class="kw">type</span> <span class="ident">Kmer2</span> <span class="op">=</span> <span class="ident">VarIntKmer</span><span class="op">&lt;</span><span class="ident">u8</span>, <span class="ident">K2</span><span class="op">&gt;</span>;
 
 <span class="doccomment">/// Trait for specialized integer operations used in DeBruijn Graph</span>
 <span class="kw">pub</span> <span class="kw">trait</span> <span class="ident">IntHelp</span>: <span class="ident">PrimInt</span> <span class="op">+</span> <span class="ident">FromPrimitive</span> {
@@ -1440,6 +1502,16 @@
     }
 }
 
+<span class="doccomment">/// Marker trait for generating K=40 Kmers</span>
+<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Hash</span>, <span class="ident">Copy</span>, <span class="ident">Clone</span>, <span class="ident">Ord</span>, <span class="ident">PartialOrd</span>, <span class="ident">Eq</span>, <span class="ident">PartialEq</span>)]</span>
+<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">K30</span>;
+
+<span class="kw">impl</span> <span class="ident">KmerSize</span> <span class="kw">for</span> <span class="ident">K30</span> {
+    <span class="kw">fn</span> <span class="ident">K</span>() <span class="op">-&gt;</span> <span class="ident">usize</span> {
+        <span class="number">30</span>
+    }
+}
+
 <span class="doccomment">/// Marker trait for generating K=24 Kmers</span>
 <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Hash</span>, <span class="ident">Copy</span>, <span class="ident">Clone</span>, <span class="ident">Ord</span>, <span class="ident">PartialOrd</span>, <span class="ident">Eq</span>, <span class="ident">PartialEq</span>)]</span>
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">K24</span>;
@@ -1482,6 +1554,37 @@
         <span class="number">5</span>
     }
 }
+<span class="doccomment">/// Marker trait for generating K=6 Kmers</span>
+<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Hash</span>, <span class="ident">Copy</span>, <span class="ident">Clone</span>, <span class="ident">Ord</span>, <span class="ident">PartialOrd</span>, <span class="ident">Eq</span>, <span class="ident">PartialEq</span>)]</span>
+<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">K4</span>;
+
+<span class="kw">impl</span> <span class="ident">KmerSize</span> <span class="kw">for</span> <span class="ident">K4</span> {
+    <span class="attribute">#[<span class="ident">inline</span>]</span>
+    <span class="kw">fn</span> <span class="ident">K</span>() <span class="op">-&gt;</span> <span class="ident">usize</span> {
+        <span class="number">4</span>
+    }
+}
+<span class="doccomment">/// Marker trait for generating K=6 Kmers</span>
+<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Hash</span>, <span class="ident">Copy</span>, <span class="ident">Clone</span>, <span class="ident">Ord</span>, <span class="ident">PartialOrd</span>, <span class="ident">Eq</span>, <span class="ident">PartialEq</span>)]</span>
+<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">K3</span>;
+
+<span class="kw">impl</span> <span class="ident">KmerSize</span> <span class="kw">for</span> <span class="ident">K3</span> {
+    <span class="attribute">#[<span class="ident">inline</span>]</span>
+    <span class="kw">fn</span> <span class="ident">K</span>() <span class="op">-&gt;</span> <span class="ident">usize</span> {
+        <span class="number">3</span>
+    }
+}
+<span class="doccomment">/// Marker trait for generating K=6 Kmers</span>
+<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Hash</span>, <span class="ident">Copy</span>, <span class="ident">Clone</span>, <span class="ident">Ord</span>, <span class="ident">PartialOrd</span>, <span class="ident">Eq</span>, <span class="ident">PartialEq</span>)]</span>
+<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">K2</span>;
+
+<span class="kw">impl</span> <span class="ident">KmerSize</span> <span class="kw">for</span> <span class="ident">K2</span> {
+    <span class="attribute">#[<span class="ident">inline</span>]</span>
+    <span class="kw">fn</span> <span class="ident">K</span>() <span class="op">-&gt;</span> <span class="ident">usize</span> {
+        <span class="number">2</span>
+    }
+}
+
 
 
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">test</span>)]</span>
@@ -1742,10 +1845,17 @@
         }
     }
 
-        <span class="attribute">#[<span class="ident">test</span>]</span>
+    <span class="attribute">#[<span class="ident">test</span>]</span>
     <span class="kw">fn</span> <span class="ident">test_kmer_5</span>() {
         <span class="kw">for</span> <span class="kw">_</span> <span class="kw">in</span> <span class="number">0</span>..<span class="number">10000</span> {
             <span class="ident">check_kmer</span>::<span class="op">&lt;</span><span class="ident">Kmer5</span><span class="op">&gt;</span>();
+        }
+    }
+
+    <span class="attribute">#[<span class="ident">test</span>]</span>
+    <span class="kw">fn</span> <span class="ident">test_kmer_4</span>() {
+        <span class="kw">for</span> <span class="kw">_</span> <span class="kw">in</span> <span class="number">0</span>..<span class="number">10000</span> {
+            <span class="ident">check_kmer</span>::<span class="op">&lt;</span><span class="ident">Kmer4</span><span class="op">&gt;</span>();
         }
     }
 }

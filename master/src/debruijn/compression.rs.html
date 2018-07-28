@@ -557,6 +557,69 @@
 <span id="557">557</span>
 <span id="558">558</span>
 <span id="559">559</span>
+<span id="560">560</span>
+<span id="561">561</span>
+<span id="562">562</span>
+<span id="563">563</span>
+<span id="564">564</span>
+<span id="565">565</span>
+<span id="566">566</span>
+<span id="567">567</span>
+<span id="568">568</span>
+<span id="569">569</span>
+<span id="570">570</span>
+<span id="571">571</span>
+<span id="572">572</span>
+<span id="573">573</span>
+<span id="574">574</span>
+<span id="575">575</span>
+<span id="576">576</span>
+<span id="577">577</span>
+<span id="578">578</span>
+<span id="579">579</span>
+<span id="580">580</span>
+<span id="581">581</span>
+<span id="582">582</span>
+<span id="583">583</span>
+<span id="584">584</span>
+<span id="585">585</span>
+<span id="586">586</span>
+<span id="587">587</span>
+<span id="588">588</span>
+<span id="589">589</span>
+<span id="590">590</span>
+<span id="591">591</span>
+<span id="592">592</span>
+<span id="593">593</span>
+<span id="594">594</span>
+<span id="595">595</span>
+<span id="596">596</span>
+<span id="597">597</span>
+<span id="598">598</span>
+<span id="599">599</span>
+<span id="600">600</span>
+<span id="601">601</span>
+<span id="602">602</span>
+<span id="603">603</span>
+<span id="604">604</span>
+<span id="605">605</span>
+<span id="606">606</span>
+<span id="607">607</span>
+<span id="608">608</span>
+<span id="609">609</span>
+<span id="610">610</span>
+<span id="611">611</span>
+<span id="612">612</span>
+<span id="613">613</span>
+<span id="614">614</span>
+<span id="615">615</span>
+<span id="616">616</span>
+<span id="617">617</span>
+<span id="618">618</span>
+<span id="619">619</span>
+<span id="620">620</span>
+<span id="621">621</span>
+<span id="622">622</span>
 </pre><pre class="rust ">
 <span class="comment">// Copyright 2017 10x Genomics</span>
 
@@ -570,6 +633,7 @@
 <span class="kw">use</span> <span class="ident">Vmer</span>;
 <span class="kw">use</span> <span class="ident">Dir</span>;
 <span class="kw">use</span> <span class="ident">Exts</span>;
+<span class="kw">use</span> <span class="ident">boomphf</span>::<span class="ident">hashmap</span>::<span class="ident">BoomHashMap2</span>;
 <span class="kw">use</span> <span class="ident">graph</span>::{<span class="ident">DebruijnGraph</span>, <span class="ident">BaseGraph</span>};
 <span class="kw">use</span> <span class="ident">dna_string</span>::<span class="ident">DnaString</span>;
 
@@ -623,250 +687,35 @@
     }
 }
 
-<span class="doccomment">/// Generate a compressed DeBruijn graph from a set of observed kmers</span>
-<span class="kw">struct</span> <span class="ident">CompressFromKmers</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span>, <span class="ident">K</span>: <span class="lifetime">&#39;a</span> <span class="op">+</span> <span class="ident">Kmer</span>, <span class="ident">D</span>: <span class="lifetime">&#39;a</span>, <span class="ident">S</span>: <span class="ident">CompressionSpec</span><span class="op">&lt;</span><span class="ident">D</span><span class="op">&gt;&gt;</span> {
-    <span class="ident">stranded</span>: <span class="ident">bool</span>,
-    <span class="ident">k</span>: <span class="ident">PhantomData</span><span class="op">&lt;</span><span class="ident">K</span><span class="op">&gt;</span>,
+<span class="comment">// Extending trait CompressionSpec for compression</span>
+<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">ScmapCompress</span><span class="op">&lt;</span><span class="ident">D</span><span class="op">&gt;</span> {
     <span class="ident">d</span>: <span class="ident">PhantomData</span><span class="op">&lt;</span><span class="ident">D</span><span class="op">&gt;</span>,
-    <span class="ident">spec</span>: <span class="ident">S</span>,
-    <span class="ident">available_kmers</span>: <span class="ident">BitSet</span>,
-    <span class="ident">kmer_exts</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a</span> <span class="ident">Vec</span><span class="op">&lt;</span>(<span class="ident">K</span>, (<span class="ident">Exts</span>, <span class="ident">D</span>))<span class="op">&gt;</span>,
 }
 
-<span class="doccomment">/// Compression of paths in Debruijn graph</span>
-<span class="kw">impl</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span>, <span class="ident">K</span>: <span class="ident">Kmer</span>, <span class="ident">D</span>: <span class="ident">Clone</span> <span class="op">+</span> <span class="ident">Debug</span>, <span class="ident">S</span>: <span class="ident">CompressionSpec</span><span class="op">&lt;</span><span class="ident">D</span><span class="op">&gt;&gt;</span> <span class="ident">CompressFromKmers</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span>, <span class="ident">K</span>, <span class="ident">D</span>, <span class="ident">S</span><span class="op">&gt;</span> {
-    <span class="kw">fn</span> <span class="ident">get_kmer_data</span>(<span class="kw-2">&amp;</span><span class="lifetime">&#39;a</span> <span class="self">self</span>, <span class="ident">kmer</span>: <span class="kw-2">&amp;</span><span class="ident">K</span>) <span class="op">-&gt;</span> <span class="kw-2">&amp;</span><span class="lifetime">&#39;a</span> (<span class="ident">Exts</span>, <span class="ident">D</span>) {
-        <span class="kw">let</span> <span class="ident">pos</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">kmer_exts</span>.<span class="ident">binary_search_by_key</span>(<span class="ident">kmer</span>, <span class="op">|</span><span class="ident">x</span><span class="op">|</span> <span class="ident">x</span>.<span class="number">0</span>).<span class="ident">expect</span>(
-            <span class="string">&quot;couldn&#39;t find kmer&quot;</span>,
-        );
-        <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">kmer_exts</span>[<span class="ident">pos</span>].<span class="number">1</span>
-    }
-
-    <span class="kw">fn</span> <span class="ident">get_kmer_id</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">kmer</span>: <span class="kw-2">&amp;</span><span class="ident">K</span>) <span class="op">-&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">usize</span>, <span class="ident">usize</span><span class="op">&gt;</span> {
-        <span class="self">self</span>.<span class="ident">kmer_exts</span>.<span class="ident">binary_search_by_key</span>(<span class="ident">kmer</span>, <span class="op">|</span><span class="ident">x</span><span class="op">|</span> <span class="ident">x</span>.<span class="number">0</span>)
-    }
-
-    <span class="doccomment">/// Attempt to extend kmer v in direction dir. Return:</span>
-    <span class="doccomment">///  - Unique(nextKmer, nextDir) if a single unique extension</span>
-    <span class="doccomment">///    is possible.  nextDir indicates the direction to extend nextMker</span>
-    <span class="doccomment">///    to preserve the direction of the extension.</span>
-    <span class="doccomment">/// - Term(ext) no unique extension possible, indicating the extensions at this end of the line</span>
-    <span class="kw">fn</span> <span class="ident">try_extend_kmer</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">kmer</span>: <span class="ident">K</span>, <span class="ident">dir</span>: <span class="ident">Dir</span>) <span class="op">-&gt;</span> <span class="ident">ExtMode</span><span class="op">&lt;</span><span class="ident">K</span><span class="op">&gt;</span> {
-
-        <span class="comment">// metadata of start kmer</span>
-        <span class="kw">let</span> <span class="kw-2">&amp;</span>(<span class="ident">exts</span>, <span class="kw-2">ref</span> <span class="ident">kmer_data</span>) <span class="op">=</span> <span class="self">self</span>.<span class="ident">get_kmer_data</span>(<span class="kw-2">&amp;</span><span class="ident">kmer</span>);
-
-        <span class="kw">if</span> <span class="ident">exts</span>.<span class="ident">num_ext_dir</span>(<span class="ident">dir</span>) <span class="op">!=</span> <span class="number">1</span> <span class="op">||</span> (<span class="op">!</span><span class="self">self</span>.<span class="ident">stranded</span> <span class="op">&amp;&amp;</span> <span class="ident">kmer</span>.<span class="ident">is_palindrome</span>()) {
-            <span class="ident">ExtMode</span>::<span class="ident">Terminal</span>(<span class="ident">exts</span>.<span class="ident">single_dir</span>(<span class="ident">dir</span>))
-        } <span class="kw">else</span> {
-            <span class="comment">// Get the next kmer</span>
-            <span class="kw">let</span> <span class="ident">ext_base</span> <span class="op">=</span> <span class="ident">exts</span>.<span class="ident">get_unique_extension</span>(<span class="ident">dir</span>).<span class="ident">expect</span>(<span class="string">&quot;should be unique&quot;</span>);
-
-            <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">next_kmer</span> <span class="op">=</span> <span class="ident">kmer</span>.<span class="ident">extend</span>(<span class="ident">ext_base</span>, <span class="ident">dir</span>);
-
-            <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">do_flip</span> <span class="op">=</span> <span class="bool-val">false</span>;
-
-            <span class="kw">if</span> <span class="op">!</span><span class="self">self</span>.<span class="ident">stranded</span> {
-                <span class="kw">let</span> <span class="ident">flip_rc</span> <span class="op">=</span> <span class="ident">next_kmer</span>.<span class="ident">min_rc_flip</span>();
-                <span class="ident">do_flip</span> <span class="op">=</span> <span class="ident">flip_rc</span>.<span class="number">1</span>;
-                <span class="ident">next_kmer</span> <span class="op">=</span> <span class="ident">flip_rc</span>.<span class="number">0</span>;
-            }
-
-            <span class="kw">let</span> <span class="ident">next_dir</span> <span class="op">=</span> <span class="ident">dir</span>.<span class="ident">cond_flip</span>(<span class="ident">do_flip</span>);
-            <span class="kw">let</span> <span class="ident">is_palindrome</span> <span class="op">=</span> <span class="op">!</span><span class="self">self</span>.<span class="ident">stranded</span> <span class="op">&amp;&amp;</span> <span class="ident">next_kmer</span>.<span class="ident">is_palindrome</span>();
-
-
-            <span class="comment">// We can include this kmer in the line if:</span>
-            <span class="comment">// a) it exists in the partition and is still unused</span>
-            <span class="comment">// b) the kmer we go to has a unique extension back in our direction</span>
-
-            <span class="comment">// Check condition a)</span>
-            <span class="kw">match</span> <span class="self">self</span>.<span class="ident">get_kmer_id</span>(<span class="kw-2">&amp;</span><span class="ident">next_kmer</span>) {
-                <span class="prelude-val">Ok</span>(<span class="ident">id</span>) <span class="kw">if</span> <span class="self">self</span>.<span class="ident">available_kmers</span>.<span class="ident">contains</span>(<span class="ident">id</span>) <span class="op">=&gt;</span> (),
-
-                <span class="comment">// This kmer isn&#39;t in this partition, or we&#39;ve already used it</span>
-                <span class="kw">_</span> <span class="op">=&gt;</span> <span class="kw">return</span> <span class="ident">ExtMode</span>::<span class="ident">Terminal</span>(<span class="ident">exts</span>.<span class="ident">single_dir</span>(<span class="ident">dir</span>))
-            }
-
-            <span class="comment">// Check condition b)</span>
-            <span class="comment">// Direction we&#39;re approaching the new kmer from</span>
-            <span class="kw">let</span> <span class="ident">new_incoming_dir</span> <span class="op">=</span> <span class="ident">dir</span>.<span class="ident">flip</span>().<span class="ident">cond_flip</span>(<span class="ident">do_flip</span>);
-            <span class="kw">let</span> <span class="ident">next_kmer_r</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">get_kmer_data</span>(<span class="kw-2">&amp;</span><span class="ident">next_kmer</span>);
-            <span class="kw">let</span> <span class="kw-2">&amp;</span>(<span class="ident">next_kmer_exts</span>, <span class="kw-2">ref</span> <span class="ident">next_kmer_data</span>) <span class="op">=</span> <span class="ident">next_kmer_r</span>;
-            <span class="kw">let</span> <span class="ident">incoming_count</span> <span class="op">=</span> <span class="ident">next_kmer_exts</span>.<span class="ident">num_ext_dir</span>(<span class="ident">new_incoming_dir</span>);
-            <span class="kw">let</span> <span class="ident">outgoing_exts</span> <span class="op">=</span> <span class="ident">next_kmer_exts</span>.<span class="ident">single_dir</span>(<span class="ident">new_incoming_dir</span>.<span class="ident">flip</span>());
-
-            <span class="comment">// Test if the spec let&#39;s us combine these into the same path</span>
-            <span class="kw">let</span> <span class="ident">can_join</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">spec</span>.<span class="ident">join_test</span>(<span class="ident">kmer_data</span>, <span class="ident">next_kmer_data</span>);
-
-            <span class="kw">if</span> <span class="ident">incoming_count</span> <span class="op">==</span> <span class="number">0</span> <span class="op">&amp;&amp;</span> <span class="op">!</span><span class="ident">is_palindrome</span> {
-                <span class="macro">panic</span><span class="macro">!</span>(<span class="string">&quot;unreachable&quot;</span>);
-            } <span class="kw">else</span> <span class="kw">if</span> <span class="ident">can_join</span> <span class="op">&amp;&amp;</span> <span class="ident">incoming_count</span> <span class="op">==</span> <span class="number">1</span> <span class="op">&amp;&amp;</span> <span class="op">!</span><span class="ident">is_palindrome</span> {
-                <span class="comment">// We have a unique path to next_kmer -- include it</span>
-                <span class="ident">ExtMode</span>::<span class="ident">Unique</span>(<span class="ident">next_kmer</span>, <span class="ident">next_dir</span>, <span class="ident">outgoing_exts</span>)
-            } <span class="kw">else</span> {
-                <span class="comment">// there&#39;s more than one path</span>
-                <span class="comment">// into the target kmer - don&#39;t include it</span>
-                <span class="ident">ExtMode</span>::<span class="ident">Terminal</span>(<span class="ident">exts</span>.<span class="ident">single_dir</span>(<span class="ident">dir</span>))
-            }
-        }
-    }
-
-
-    <span class="doccomment">/// Build the maximal line starting at kmer in direction dir, at most max_dist long.</span>
-    <span class="doccomment">/// Also return the extensions at the end of this line.</span>
-    <span class="doccomment">/// Sub-lines break if their extensions are not available in this shard</span>
-    <span class="attribute">#[<span class="ident">inline</span>(<span class="ident">never</span>)]</span>
-    <span class="kw">fn</span> <span class="ident">extend_kmer</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">kmer</span>: <span class="ident">K</span>, <span class="ident">start_dir</span>: <span class="ident">Dir</span>, <span class="ident">path</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">Vec</span><span class="op">&lt;</span>(<span class="ident">K</span>, <span class="ident">Dir</span>)<span class="op">&gt;</span>) <span class="op">-&gt;</span> <span class="ident">Exts</span> {
-
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">current_dir</span> <span class="op">=</span> <span class="ident">start_dir</span>;
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">current_kmer</span> <span class="op">=</span> <span class="ident">kmer</span>;
-        <span class="ident">path</span>.<span class="ident">clear</span>();
-
-        <span class="kw">let</span> <span class="ident">final_exts</span>: <span class="ident">Exts</span>; <span class="comment">// must get set below</span>
-
-        <span class="kw">let</span> <span class="ident">id</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">get_kmer_id</span>(<span class="kw-2">&amp;</span><span class="ident">kmer</span>).<span class="ident">expect</span>(<span class="string">&quot;should have this kmer&quot;</span>);
-        <span class="kw">let</span> <span class="kw">_</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">available_kmers</span>.<span class="ident">remove</span>(<span class="ident">id</span>);
-
-        <span class="kw">loop</span> {
-            <span class="kw">let</span> <span class="ident">ext_result</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">try_extend_kmer</span>(<span class="ident">current_kmer</span>, <span class="ident">current_dir</span>);
-
-            <span class="kw">match</span> <span class="ident">ext_result</span> {
-                <span class="ident">ExtMode</span>::<span class="ident">Unique</span>(<span class="ident">next_kmer</span>, <span class="ident">next_dir</span>, <span class="kw">_</span>) <span class="op">=&gt;</span> {
-                    <span class="ident">path</span>.<span class="ident">push</span>((<span class="ident">next_kmer</span>, <span class="ident">next_dir</span>));
-                    <span class="kw">let</span> <span class="ident">next_id</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">get_kmer_id</span>(<span class="kw-2">&amp;</span><span class="ident">next_kmer</span>).<span class="ident">expect</span>(<span class="string">&quot;should have this kmer&quot;</span>);
-                    <span class="self">self</span>.<span class="ident">available_kmers</span>.<span class="ident">remove</span>(<span class="ident">next_id</span>);
-                    <span class="ident">current_kmer</span> <span class="op">=</span> <span class="ident">next_kmer</span>;
-                    <span class="ident">current_dir</span> <span class="op">=</span> <span class="ident">next_dir</span>;
-                }
-                <span class="ident">ExtMode</span>::<span class="ident">Terminal</span>(<span class="ident">ext</span>) <span class="op">=&gt;</span> {
-                    <span class="ident">final_exts</span> <span class="op">=</span> <span class="ident">ext</span>;
-                    <span class="kw">break</span>;
-                }
-            }
-        }
-
-        <span class="ident">final_exts</span>
-    }
-
-
-    <span class="doccomment">/// Build the edge surrounding a kmer</span>
-    <span class="attribute">#[<span class="ident">inline</span>(<span class="ident">never</span>)]</span>
-    <span class="kw">fn</span> <span class="ident">build_node</span>(
-        <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>,
-        <span class="ident">seed</span>: <span class="ident">K</span>,
-        <span class="ident">path</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">Vec</span><span class="op">&lt;</span>(<span class="ident">K</span>, <span class="ident">Dir</span>)<span class="op">&gt;</span>,
-        <span class="ident">edge_seq</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">VecDeque</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span>,
-    ) <span class="op">-&gt;</span> (<span class="ident">Exts</span>, <span class="ident">D</span>) {
-
-        <span class="ident">edge_seq</span>.<span class="ident">clear</span>();
-        <span class="kw">for</span> <span class="ident">i</span> <span class="kw">in</span> <span class="number">0</span>..<span class="ident">K</span>::<span class="ident">k</span>() {
-            <span class="ident">edge_seq</span>.<span class="ident">push_back</span>(<span class="ident">seed</span>.<span class="ident">get</span>(<span class="ident">i</span>));
-        }
-
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">node_data</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">get_kmer_data</span>(<span class="kw-2">&amp;</span><span class="ident">seed</span>).<span class="number">1</span>.<span class="ident">clone</span>();
-
-        <span class="kw">let</span> <span class="ident">l_ext</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">extend_kmer</span>(<span class="ident">seed</span>, <span class="ident">Dir</span>::<span class="ident">Left</span>, <span class="ident">path</span>);
-
-        <span class="comment">// Add on the left path</span>
-        <span class="kw">for</span> <span class="kw-2">&amp;</span>(<span class="ident">next_kmer</span>, <span class="ident">dir</span>) <span class="kw">in</span> <span class="ident">path</span>.<span class="ident">iter</span>() {
-            <span class="kw">let</span> <span class="ident">kmer</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">dir</span> {
-                <span class="ident">Dir</span>::<span class="ident">Left</span> <span class="op">=&gt;</span> <span class="ident">next_kmer</span>,
-                <span class="ident">Dir</span>::<span class="ident">Right</span> <span class="op">=&gt;</span> <span class="ident">next_kmer</span>.<span class="ident">rc</span>(),
-            };
-
-            <span class="ident">edge_seq</span>.<span class="ident">push_front</span>(<span class="ident">kmer</span>.<span class="ident">get</span>(<span class="number">0</span>));
-
-            <span class="comment">// Reduce the data object</span>
-            <span class="kw">let</span> <span class="kw-2">&amp;</span>(<span class="kw">_</span>, <span class="kw-2">ref</span> <span class="ident">kmer_data</span>) <span class="op">=</span> <span class="self">self</span>.<span class="ident">get_kmer_data</span>(<span class="kw-2">&amp;</span><span class="ident">next_kmer</span>);
-            <span class="ident">node_data</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">spec</span>.<span class="ident">reduce</span>(<span class="ident">node_data</span>, <span class="ident">kmer_data</span>)
-        }
-
-        <span class="kw">let</span> <span class="ident">left_extend</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">path</span>.<span class="ident">last</span>() {
-            <span class="prelude-val">None</span> <span class="op">=&gt;</span> <span class="ident">l_ext</span>,
-            <span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span>(<span class="kw">_</span>, <span class="ident">Dir</span>::<span class="ident">Left</span>)) <span class="op">=&gt;</span> <span class="ident">l_ext</span>,
-            <span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span>(<span class="kw">_</span>, <span class="ident">Dir</span>::<span class="ident">Right</span>)) <span class="op">=&gt;</span> <span class="ident">l_ext</span>.<span class="ident">complement</span>(),
-        };
-
-        <span class="kw">let</span> <span class="ident">r_ext</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">extend_kmer</span>(<span class="ident">seed</span>, <span class="ident">Dir</span>::<span class="ident">Right</span>, <span class="ident">path</span>);
-
-        <span class="comment">// Add on the right path</span>
-        <span class="kw">for</span> <span class="kw-2">&amp;</span>(<span class="ident">next_kmer</span>, <span class="ident">dir</span>) <span class="kw">in</span> <span class="ident">path</span>.<span class="ident">iter</span>() {
-            <span class="kw">let</span> <span class="ident">kmer</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">dir</span> {
-                <span class="ident">Dir</span>::<span class="ident">Left</span> <span class="op">=&gt;</span> <span class="ident">next_kmer</span>.<span class="ident">rc</span>(),
-                <span class="ident">Dir</span>::<span class="ident">Right</span> <span class="op">=&gt;</span> <span class="ident">next_kmer</span>,
-            };
-
-            <span class="ident">edge_seq</span>.<span class="ident">push_back</span>(<span class="ident">kmer</span>.<span class="ident">get</span>(<span class="ident">K</span>::<span class="ident">k</span>() <span class="op">-</span> <span class="number">1</span>));
-
-            <span class="kw">let</span> <span class="kw-2">&amp;</span>(<span class="kw">_</span>, <span class="kw-2">ref</span> <span class="ident">kmer_data</span>) <span class="op">=</span> <span class="self">self</span>.<span class="ident">get_kmer_data</span>(<span class="kw-2">&amp;</span><span class="ident">next_kmer</span>);
-            <span class="ident">node_data</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">spec</span>.<span class="ident">reduce</span>(<span class="ident">node_data</span>, <span class="ident">kmer_data</span>)
-        }
-
-        <span class="kw">let</span> <span class="ident">right_extend</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">path</span>.<span class="ident">last</span>() {
-            <span class="prelude-val">None</span> <span class="op">=&gt;</span> <span class="ident">r_ext</span>,
-            <span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span>(<span class="kw">_</span>, <span class="ident">Dir</span>::<span class="ident">Left</span>)) <span class="op">=&gt;</span> <span class="ident">r_ext</span>.<span class="ident">complement</span>(),
-            <span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span>(<span class="kw">_</span>, <span class="ident">Dir</span>::<span class="ident">Right</span>)) <span class="op">=&gt;</span> <span class="ident">r_ext</span>,
-        };
-
-        (<span class="ident">Exts</span>::<span class="ident">from_single_dirs</span>(<span class="ident">left_extend</span>, <span class="ident">right_extend</span>), <span class="ident">node_data</span>)
-    }
-
-    <span class="doccomment">/// Compress a set of kmers and their extensions and metadata into a base DeBruijn graph.</span>
-    <span class="attribute">#[<span class="ident">inline</span>(<span class="ident">never</span>)]</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">compress_kmers</span>(
-        <span class="ident">stranded</span>: <span class="ident">bool</span>,
-        <span class="ident">spec</span>: <span class="ident">S</span>,
-        <span class="ident">kmer_exts</span>: <span class="kw-2">&amp;</span><span class="ident">Vec</span><span class="op">&lt;</span>(<span class="ident">K</span>, (<span class="ident">Exts</span>, <span class="ident">D</span>))<span class="op">&gt;</span>,
-    ) <span class="op">-&gt;</span> <span class="ident">BaseGraph</span><span class="op">&lt;</span><span class="ident">K</span>, <span class="ident">D</span><span class="op">&gt;</span> {
-
-        <span class="kw">let</span> <span class="ident">n_kmers</span> <span class="op">=</span> <span class="ident">kmer_exts</span>.<span class="ident">len</span>();
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">available_kmers</span> <span class="op">=</span> <span class="ident">BitSet</span>::<span class="ident">with_capacity</span>(<span class="ident">n_kmers</span>);
-        <span class="kw">for</span> <span class="ident">i</span> <span class="kw">in</span> <span class="number">0</span>..<span class="ident">n_kmers</span> {
-            <span class="ident">available_kmers</span>.<span class="ident">insert</span>(<span class="ident">i</span>);
-        }
-
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">comp</span> <span class="op">=</span> <span class="ident">CompressFromKmers</span> {
-            <span class="ident">stranded</span>: <span class="ident">stranded</span>,
-            <span class="ident">spec</span>: <span class="ident">spec</span>,
-            <span class="ident">k</span>: <span class="ident">PhantomData</span>,
+<span class="kw">impl</span><span class="op">&lt;</span><span class="ident">D</span><span class="op">&gt;</span> <span class="ident">ScmapCompress</span><span class="op">&lt;</span><span class="ident">D</span><span class="op">&gt;</span> {
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new</span>() <span class="op">-&gt;</span> <span class="ident">ScmapCompress</span><span class="op">&lt;</span><span class="ident">D</span><span class="op">&gt;</span> {
+        <span class="ident">ScmapCompress</span> {
             <span class="ident">d</span>: <span class="ident">PhantomData</span>,
-            <span class="ident">available_kmers</span>: <span class="ident">available_kmers</span>,
-            <span class="ident">kmer_exts</span>: <span class="ident">kmer_exts</span>,
-        };
-
-        <span class="comment">// Path-compressed De Bruijn graph will be created here</span>
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">graph</span> <span class="op">=</span> <span class="ident">BaseGraph</span>::<span class="ident">new</span>(<span class="ident">stranded</span>);
-
-        <span class="comment">// Paths will be get assembled here</span>
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">path_buf</span> <span class="op">=</span> <span class="ident">Vec</span>::<span class="ident">new</span>();
-
-        <span class="comment">// Node sequences will get assembled here</span>
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">edge_seq_buf</span> <span class="op">=</span> <span class="ident">VecDeque</span>::<span class="ident">new</span>();
-
-        <span class="kw">for</span> <span class="ident">kmer_counter</span> <span class="kw">in</span> <span class="number">0</span>..<span class="ident">n_kmers</span> {
-            <span class="kw">let</span> <span class="ident">start_kmer</span> <span class="op">=</span> <span class="ident">kmer_exts</span>[<span class="ident">kmer_counter</span>].<span class="number">0</span>.<span class="ident">clone</span>();
-            <span class="kw">if</span> <span class="ident">comp</span>.<span class="ident">available_kmers</span>.<span class="ident">contains</span>(<span class="ident">kmer_counter</span>) {
-                <span class="kw">let</span> (<span class="ident">node_exts</span>, <span class="ident">node_data</span>) <span class="op">=</span>
-                    <span class="ident">comp</span>.<span class="ident">build_node</span>(<span class="ident">start_kmer</span>, <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">path_buf</span>, <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">edge_seq_buf</span>);
-                <span class="ident">graph</span>.<span class="ident">add</span>(<span class="kw-2">&amp;</span><span class="ident">edge_seq_buf</span>, <span class="ident">node_exts</span>, <span class="ident">node_data</span>);
-            }
         }
-
-        <span class="ident">graph</span>
     }
 }
 
-<span class="doccomment">/// Take a set of kmers and their observed extensions and build a compressed DeBruijn graph.</span>
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">compress_kmers</span><span class="op">&lt;</span><span class="ident">K</span>: <span class="ident">Kmer</span>, <span class="ident">D</span>: <span class="ident">Clone</span> <span class="op">+</span> <span class="ident">Debug</span>, <span class="ident">S</span>: <span class="ident">CompressionSpec</span><span class="op">&lt;</span><span class="ident">D</span><span class="op">&gt;&gt;</span>(
-    <span class="ident">stranded</span>: <span class="ident">bool</span>,
-    <span class="ident">spec</span>: <span class="ident">S</span>,
-    <span class="ident">kmer_exts</span>: <span class="kw-2">&amp;</span><span class="ident">Vec</span><span class="op">&lt;</span>(<span class="ident">K</span>, (<span class="ident">Exts</span>, <span class="ident">D</span>))<span class="op">&gt;</span>,
-) <span class="op">-&gt;</span> <span class="ident">BaseGraph</span><span class="op">&lt;</span><span class="ident">K</span>, <span class="ident">D</span><span class="op">&gt;</span> {
-    <span class="ident">CompressFromKmers</span>::<span class="op">&lt;</span><span class="ident">K</span>, <span class="ident">D</span>, <span class="ident">S</span><span class="op">&gt;</span>::<span class="ident">compress_kmers</span>(<span class="ident">stranded</span>, <span class="ident">spec</span>, <span class="ident">kmer_exts</span>)
+<span class="kw">impl</span><span class="op">&lt;</span><span class="ident">D</span>: <span class="ident">PartialEq</span><span class="op">&gt;</span> <span class="ident">CompressionSpec</span><span class="op">&lt;</span><span class="ident">D</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">ScmapCompress</span><span class="op">&lt;</span><span class="ident">D</span><span class="op">&gt;</span>
+<span class="kw">where</span> <span class="ident">D</span>: <span class="ident">Debug</span>
+{
+    <span class="kw">fn</span> <span class="ident">reduce</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">d</span>: <span class="ident">D</span>, <span class="ident">other</span>: <span class="kw-2">&amp;</span><span class="ident">D</span>) <span class="op">-&gt;</span> <span class="ident">D</span> {
+        <span class="kw">if</span> <span class="ident">d</span> <span class="op">!=</span> <span class="kw-2">*</span><span class="ident">other</span> {
+            <span class="macro">panic</span><span class="macro">!</span>(<span class="string">&quot;{:?} != {:?}, Should not happen&quot;</span>, <span class="ident">d</span>, <span class="kw-2">*</span><span class="ident">other</span>);
+        }
+        <span class="ident">d</span>
+    }
+
+    <span class="kw">fn</span> <span class="ident">join_test</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">d1</span>: <span class="kw-2">&amp;</span><span class="ident">D</span>, <span class="ident">d2</span>: <span class="kw-2">&amp;</span><span class="ident">D</span>) <span class="op">-&gt;</span> <span class="ident">bool</span> {
+        <span class="kw">if</span> <span class="ident">d1</span> <span class="op">==</span> <span class="ident">d2</span> { <span class="bool-val">true</span> } <span class="kw">else</span> { <span class="bool-val">false</span> }
+    }
 }
 
-<span class="kw">struct</span> <span class="ident">CompressFromGraph</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span>, <span class="ident">K</span>: <span class="lifetime">&#39;a</span> <span class="op">+</span> <span class="ident">Kmer</span>, <span class="ident">D</span>: <span class="lifetime">&#39;a</span>, <span class="ident">S</span>: <span class="ident">CompressionSpec</span><span class="op">&lt;</span><span class="ident">D</span><span class="op">&gt;&gt;</span> {
+<span class="kw">struct</span> <span class="ident">CompressFromGraph</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span>, <span class="ident">K</span>: <span class="lifetime">&#39;a</span> <span class="op">+</span> <span class="ident">Kmer</span>, <span class="ident">D</span>: <span class="lifetime">&#39;a</span> <span class="op">+</span> <span class="ident">PartialEq</span>, <span class="ident">S</span>: <span class="ident">CompressionSpec</span><span class="op">&lt;</span><span class="ident">D</span><span class="op">&gt;&gt;</span> {
     <span class="ident">stranded</span>: <span class="ident">bool</span>,
     <span class="ident">d</span>: <span class="ident">PhantomData</span><span class="op">&lt;</span><span class="ident">D</span><span class="op">&gt;</span>,
     <span class="ident">spec</span>: <span class="ident">S</span>,
@@ -874,7 +723,8 @@
     <span class="ident">graph</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a</span> <span class="ident">DebruijnGraph</span><span class="op">&lt;</span><span class="ident">K</span>, <span class="ident">D</span><span class="op">&gt;</span>,
 }
 
-<span class="kw">impl</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span>, <span class="ident">K</span>: <span class="ident">Kmer</span>, <span class="ident">D</span>: <span class="ident">Debug</span> <span class="op">+</span> <span class="ident">Clone</span>, <span class="ident">S</span>: <span class="ident">CompressionSpec</span><span class="op">&lt;</span><span class="ident">D</span><span class="op">&gt;&gt;</span> <span class="ident">CompressFromGraph</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span>, <span class="ident">K</span>, <span class="ident">D</span>, <span class="ident">S</span><span class="op">&gt;</span> {
+<span class="kw">impl</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span>, <span class="ident">K</span>, <span class="ident">D</span>, <span class="ident">S</span><span class="op">&gt;</span> <span class="ident">CompressFromGraph</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span>, <span class="ident">K</span>, <span class="ident">D</span>, <span class="ident">S</span><span class="op">&gt;</span>
+<span class="kw">where</span> <span class="ident">K</span>: <span class="ident">Kmer</span> <span class="op">+</span> <span class="ident">Send</span> <span class="op">+</span> <span class="ident">Sync</span>, <span class="ident">D</span>: <span class="ident">Debug</span> <span class="op">+</span> <span class="ident">Clone</span> <span class="op">+</span> <span class="ident">PartialEq</span>, <span class="ident">S</span>: <span class="ident">CompressionSpec</span><span class="op">&lt;</span><span class="ident">D</span><span class="op">&gt;</span> {
     <span class="attribute">#[<span class="ident">inline</span>(<span class="ident">never</span>)]</span>
     <span class="kw">fn</span> <span class="ident">try_extend_node</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">node</span>: <span class="ident">usize</span>, <span class="ident">dir</span>: <span class="ident">Dir</span>) <span class="op">-&gt;</span> <span class="ident">ExtModeNode</span> {
 
@@ -934,13 +784,16 @@
             <span class="comment">// a) it exists in the partition, and is still unused</span>
             <span class="comment">// b) the kmer we go to has a unique extension back in our direction</span>
             <span class="comment">// c) the new edge is not of length K and a palindrome</span>
+            <span class="comment">// d) the color of the current and next node is same</span>
 
             <span class="kw">if</span> <span class="op">!</span><span class="self">self</span>.<span class="ident">available_nodes</span>.<span class="ident">contains</span>(<span class="ident">next_node_id</span>) <span class="op">||</span>
-                (<span class="op">!</span><span class="self">self</span>.<span class="ident">stranded</span> <span class="op">&amp;&amp;</span> <span class="ident">next_kmer</span>.<span class="ident">is_palindrome</span>())
+                (<span class="op">!</span><span class="self">self</span>.<span class="ident">stranded</span> <span class="op">&amp;&amp;</span> <span class="ident">next_kmer</span>.<span class="ident">is_palindrome</span>()) <span class="op">||</span>
+                <span class="op">!</span><span class="self">self</span>.<span class="ident">spec</span>.<span class="ident">join_test</span>(<span class="ident">node</span>.<span class="ident">data</span>(), <span class="ident">next_node</span>.<span class="ident">data</span>())
             {
                 <span class="comment">// Next kmer isn&#39;t in this partition,</span>
                 <span class="comment">// or we&#39;ve already used it,</span>
                 <span class="comment">// or it&#39;s palindrom and we are not stranded</span>
+                <span class="comment">// or the colors were not same</span>
                 <span class="kw">return</span> <span class="ident">ExtModeNode</span>::<span class="ident">Terminal</span>(<span class="ident">exts</span>.<span class="ident">single_dir</span>(<span class="ident">dir</span>));
             }
 
@@ -954,7 +807,7 @@
                 <span class="macro">println</span><span class="macro">!</span>(<span class="string">&quot;dir: {:?}, Lmer: {:?}, exts: {:?}&quot;</span>, <span class="ident">dir</span>, <span class="ident">bases</span>, <span class="ident">exts</span>);
                 <span class="macro">println</span><span class="macro">!</span>(<span class="string">&quot;end kmer: {:?}&quot;</span>, <span class="ident">end_kmer</span>);
                 <span class="macro">println</span><span class="macro">!</span>(<span class="string">&quot;next_node: {:?}&quot;</span>, <span class="ident">next_node</span>);
-
+                <span class="macro">println</span><span class="macro">!</span>(<span class="string">&quot;next_node data: {:?}&quot;</span>, <span class="ident">next_node</span>.<span class="ident">sequence</span>());
                 <span class="macro">panic</span><span class="macro">!</span>(<span class="string">&quot;unreachable&quot;</span>);
             } <span class="kw">else</span> <span class="kw">if</span> <span class="ident">incoming_count</span> <span class="op">==</span> <span class="number">1</span> {
                 <span class="comment">// We have a unique path to next_kmer -- include it</span>
@@ -1109,13 +962,286 @@
 }
 
 <span class="doccomment">/// Perform path-compression on a (possibly partially compressed) DeBruijn graph</span>
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">compress_graph</span><span class="op">&lt;</span><span class="ident">K</span>: <span class="ident">Kmer</span>, <span class="ident">D</span>: <span class="ident">Clone</span> <span class="op">+</span> <span class="ident">Debug</span>, <span class="ident">S</span>: <span class="ident">CompressionSpec</span><span class="op">&lt;</span><span class="ident">D</span><span class="op">&gt;&gt;</span>(
+<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">compress_graph</span><span class="op">&lt;</span><span class="ident">K</span>: <span class="ident">Kmer</span> <span class="op">+</span> <span class="ident">Send</span> <span class="op">+</span> <span class="ident">Sync</span>, <span class="ident">D</span>: <span class="ident">Clone</span> <span class="op">+</span> <span class="ident">Debug</span> <span class="op">+</span> <span class="ident">PartialEq</span>, <span class="ident">S</span>: <span class="ident">CompressionSpec</span><span class="op">&lt;</span><span class="ident">D</span><span class="op">&gt;&gt;</span>(
     <span class="ident">stranded</span>: <span class="ident">bool</span>,
     <span class="ident">spec</span>: <span class="ident">S</span>,
     <span class="ident">old_graph</span>: <span class="ident">DebruijnGraph</span><span class="op">&lt;</span><span class="ident">K</span>, <span class="ident">D</span><span class="op">&gt;</span>,
     <span class="ident">censor_nodes</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">usize</span><span class="op">&gt;&gt;</span>,
 ) <span class="op">-&gt;</span> <span class="ident">DebruijnGraph</span><span class="op">&lt;</span><span class="ident">K</span>, <span class="ident">D</span><span class="op">&gt;</span> {
     <span class="ident">CompressFromGraph</span>::<span class="op">&lt;</span><span class="ident">K</span>, <span class="ident">D</span>, <span class="ident">S</span><span class="op">&gt;</span>::<span class="ident">compress_graph</span>(<span class="ident">stranded</span>, <span class="ident">spec</span>, <span class="ident">old_graph</span>, <span class="ident">censor_nodes</span>)
+}
+
+
+<span class="comment">//////////////////////////////</span>
+<span class="comment">// Compress from Hash a new Struct</span>
+<span class="comment">//////////////////////////////</span>
+<span class="doccomment">/// Generate a compressed DeBruijn graph from hash_index</span>
+<span class="kw">struct</span> <span class="ident">CompressFromHash</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span>, <span class="ident">K</span>: <span class="lifetime">&#39;a</span> <span class="op">+</span> <span class="ident">Kmer</span>, <span class="ident">D</span>: <span class="lifetime">&#39;a</span>, <span class="ident">S</span>: <span class="ident">CompressionSpec</span><span class="op">&lt;</span><span class="ident">D</span><span class="op">&gt;&gt;</span> {
+    <span class="ident">stranded</span>: <span class="ident">bool</span>,
+    <span class="ident">k</span>: <span class="ident">PhantomData</span><span class="op">&lt;</span><span class="ident">K</span><span class="op">&gt;</span>,
+    <span class="ident">d</span>: <span class="ident">PhantomData</span><span class="op">&lt;</span><span class="ident">D</span><span class="op">&gt;</span>,
+    <span class="ident">spec</span>: <span class="ident">S</span>,
+    <span class="ident">available_kmers</span>: <span class="ident">BitSet</span>,
+    <span class="ident">index</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a</span> <span class="ident">BoomHashMap2</span><span class="op">&lt;</span><span class="ident">K</span>, <span class="ident">Exts</span>, <span class="ident">D</span><span class="op">&gt;</span>,
+}
+
+<span class="doccomment">/// Compression of paths in Debruijn graph</span>
+<span class="kw">impl</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span>, <span class="ident">K</span>: <span class="ident">Kmer</span>, <span class="ident">D</span>: <span class="ident">Clone</span> <span class="op">+</span> <span class="ident">Debug</span>, <span class="ident">S</span>: <span class="ident">CompressionSpec</span><span class="op">&lt;</span><span class="ident">D</span><span class="op">&gt;&gt;</span> <span class="ident">CompressFromHash</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span>, <span class="ident">K</span>, <span class="ident">D</span>, <span class="ident">S</span><span class="op">&gt;</span> {
+    <span class="kw">fn</span> <span class="ident">get_kmer_data</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">kmer</span>: <span class="kw-2">&amp;</span><span class="ident">K</span>) <span class="op">-&gt;</span> (<span class="kw-2">&amp;</span><span class="ident">Exts</span>, <span class="kw-2">&amp;</span><span class="ident">D</span>) {
+        <span class="kw">match</span> <span class="self">self</span>.<span class="ident">index</span>.<span class="ident">get</span>(<span class="ident">kmer</span>) {
+            <span class="prelude-val">Some</span>(<span class="ident">data</span>) <span class="op">=&gt;</span> <span class="ident">data</span>,
+            <span class="prelude-val">None</span> <span class="op">=&gt;</span> <span class="macro">panic</span><span class="macro">!</span>(<span class="string">&quot;couldn&#39;t find kmer {:?}&quot;</span>, <span class="ident">kmer</span>),
+        }
+    }
+
+    <span class="kw">fn</span> <span class="ident">get_kmer_id</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">kmer</span>: <span class="kw-2">&amp;</span><span class="ident">K</span>) <span class="op">-&gt;</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">usize</span><span class="op">&gt;</span> {
+        <span class="self">self</span>.<span class="ident">index</span>.<span class="ident">get_key_id</span>(<span class="ident">kmer</span>).<span class="ident">map_or</span>(<span class="prelude-val">None</span>, <span class="op">|</span><span class="ident">v</span><span class="op">|</span> <span class="prelude-val">Some</span>(<span class="ident">v</span> <span class="kw">as</span> <span class="ident">usize</span>))
+    }
+
+    <span class="doccomment">/// Attempt to extend kmer v in direction dir. Return:</span>
+    <span class="doccomment">///  - Unique(nextKmer, nextDir) if a single unique extension</span>
+    <span class="doccomment">///    is possible.  nextDir indicates the direction to extend nextMker</span>
+    <span class="doccomment">///    to preserve the direction of the extension.</span>
+    <span class="doccomment">/// - Term(ext) no unique extension possible, indicating the extensions at this end of the line</span>
+    <span class="kw">fn</span> <span class="ident">try_extend_kmer</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">kmer</span>: <span class="ident">K</span>, <span class="ident">dir</span>: <span class="ident">Dir</span>) <span class="op">-&gt;</span> <span class="ident">ExtMode</span><span class="op">&lt;</span><span class="ident">K</span><span class="op">&gt;</span> {
+
+        <span class="comment">// metadata of start kmer</span>
+        <span class="kw">let</span> (<span class="ident">exts</span>, <span class="kw-2">ref</span> <span class="ident">kmer_data</span>) <span class="op">=</span> <span class="self">self</span>.<span class="ident">get_kmer_data</span>(<span class="kw-2">&amp;</span><span class="ident">kmer</span>);
+
+        <span class="kw">if</span> <span class="ident">exts</span>.<span class="ident">num_ext_dir</span>(<span class="ident">dir</span>) <span class="op">!=</span> <span class="number">1</span> <span class="op">||</span> (<span class="op">!</span><span class="self">self</span>.<span class="ident">stranded</span> <span class="op">&amp;&amp;</span> <span class="ident">kmer</span>.<span class="ident">is_palindrome</span>()) {
+            <span class="ident">ExtMode</span>::<span class="ident">Terminal</span>(<span class="ident">exts</span>.<span class="ident">single_dir</span>(<span class="ident">dir</span>))
+        } <span class="kw">else</span> {
+            <span class="comment">// Get the next kmer</span>
+            <span class="kw">let</span> <span class="ident">ext_base</span> <span class="op">=</span> <span class="ident">exts</span>.<span class="ident">get_unique_extension</span>(<span class="ident">dir</span>).<span class="ident">expect</span>(<span class="string">&quot;should be unique&quot;</span>);
+
+            <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">next_kmer</span> <span class="op">=</span> <span class="ident">kmer</span>.<span class="ident">extend</span>(<span class="ident">ext_base</span>, <span class="ident">dir</span>);
+
+            <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">do_flip</span> <span class="op">=</span> <span class="bool-val">false</span>;
+
+            <span class="kw">if</span> <span class="op">!</span><span class="self">self</span>.<span class="ident">stranded</span> {
+                <span class="kw">let</span> <span class="ident">flip_rc</span> <span class="op">=</span> <span class="ident">next_kmer</span>.<span class="ident">min_rc_flip</span>();
+                <span class="ident">do_flip</span> <span class="op">=</span> <span class="ident">flip_rc</span>.<span class="number">1</span>;
+                <span class="ident">next_kmer</span> <span class="op">=</span> <span class="ident">flip_rc</span>.<span class="number">0</span>;
+            }
+
+            <span class="kw">let</span> <span class="ident">next_dir</span> <span class="op">=</span> <span class="ident">dir</span>.<span class="ident">cond_flip</span>(<span class="ident">do_flip</span>);
+            <span class="kw">let</span> <span class="ident">is_palindrome</span> <span class="op">=</span> <span class="op">!</span><span class="self">self</span>.<span class="ident">stranded</span> <span class="op">&amp;&amp;</span> <span class="ident">next_kmer</span>.<span class="ident">is_palindrome</span>();
+
+
+            <span class="comment">// We can include this kmer in the line if:</span>
+            <span class="comment">// a) it exists in the partition and is still unused</span>
+            <span class="comment">// b) the kmer we go to has a unique extension back in our direction</span>
+
+            <span class="comment">// Check condition a)</span>
+            <span class="kw">match</span> <span class="self">self</span>.<span class="ident">get_kmer_id</span>(<span class="kw-2">&amp;</span><span class="ident">next_kmer</span>) {
+                <span class="prelude-val">Some</span>(<span class="ident">id</span>) <span class="kw">if</span> <span class="self">self</span>.<span class="ident">available_kmers</span>.<span class="ident">contains</span>(<span class="ident">id</span>) <span class="op">=&gt;</span> (),
+
+                <span class="comment">// This kmer isn&#39;t in this partition, or we&#39;ve already used it</span>
+                <span class="kw">_</span> <span class="op">=&gt;</span> <span class="kw">return</span> <span class="ident">ExtMode</span>::<span class="ident">Terminal</span>(<span class="ident">exts</span>.<span class="ident">single_dir</span>(<span class="ident">dir</span>))
+            }
+
+            <span class="comment">// Check condition b)</span>
+            <span class="comment">// Direction we&#39;re approaching the new kmer from</span>
+            <span class="kw">let</span> <span class="ident">new_incoming_dir</span> <span class="op">=</span> <span class="ident">dir</span>.<span class="ident">flip</span>().<span class="ident">cond_flip</span>(<span class="ident">do_flip</span>);
+            <span class="kw">let</span> <span class="ident">next_kmer_r</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">get_kmer_data</span>(<span class="kw-2">&amp;</span><span class="ident">next_kmer</span>);
+            <span class="kw">let</span> (<span class="ident">next_kmer_exts</span>, <span class="kw-2">ref</span> <span class="ident">next_kmer_data</span>) <span class="op">=</span> <span class="ident">next_kmer_r</span>;
+            <span class="kw">let</span> <span class="ident">incoming_count</span> <span class="op">=</span> <span class="ident">next_kmer_exts</span>.<span class="ident">num_ext_dir</span>(<span class="ident">new_incoming_dir</span>);
+            <span class="kw">let</span> <span class="ident">outgoing_exts</span> <span class="op">=</span> <span class="ident">next_kmer_exts</span>.<span class="ident">single_dir</span>(<span class="ident">new_incoming_dir</span>.<span class="ident">flip</span>());
+
+            <span class="comment">// Test if the spec let&#39;s us combine these into the same path</span>
+            <span class="kw">let</span> <span class="ident">can_join</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">spec</span>.<span class="ident">join_test</span>(<span class="ident">kmer_data</span>, <span class="ident">next_kmer_data</span>);
+
+            <span class="kw">if</span> <span class="ident">incoming_count</span> <span class="op">==</span> <span class="number">0</span> <span class="op">&amp;&amp;</span> <span class="op">!</span><span class="ident">is_palindrome</span> {
+                <span class="macro">println</span><span class="macro">!</span>(<span class="string">&quot;{:?}, {:?}, {:?}&quot;</span>, <span class="ident">kmer</span>, <span class="ident">exts</span>, <span class="ident">kmer_data</span>);
+                <span class="macro">println</span><span class="macro">!</span>(<span class="string">&quot;{:?}, {:?}, {:?}&quot;</span>, <span class="ident">next_kmer</span>, <span class="ident">next_kmer_exts</span>, <span class="ident">next_kmer_data</span>);
+                <span class="macro">panic</span><span class="macro">!</span>(<span class="string">&quot;unreachable&quot;</span>);
+            } <span class="kw">else</span> <span class="kw">if</span> <span class="ident">can_join</span> <span class="op">&amp;&amp;</span> <span class="ident">incoming_count</span> <span class="op">==</span> <span class="number">1</span> <span class="op">&amp;&amp;</span> <span class="op">!</span><span class="ident">is_palindrome</span> {
+                <span class="comment">// We have a unique path to next_kmer -- include it</span>
+                <span class="ident">ExtMode</span>::<span class="ident">Unique</span>(<span class="ident">next_kmer</span>, <span class="ident">next_dir</span>, <span class="ident">outgoing_exts</span>)
+            } <span class="kw">else</span> {
+                <span class="comment">// there&#39;s more than one path</span>
+                <span class="comment">// into the target kmer - don&#39;t include it</span>
+                <span class="ident">ExtMode</span>::<span class="ident">Terminal</span>(<span class="ident">exts</span>.<span class="ident">single_dir</span>(<span class="ident">dir</span>))
+            }
+        }
+    }
+
+
+    <span class="doccomment">/// Build the maximal line starting at kmer in direction dir, at most max_dist long.</span>
+    <span class="doccomment">/// Also return the extensions at the end of this line.</span>
+    <span class="doccomment">/// Sub-lines break if their extensions are not available in this shard</span>
+    <span class="attribute">#[<span class="ident">inline</span>(<span class="ident">never</span>)]</span>
+    <span class="kw">fn</span> <span class="ident">extend_kmer</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">kmer</span>: <span class="ident">K</span>, <span class="ident">start_dir</span>: <span class="ident">Dir</span>, <span class="ident">path</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">Vec</span><span class="op">&lt;</span>(<span class="ident">K</span>, <span class="ident">Dir</span>)<span class="op">&gt;</span>) <span class="op">-&gt;</span> <span class="ident">Exts</span> {
+
+        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">current_dir</span> <span class="op">=</span> <span class="ident">start_dir</span>;
+        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">current_kmer</span> <span class="op">=</span> <span class="ident">kmer</span>;
+        <span class="ident">path</span>.<span class="ident">clear</span>();
+
+        <span class="kw">let</span> <span class="ident">final_exts</span>: <span class="ident">Exts</span>; <span class="comment">// must get set below</span>
+
+        <span class="kw">let</span> <span class="ident">id</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">get_kmer_id</span>(<span class="kw-2">&amp;</span><span class="ident">kmer</span>).<span class="ident">expect</span>(<span class="string">&quot;should have this kmer&quot;</span>);
+        <span class="kw">let</span> <span class="kw">_</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">available_kmers</span>.<span class="ident">remove</span>(<span class="ident">id</span>);
+
+        <span class="kw">loop</span> {
+            <span class="kw">let</span> <span class="ident">ext_result</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">try_extend_kmer</span>(<span class="ident">current_kmer</span>, <span class="ident">current_dir</span>);
+
+            <span class="kw">match</span> <span class="ident">ext_result</span> {
+                <span class="ident">ExtMode</span>::<span class="ident">Unique</span>(<span class="ident">next_kmer</span>, <span class="ident">next_dir</span>, <span class="kw">_</span>) <span class="op">=&gt;</span> {
+                    <span class="ident">path</span>.<span class="ident">push</span>((<span class="ident">next_kmer</span>, <span class="ident">next_dir</span>));
+                    <span class="kw">let</span> <span class="ident">next_id</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">get_kmer_id</span>(<span class="kw-2">&amp;</span><span class="ident">next_kmer</span>).<span class="ident">expect</span>(<span class="string">&quot;should have this kmer&quot;</span>);
+                    <span class="self">self</span>.<span class="ident">available_kmers</span>.<span class="ident">remove</span>(<span class="ident">next_id</span>);
+                    <span class="ident">current_kmer</span> <span class="op">=</span> <span class="ident">next_kmer</span>;
+                    <span class="ident">current_dir</span> <span class="op">=</span> <span class="ident">next_dir</span>;
+                }
+                <span class="ident">ExtMode</span>::<span class="ident">Terminal</span>(<span class="ident">ext</span>) <span class="op">=&gt;</span> {
+                    <span class="ident">final_exts</span> <span class="op">=</span> <span class="ident">ext</span>;
+                    <span class="kw">break</span>;
+                }
+            }
+        }
+
+        <span class="ident">final_exts</span>
+    }
+
+
+    <span class="doccomment">/// Build the edge surrounding a kmer</span>
+    <span class="attribute">#[<span class="ident">inline</span>(<span class="ident">never</span>)]</span>
+    <span class="kw">fn</span> <span class="ident">build_node</span>(
+        <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>,
+        <span class="ident">seed_id</span>: <span class="ident">usize</span>,
+        <span class="ident">path</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">Vec</span><span class="op">&lt;</span>(<span class="ident">K</span>, <span class="ident">Dir</span>)<span class="op">&gt;</span>,
+        <span class="ident">edge_seq</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">VecDeque</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span>,
+    ) <span class="op">-&gt;</span> (<span class="ident">Exts</span>, <span class="ident">D</span>) {
+
+        <span class="kw">let</span> <span class="ident">seed</span>: <span class="ident">K</span> <span class="op">=</span> <span class="kw-2">*</span><span class="self">self</span>.<span class="ident">index</span>.<span class="ident">get_key</span>(<span class="ident">seed_id</span>).<span class="ident">expect</span>(<span class="string">&quot;Index out of bound&quot;</span>);
+        <span class="ident">edge_seq</span>.<span class="ident">clear</span>();
+        <span class="kw">for</span> <span class="ident">i</span> <span class="kw">in</span> <span class="number">0</span>..<span class="ident">K</span>::<span class="ident">k</span>() {
+            <span class="ident">edge_seq</span>.<span class="ident">push_back</span>(<span class="ident">seed</span>.<span class="ident">get</span>(<span class="ident">i</span>));
+        }
+
+        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">node_data</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">get_kmer_data</span>(<span class="kw-2">&amp;</span><span class="ident">seed</span>).<span class="number">1</span>.<span class="ident">clone</span>();
+
+        <span class="kw">let</span> <span class="ident">l_ext</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">extend_kmer</span>(<span class="ident">seed</span>, <span class="ident">Dir</span>::<span class="ident">Left</span>, <span class="ident">path</span>);
+
+        <span class="comment">// Add on the left path</span>
+        <span class="kw">for</span> <span class="kw-2">&amp;</span>(<span class="ident">next_kmer</span>, <span class="ident">dir</span>) <span class="kw">in</span> <span class="ident">path</span>.<span class="ident">iter</span>() {
+            <span class="kw">let</span> <span class="ident">kmer</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">dir</span> {
+                <span class="ident">Dir</span>::<span class="ident">Left</span> <span class="op">=&gt;</span> <span class="ident">next_kmer</span>,
+                <span class="ident">Dir</span>::<span class="ident">Right</span> <span class="op">=&gt;</span> <span class="ident">next_kmer</span>.<span class="ident">rc</span>(),
+            };
+
+            <span class="ident">edge_seq</span>.<span class="ident">push_front</span>(<span class="ident">kmer</span>.<span class="ident">get</span>(<span class="number">0</span>));
+
+            <span class="comment">// Reduce the data object</span>
+            <span class="kw">let</span> (<span class="kw">_</span>, <span class="kw-2">ref</span> <span class="ident">kmer_data</span>) <span class="op">=</span> <span class="self">self</span>.<span class="ident">get_kmer_data</span>(<span class="kw-2">&amp;</span><span class="ident">next_kmer</span>);
+            <span class="ident">node_data</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">spec</span>.<span class="ident">reduce</span>(<span class="ident">node_data</span>, <span class="ident">kmer_data</span>)
+        }
+
+        <span class="kw">let</span> <span class="ident">left_extend</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">path</span>.<span class="ident">last</span>() {
+            <span class="prelude-val">None</span> <span class="op">=&gt;</span> <span class="ident">l_ext</span>,
+            <span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span>(<span class="kw">_</span>, <span class="ident">Dir</span>::<span class="ident">Left</span>)) <span class="op">=&gt;</span> <span class="ident">l_ext</span>,
+            <span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span>(<span class="kw">_</span>, <span class="ident">Dir</span>::<span class="ident">Right</span>)) <span class="op">=&gt;</span> <span class="ident">l_ext</span>.<span class="ident">complement</span>(),
+        };
+
+        <span class="kw">let</span> <span class="ident">r_ext</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">extend_kmer</span>(<span class="ident">seed</span>, <span class="ident">Dir</span>::<span class="ident">Right</span>, <span class="ident">path</span>);
+
+        <span class="comment">// Add on the right path</span>
+        <span class="kw">for</span> <span class="kw-2">&amp;</span>(<span class="ident">next_kmer</span>, <span class="ident">dir</span>) <span class="kw">in</span> <span class="ident">path</span>.<span class="ident">iter</span>() {
+            <span class="kw">let</span> <span class="ident">kmer</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">dir</span> {
+                <span class="ident">Dir</span>::<span class="ident">Left</span> <span class="op">=&gt;</span> <span class="ident">next_kmer</span>.<span class="ident">rc</span>(),
+                <span class="ident">Dir</span>::<span class="ident">Right</span> <span class="op">=&gt;</span> <span class="ident">next_kmer</span>,
+            };
+
+            <span class="ident">edge_seq</span>.<span class="ident">push_back</span>(<span class="ident">kmer</span>.<span class="ident">get</span>(<span class="ident">K</span>::<span class="ident">k</span>() <span class="op">-</span> <span class="number">1</span>));
+
+            <span class="kw">let</span> (<span class="kw">_</span>, <span class="kw-2">ref</span> <span class="ident">kmer_data</span>) <span class="op">=</span> <span class="self">self</span>.<span class="ident">get_kmer_data</span>(<span class="kw-2">&amp;</span><span class="ident">next_kmer</span>);
+            <span class="ident">node_data</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">spec</span>.<span class="ident">reduce</span>(<span class="ident">node_data</span>, <span class="ident">kmer_data</span>)
+        }
+
+        <span class="kw">let</span> <span class="ident">right_extend</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">path</span>.<span class="ident">last</span>() {
+            <span class="prelude-val">None</span> <span class="op">=&gt;</span> <span class="ident">r_ext</span>,
+            <span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span>(<span class="kw">_</span>, <span class="ident">Dir</span>::<span class="ident">Left</span>)) <span class="op">=&gt;</span> <span class="ident">r_ext</span>.<span class="ident">complement</span>(),
+            <span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span>(<span class="kw">_</span>, <span class="ident">Dir</span>::<span class="ident">Right</span>)) <span class="op">=&gt;</span> <span class="ident">r_ext</span>,
+        };
+
+        (<span class="ident">Exts</span>::<span class="ident">from_single_dirs</span>(<span class="ident">left_extend</span>, <span class="ident">right_extend</span>), <span class="ident">node_data</span>)
+    }
+
+    <span class="doccomment">/// Compress a set of kmers and their extensions and metadata into a base DeBruijn graph.</span>
+    <span class="attribute">#[<span class="ident">inline</span>(<span class="ident">never</span>)]</span>
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">compress_kmers</span>(
+        <span class="ident">stranded</span>: <span class="ident">bool</span>,
+        <span class="ident">spec</span>: <span class="ident">S</span>,
+        <span class="ident">index</span>: <span class="kw-2">&amp;</span><span class="ident">BoomHashMap2</span><span class="op">&lt;</span><span class="ident">K</span>, <span class="ident">Exts</span>, <span class="ident">D</span><span class="op">&gt;</span>,
+    ) <span class="op">-&gt;</span> <span class="ident">BaseGraph</span><span class="op">&lt;</span><span class="ident">K</span>, <span class="ident">D</span><span class="op">&gt;</span> {
+
+        <span class="kw">let</span> <span class="ident">n_kmers</span> <span class="op">=</span> <span class="ident">index</span>.<span class="ident">len</span>();
+        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">available_kmers</span> <span class="op">=</span> <span class="ident">BitSet</span>::<span class="ident">with_capacity</span>(<span class="ident">n_kmers</span>);
+        <span class="kw">for</span> <span class="ident">i</span> <span class="kw">in</span> <span class="number">0</span>..<span class="ident">n_kmers</span> {
+            <span class="ident">available_kmers</span>.<span class="ident">insert</span>(<span class="ident">i</span>);
+        }
+
+        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">comp</span> <span class="op">=</span> <span class="ident">CompressFromHash</span> {
+            <span class="ident">stranded</span>: <span class="ident">stranded</span>,
+            <span class="ident">spec</span>: <span class="ident">spec</span>,
+            <span class="ident">k</span>: <span class="ident">PhantomData</span>,
+            <span class="ident">d</span>: <span class="ident">PhantomData</span>,
+            <span class="ident">available_kmers</span>: <span class="ident">available_kmers</span>,
+            <span class="ident">index</span>: <span class="ident">index</span>,
+        };
+
+        <span class="comment">// Path-compressed De Bruijn graph will be created here</span>
+        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">graph</span> <span class="op">=</span> <span class="ident">BaseGraph</span>::<span class="ident">new</span>(<span class="ident">stranded</span>);
+
+        <span class="comment">// Paths will be get assembled here</span>
+        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">path_buf</span> <span class="op">=</span> <span class="ident">Vec</span>::<span class="ident">new</span>();
+
+        <span class="comment">// Node sequences will get assembled here</span>
+        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">edge_seq_buf</span> <span class="op">=</span> <span class="ident">VecDeque</span>::<span class="ident">new</span>();
+
+        <span class="kw">for</span> <span class="ident">kmer_counter</span> <span class="kw">in</span> <span class="number">0</span>..<span class="ident">n_kmers</span> {
+            <span class="kw">if</span> <span class="ident">comp</span>.<span class="ident">available_kmers</span>.<span class="ident">contains</span>(<span class="ident">kmer_counter</span>) {
+                <span class="kw">let</span> (<span class="ident">node_exts</span>, <span class="ident">node_data</span>) <span class="op">=</span>
+                    <span class="ident">comp</span>.<span class="ident">build_node</span>(<span class="ident">kmer_counter</span>, <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">path_buf</span>, <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">edge_seq_buf</span>);
+                <span class="ident">graph</span>.<span class="ident">add</span>(<span class="kw-2">&amp;</span><span class="ident">edge_seq_buf</span>, <span class="ident">node_exts</span>, <span class="ident">node_data</span>);
+            }
+        }
+
+        <span class="ident">graph</span>
+    }
+}
+
+<span class="doccomment">/// Take a BoomHash Object and build a compressed DeBruijn graph.</span>
+<span class="attribute">#[<span class="ident">inline</span>(<span class="ident">never</span>)]</span>
+<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">compress_kmers_with_hash</span><span class="op">&lt;</span><span class="ident">K</span>: <span class="ident">Kmer</span>, <span class="ident">D</span>: <span class="ident">Clone</span> <span class="op">+</span> <span class="ident">Debug</span>, <span class="ident">S</span>: <span class="ident">CompressionSpec</span><span class="op">&lt;</span><span class="ident">D</span><span class="op">&gt;&gt;</span>(
+    <span class="ident">stranded</span>: <span class="ident">bool</span>,
+    <span class="ident">spec</span>: <span class="ident">S</span>,
+    <span class="ident">index</span>: <span class="kw-2">&amp;</span><span class="ident">BoomHashMap2</span><span class="op">&lt;</span><span class="ident">K</span>, <span class="ident">Exts</span>, <span class="ident">D</span><span class="op">&gt;</span>,
+) <span class="op">-&gt;</span> <span class="ident">BaseGraph</span><span class="op">&lt;</span><span class="ident">K</span>, <span class="ident">D</span><span class="op">&gt;</span> {
+    <span class="ident">CompressFromHash</span>::<span class="op">&lt;</span><span class="ident">K</span>, <span class="ident">D</span>, <span class="ident">S</span><span class="op">&gt;</span>::<span class="ident">compress_kmers</span>(<span class="ident">stranded</span>, <span class="ident">spec</span>, <span class="ident">index</span>)
+}
+
+
+<span class="doccomment">/// Take a BoomHash Object and build a compressed DeBruijn graph.</span>
+<span class="attribute">#[<span class="ident">inline</span>(<span class="ident">never</span>)]</span>
+<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">compress_kmers</span><span class="op">&lt;</span><span class="ident">K</span>: <span class="ident">Kmer</span>, <span class="ident">D</span>: <span class="ident">Clone</span> <span class="op">+</span> <span class="ident">Debug</span>, <span class="ident">S</span>: <span class="ident">CompressionSpec</span><span class="op">&lt;</span><span class="ident">D</span><span class="op">&gt;&gt;</span>(
+    <span class="ident">stranded</span>: <span class="ident">bool</span>,
+    <span class="ident">spec</span>: <span class="ident">S</span>,
+    <span class="ident">kmer_exts</span>: <span class="kw-2">&amp;</span><span class="ident">Vec</span><span class="op">&lt;</span>(<span class="ident">K</span>, (<span class="ident">Exts</span>, <span class="ident">D</span>))<span class="op">&gt;</span>
+) <span class="op">-&gt;</span> <span class="ident">BaseGraph</span><span class="op">&lt;</span><span class="ident">K</span>, <span class="ident">D</span><span class="op">&gt;</span> {
+
+    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">keys</span> <span class="op">=</span> <span class="macro">vec</span><span class="macro">!</span>[];
+    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">exts</span> <span class="op">=</span> <span class="macro">vec</span><span class="macro">!</span>[];
+    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">data</span> <span class="op">=</span> <span class="macro">vec</span><span class="macro">!</span>[];
+
+    <span class="kw">for</span> (<span class="ident">k</span>, (<span class="ident">e</span>,<span class="ident">d</span>)) <span class="kw">in</span> <span class="ident">kmer_exts</span> {
+        <span class="ident">keys</span>.<span class="ident">push</span>(<span class="ident">k</span>.<span class="ident">clone</span>());
+        <span class="ident">data</span>.<span class="ident">push</span>(<span class="ident">d</span>.<span class="ident">clone</span>());
+        <span class="ident">exts</span>.<span class="ident">push</span>(<span class="ident">e</span>.<span class="ident">clone</span>());
+    }
+
+    <span class="kw">let</span> <span class="ident">index</span> <span class="op">=</span> <span class="ident">BoomHashMap2</span>::<span class="ident">new</span>(<span class="ident">keys</span>, <span class="ident">exts</span>, <span class="ident">data</span>);
+    <span class="ident">CompressFromHash</span>::<span class="op">&lt;</span><span class="ident">K</span>, <span class="ident">D</span>, <span class="ident">S</span><span class="op">&gt;</span>::<span class="ident">compress_kmers</span>(<span class="ident">stranded</span>, <span class="ident">spec</span>, <span class="kw-2">&amp;</span><span class="ident">index</span>)
 }
 </pre>
 </section><section id="search" class="content hidden"></section><section class="footer"></section><aside id="help" class="hidden"><div><h1 class="hidden">Help</h1><div class="shortcuts"><h2>Keyboard Shortcuts</h2><dl><dt><kbd>?</kbd></dt><dd>Show this help dialog</dd><dt><kbd>S</kbd></dt><dd>Focus the search field</dd><dt><kbd>↑</kbd></dt><dd>Move up in search results</dd><dt><kbd>↓</kbd></dt><dd>Move down in search results</dd><dt><kbd>↹</kbd></dt><dd>Switch tab</dd><dt><kbd>&#9166;</kbd></dt><dd>Go to active search result</dd><dt><kbd>+</kbd></dt><dd>Expand all sections</dd><dt><kbd>-</kbd></dt><dd>Collapse all sections</dd></dl></div><div class="infos"><h2>Search Tricks</h2><p>Prefix searches with a type followed by a colon (e.g. <code>fn:</code>) to restrict the search to a given type.</p><p>Accepted types are: <code>fn</code>, <code>mod</code>, <code>struct</code>, <code>enum</code>, <code>trait</code>, <code>type</code>, <code>macro</code>, and <code>const</code>.</p><p>Search functions by type signature (e.g. <code>vec -> usize</code> or <code>* -> vec</code>)</p><p>Search multiple things at once by splitting your query with comma (e.g. <code>str,u8</code> or <code>String,struct:Vec,test</code>)</p></div></div></aside><script>window.rootPath = "../../";window.currentCrate = "debruijn";</script><script src="../../aliases.js"></script><script src="../../main.js"></script><script defer src="../../search-index.js"></script></body></html>
