@@ -17,16 +17,29 @@ use DnaSlice;
 pub struct MspInterval {
     bucket: u16,
     start: u32,
-    len: u16,  
+    len: u16,
 }
 
 impl MspInterval {
+    pub fn new(bucket: u16, start: u32, len: u16)
+               -> MspInterval{
+        MspInterval{
+            bucket: bucket,
+            start: start,
+            len: len,
+        }
+    }
+
     pub fn start(&self) -> usize {
         self.start as usize
     }
 
     pub fn len(&self) -> usize {
         self.len as usize
+    }
+
+    pub fn end(&self) -> usize {
+        (self.len as u32 + self.start) as usize
     }
 
     pub fn range(&self) -> Range<usize> {

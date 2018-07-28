@@ -20,6 +20,8 @@
 extern crate num;
 extern crate rand;
 extern crate byteorder;
+extern crate boomphf;
+extern crate concurrent_hashmap;
 
 #[macro_use]
 extern crate serde_derive;
@@ -33,7 +35,7 @@ extern crate pdqsort;
 #[macro_use]
 extern crate log;
 
-#[cfg(test)] 
+#[cfg(test)]
 #[macro_use]
 extern crate pretty_assertions;
 
@@ -74,6 +76,18 @@ pub fn base_to_bits(c: u8) -> u8 {
         _ => 0u8,
     }
 }
+
+#[inline]
+pub fn dna_only_base_to_bits(c: u8) -> Option<u8> {
+    match c {
+        b'A' | b'a' => Some(0u8),
+        b'C' | b'c' => Some(1u8),
+        b'G' | b'g' => Some(2u8),
+        b'T' | b't' => Some(3u8),
+        _ => None,
+    }
+}
+
 
 /// Convert an ASCII-encoded DNA base to a 2-bit representation
 #[inline]
@@ -355,6 +369,11 @@ pub trait Vmer: Mer + PartialEq + Eq {
         self.get_kmer(self.len() - K::k())
     }
 
+    /// Get the terminal kmer of the sequence, on the both side of the sequence
+    fn both_term_kmer<K: Kmer>(&self) -> (K, K) {
+        (self.first_kmer(), self.last_kmer())
+    }
+
     /// Get the terminal kmer of the sequence, on the side of the sequence given by dir
     fn term_kmer<K: Kmer>(&self, dir: Dir) -> K {
         match dir {
@@ -612,6 +631,22 @@ impl Exts {
         };
         let r_extend = if start + length < src.len() {
             1u8 << src[start + length]
+        } else {
+            0u8
+        };
+
+        Exts { val: (r_extend << 4) | l_extend }
+    }
+
+    pub fn from_dna_string(src: &dna_string::DnaString,
+                           start: usize, length: usize) -> Exts {
+        let l_extend = if start > 0 {
+            1u8 << (src.get(start - 1))
+        } else {
+            0u8
+        };
+        let r_extend = if start + length < src.len() {
+            1u8 << src.get(start + length)
         } else {
             0u8
         };

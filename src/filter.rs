@@ -3,13 +3,19 @@
 //! Methods for converting sequences into kmers, filtering observed kmers before De Bruijn graph construction, and summarizing 'color' annotations.
 use std::mem;
 use itertools::Itertools;
+use std::ops::Deref;
 use std::marker::PhantomData;
+use std::hash::Hash;
+use concurrent_hashmap::*;
+use std::sync::atomic::{AtomicUsize, Ordering};
 
 use Dir;
 use Kmer;
 use Exts;
 use Vmer;
+use boomphf::hashmap::BoomHashMap2;
 use pdqsort;
+use std::fmt::Debug;
 
 fn bucket<K: Kmer>(kmer: K) -> usize {
     (kmer.get(0) as usize) << 6 | (kmer.get(1) as usize) << 4 | (kmer.get(2) as usize) << 2 | (kmer.get(3) as usize)
@@ -19,15 +25,15 @@ fn bucket<K: Kmer>(kmer: K) -> usize {
 /// are carried forward into a DeBruijn graph.
 pub trait KmerSummarizer<DI, DO> {
     /// The input `items` is an iterator over kmer observations. Input observation
-    /// is a tuple of (kmer, extensions, data). The summarize function inspects the 
+    /// is a tuple of (kmer, extensions, data). The summarize function inspects the
     /// data and returns a tuple indicating:
     /// * whether this kmer passes the filtering criteria (e.g. is there a sufficient number of observation)
-    /// * the accumulated Exts of the kmer 
+    /// * the accumulated Exts of the kmer
     /// * a summary data object of type `DO` that will be used as a color annotation in the DeBruijn graph.
     fn summarize<K, F: Iterator<Item = (K, Exts, DI)>>(&self, items: F) -> (bool, Exts, DO);
 }
 
-/// A simple KmerSummarizer that only accepts kmers that are observed 
+/// A simple KmerSummarizer that only accepts kmers that are observed
 /// at least a given number of times. The metadata returned about a Kmer
 /// is the number of times it was observed, capped at 2^16.
 pub struct CountFilter {
@@ -35,7 +41,7 @@ pub struct CountFilter {
 }
 
 impl CountFilter {
-    /// Construct a `CountFilter` KmerSummarizer only accepts kmers that are observed 
+    /// Construct a `CountFilter` KmerSummarizer only accepts kmers that are observed
     /// at least `min_kmer_obs` times.
     pub fn new(min_kmer_obs: usize) -> CountFilter {
         CountFilter { min_kmer_obs: min_kmer_obs }
@@ -55,7 +61,7 @@ impl<D> KmerSummarizer<D, u16> for CountFilter {
     }
 }
 
-/// A simple KmerSummarizer that only accepts kmers that are observed 
+/// A simple KmerSummarizer that only accepts kmers that are observed
 /// at least a given number of times. The metadata returned about a Kmer
 /// is a vector of the unique data values observed for that kmer.
 pub struct CountFilterSet<D> {
@@ -64,7 +70,7 @@ pub struct CountFilterSet<D> {
 }
 
 impl<D> CountFilterSet<D> {
-    /// Construct a `CountFilterSet` KmerSummarizer only accepts kmers that are observed 
+    /// Construct a `CountFilterSet` KmerSummarizer only accepts kmers that are observed
     /// at least `min_kmer_obs` times.
     pub fn new(min_kmer_obs: usize) -> CountFilterSet<D> {
         CountFilterSet {
@@ -94,26 +100,94 @@ impl<D: Ord> KmerSummarizer<D, Vec<D>> for CountFilterSet<D> {
     }
 }
 
-/// Process DNA sequences into kmers and determine the set of valid kmers, 
-/// their extensions, and summarize associated label/'color' data. The input 
+//Equivalence class based implementation
+pub type EqClassIdType = u32 ;
+pub struct CountFilterEqClass<D: Eq + Hash + Send + Sync + Debug + Clone> {
+    min_kmer_obs: usize,
+    eq_classes: ConcHashMap<Vec<D>, EqClassIdType>,
+    num_eq_classes: AtomicUsize,
+}
+
+impl<D: Eq + Hash + Send + Sync + Debug + Clone> CountFilterEqClass<D> {
+    pub fn new(min_kmer_obs: usize) -> CountFilterEqClass<D> {
+        CountFilterEqClass {
+            min_kmer_obs: min_kmer_obs,
+            eq_classes: ConcHashMap::<Vec<D>, EqClassIdType>::new(),
+            num_eq_classes: AtomicUsize::new(0),
+        }
+    }
+
+    pub fn get_eq_classes(self) -> Vec<Vec<D>>{
+        let mut eq_class_vec = Vec::new();
+
+        for (key, value) in self.eq_classes.iter() {
+            let num_classes = eq_class_vec.len();
+            if *value as usize >= num_classes {
+                eq_class_vec.resize((value+1) as usize, Vec::new());
+            }
+            eq_class_vec[*value as usize] = key.clone();
+        }
+
+        eq_class_vec
+    }
+
+    pub fn get_number_of_eq_classes(&self) -> usize{
+        self.num_eq_classes.load(Ordering::SeqCst)
+    }
+
+    pub fn fetch_add(&self) -> usize {
+        self.num_eq_classes.fetch_add(1, Ordering::SeqCst)
+    }
+}
+
+impl<D: Eq + Ord + Hash + Send + Sync + Debug + Clone> KmerSummarizer<D, EqClassIdType> for CountFilterEqClass<D> {
+    fn summarize<K, F: Iterator<Item = (K, Exts, D)>>(&self, items: F) -> (bool, Exts, EqClassIdType) {
+        let mut all_exts = Exts::empty();
+        let mut out_data = Vec::new();
+
+        let mut nobs = 0;
+        for (_, exts, d) in items {
+            out_data.push(d);
+            all_exts = all_exts.add(exts);
+            nobs += 1;
+        }
+
+        out_data.sort();  out_data.dedup();
+
+        let eq_id: EqClassIdType = match self.eq_classes.find(&out_data) {
+            Some(val) => *val.get(),
+            None => {
+                let val = self.fetch_add() as EqClassIdType;
+                self.eq_classes.insert(out_data, val);
+                val
+            },
+        };
+
+        (nobs as usize >= self.min_kmer_obs, all_exts, eq_id)
+    }
+}
+
+
+/// Process DNA sequences into kmers and determine the set of valid kmers,
+/// their extensions, and summarize associated label/'color' data. The input
 /// sequences are converted to kmers of type `K`, and like kmers are grouped together.
-/// All instances of each kmer, along with their label data are passed to 
-/// `summarizer`, an implementation of the `KmerSummarizer` which decides if 
-/// the kmer is 'valid' by an arbitrary predicate of the kmer data, and 
-/// summarizes the the individual label into a single label data structure 
-/// for the kmer. Care is taken to keep the memory consumption small. 
+/// All instances of each kmer, along with their label data are passed to
+/// `summarizer`, an implementation of the `KmerSummarizer` which decides if
+/// the kmer is 'valid' by an arbitrary predicate of the kmer data, and
+/// summarizes the the individual label into a single label data structure
+/// for the kmer. Care is taken to keep the memory consumption small.
 /// Less than 4G of temporary memory should be allocated to hold intermediate kmers.
-/// 
-/// 
+///
+///
 /// # Arguments
-/// 
+///
 /// * `seqs` a slice of (sequence, extensions, data) tuples. Each tuple
 ///   represents an input sequence. The input sequence must implement `Vmer<K`> The data slot is an arbitrary data
 ///   structure labeling the input sequence.
 ///   If complete sequences are passed in, the extensions entry should be
 ///   set to `Exts::empty()`.
-///   In sharded DBG construction (for example when minimizer-based partitioning 
-///   of the input strings), the input sequence is a sub-string of the original input string. 
+///   In sharded DBG construction (for example when minimizer-based partitioning
+///   of the input strings), the input sequence is a sub-string of the original input string.
 ///   In this case the extensions of the sub-string in the original string
 ///   should be passed in the extensions.
 /// * `summarizer` is an implementation of `KmerSummarizer<D1,DS>` that decides
@@ -123,29 +197,35 @@ impl<D: Ord> KmerSummarizer<D, Vec<D>> for CountFilterSet<D> {
 /// * `stranded`: if true, preserve the strandedness of the input sequences, effectively
 ///   assuming they are all in the positive strand. If false, the kmers will be canonicalized
 ///   to the lexicographic minimum of the kmer and it's reverse complement.
-///
+/// * `report_all_kmers`: if true returns the vector of all the observed kmers and performs the
+///   kmer based filtering
+/// * `memory_size`: gives the size bound on the memory in GB to use and automatically determines
+///   the number of passes needed.
 /// # Returns
-/// Returns a tuple of valid kmers and invalid kmers. Valid kmers are a vector of
-/// (valid kmer, (extensions, summarized data)) tuples, invalid kmers are a vector of
-/// invalid kmers.
+/// BoomHashMap2 Object, check rust-boomphf for details
 #[inline(never)]
 pub fn filter_kmers<K: Kmer, V: Vmer, D1: Clone, DS, S: KmerSummarizer<D1, DS>>(
     seqs: &[(V, Exts, D1)],
-    summarizer: S,
+    summarizer: &Deref<Target=S>,
     stranded: bool,
-) -> (Vec<(K, (Exts, DS))>, Vec<K>) {
+    report_all_kmers: bool,
+    memory_size: usize,
+)  -> ( BoomHashMap2<K, Exts, DS>, Vec<K> )
+where DS: Debug{
 
     let rc_norm = !stranded;
 
     let mut all_kmers = Vec::new();
     let mut valid_kmers = Vec::new();
+    let mut valid_exts = Vec::new();
+    let mut valid_data = Vec::new();
 
     // Estimate memory consumed by Kmer vectors, and set iteration count appropriately
     let input_kmers: usize = seqs.iter()
         .map(|&(ref vmer, _, _)| vmer.len().saturating_sub(K::k() - 1))
         .sum();
     let kmer_mem = input_kmers * mem::size_of::<(K, D1)>();
-    let max_mem = 4 * (10 as usize).pow(9);
+    let max_mem = memory_size * (10 as usize).pow(9);
     let slices = kmer_mem / max_mem + 1;
     let sz = 256 / slices + 1;
 
@@ -159,7 +239,7 @@ pub fn filter_kmers<K: Kmer, V: Vmer, D1: Clone, DS, S: KmerSummarizer<D1, DS>>(
 
     if bucket_ranges.len() > 1 {
         info!(
-            "filter_kmers: {} sequences, {} kmers, {} passes",
+            "{} sequences, {} kmers, {} passes",
             seqs.len(),
             input_kmers,
             bucket_ranges.len()
@@ -198,32 +278,35 @@ pub fn filter_kmers<K: Kmer, V: Vmer, D1: Clone, DS, S: KmerSummarizer<D1, DS>>(
 
             for (kmer, kmer_obs_iter) in &kmer_vec.into_iter().group_by(|elt| elt.0) {
                 let (is_valid, exts, summary_data) = summarizer.summarize(kmer_obs_iter);
-                all_kmers.push(kmer);
+                if report_all_kmers { all_kmers.push(kmer); }
                 if is_valid {
-                    valid_kmers.push((kmer, (exts, summary_data)));
+                    valid_kmers.push(kmer);
+                    valid_exts.push(exts);
+                    valid_data.push(summary_data);
                 }
             }
         }
     }
 
-    // Add test to ensure the valid_kmers is sorted
-    // (we shouldn't need to sort here)
-    //pdqsort::sort_by_key(&mut valid_kmers, |x| x.0);
-    //pdqsort::sort(&mut all_kmers);
-    remove_censored_exts_sharded(stranded, &mut valid_kmers, &all_kmers);
+    // pdqsort::sort_by_key(&mut valid_kmers, |x| x.0);
+    // pdqsort::sort(&mut all_kmers);
+    // TODO: Have to modify this function is it requires the valid_kmers and we can't
+    // just pass the keys since it might alter the order of mphf
+    if report_all_kmers {
+        //remove_censored_exts_sharded(stranded, &mut valid_kmers, &all_kmers);
+    }
+    //eprintln!("");
 
     info!(
-        "filter kmers: sequences: {}, kmers: {}, unique kmers: {}. valid kmers: {}",
-        seqs.len(),
-        input_kmers,
+        "Unique kmers: {}, All kmers (if returned): {}",
+        valid_kmers.len(),
         all_kmers.len(),
-        valid_kmers.len()
     );
-    (valid_kmers, all_kmers)
+    (BoomHashMap2::new(valid_kmers, valid_exts, valid_data), all_kmers)
 }
 
 /// Remove extensions in valid_kmers that point to censored kmers. A censored kmer
-/// exists in all_kmers but not valid_kmers. Since the kmer exists in this partition, 
+/// exists in all_kmers but not valid_kmers. Since the kmer exists in this partition,
 /// but was censored, we know that we can delete extensions to it.
 /// In sharded kmer processing, we will have extensions to kmers in other shards. We don't
 /// know whether these are censored until later, so we retain these extension.

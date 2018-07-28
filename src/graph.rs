@@ -15,8 +15,11 @@ use std::fmt::{self, Debug};
 use std::borrow::Borrow;
 use std::cmp::min;
 use std::io::Error;
-
+use std::hash::Hash;
 use std::f32;
+
+use boomphf::FastIterator;
+use boomphf::hashmap::BoomHashMap;
 
 use serde_json;
 use serde_json::Value;
@@ -35,7 +38,7 @@ use dna_string::{DnaString, DnaStringSlice, PackedDnaStringSet};
 /// This type does not carry the sorted index arrays the allow the graph
 /// to be walked efficiently. The `DeBruijnGraph` type wraps this type and add those
 /// vectors.
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct BaseGraph<K, D> {
     pub sequences: PackedDnaStringSet,
     pub exts: Vec<Exts>,
@@ -97,32 +100,65 @@ impl<K: Kmer, D> BaseGraph<K, D> {
         &mut self,
         sequence: S,
         exts: Exts,
-        data: D,
-    ) {
-        //pub fn add<'a, S: IntoIterator<Item = u8>>(&mut self, sequence: S, exts: Exts, data: D) {
+        data: D,) {
         self.sequences.add(sequence);
         self.exts.push(exts);
         self.data.push(data);
     }
+}
 
+impl<K: Kmer + Send + Sync, D> BaseGraph<K, D> {
     pub fn finish(self) -> DebruijnGraph<K, D> {
+        let indices: Vec<u32> = (0..self.len() as u32).collect();
 
-        let mut left_sort: Vec<u32> = Vec::with_capacity(self.len());
-        let mut right_sort: Vec<u32> = Vec::with_capacity(self.len());
-        for i in 0..self.len() {
-            left_sort.push(i as u32);
-            right_sort.push(i as u32);
-        }
+        let left_order = {
+            let mut kmers: Vec<K> = Vec::with_capacity(self.len());
+            for idx in &indices {
+                kmers.push( self.sequences.get(*idx as usize).first_kmer() );
+            }
+            BoomHashMap::new_parallel(kmers, indices.clone())
+        };
 
-        left_sort.sort_by_key(|idx| -> K {
-            self.sequences.get(*idx as usize).first_kmer()
-        });
-        right_sort.sort_by_key(|idx| -> K { self.sequences.get(*idx as usize).last_kmer() });
+        let right_order = {
+            let mut kmers: Vec<K> = Vec::with_capacity(self.len());
+            for idx in &indices {
+                kmers.push( self.sequences.get(*idx as usize).last_kmer() );
+            }
+            BoomHashMap::new_parallel(kmers, indices)
+        };
 
         DebruijnGraph {
             base: self,
-            left_order: left_sort,
-            right_order: right_sort,
+            left_order,
+            right_order,
+        }
+    }
+}
+
+impl<K: Kmer, D> BaseGraph<K, D> {
+    pub fn finish_serial(self) -> DebruijnGraph<K, D> {
+        let indices: Vec<u32> = (0..self.len() as u32).collect();
+
+        let left_order = {
+            let mut kmers: Vec<K> = Vec::with_capacity(self.len());
+            for idx in &indices {
+                kmers.push( self.sequences.get(*idx as usize).first_kmer() );
+            }
+            BoomHashMap::new(kmers, indices.clone())
+        };
+
+        let right_order = {
+            let mut kmers: Vec<K> = Vec::with_capacity(self.len());
+            for idx in &indices {
+                kmers.push( self.sequences.get(*idx as usize).last_kmer() );
+            }
+            BoomHashMap::new(kmers, indices)
+        };
+
+        DebruijnGraph {
+            base: self,
+            left_order,
+            right_order,
         }
     }
 }
@@ -130,11 +166,11 @@ impl<K: Kmer, D> BaseGraph<K, D> {
 /// A compressed DeBruijn graph carrying auxiliary data on each node of type `D`.
 /// The struct carries sorted index arrays the allow the graph
 /// to be walked efficiently.
-#[derive(Serialize, Deserialize)]
-pub struct DebruijnGraph<K, D> {
+#[derive(Serialize, Deserialize, Debug)]
+pub struct DebruijnGraph<K: Hash, D> {
     pub base: BaseGraph<K, D>,
-    left_order: Vec<u32>,
-    right_order: Vec<u32>,
+    left_order: BoomHashMap<K, u32>,
+    right_order: BoomHashMap<K, u32>,
 }
 
 impl<K: Kmer, D: Debug> DebruijnGraph<K, D> {
@@ -187,21 +223,14 @@ impl<K: Kmer, D: Debug> DebruijnGraph<K, D> {
     fn search_kmer(&self, kmer: K, side: Dir) -> Option<usize> {
         match side {
             Dir::Left => {
-                let pos = self.left_order.binary_search_by_key(&kmer, |idx| {
-                    self.base.sequences.get(*idx as usize).first_kmer()
-                });
-
-                match pos {
-                    Ok(idx) => Some(self.left_order[idx] as usize),
+                match self.left_order.get( &kmer ) {
+                    Some(pos) => Some(*pos as usize),
                     _ => None,
                 }
             }
             Dir::Right => {
-                let pos = self.right_order.binary_search_by_key(&kmer, |idx| {
-                    self.base.sequences.get(*idx as usize).last_kmer()
-                });
-                match pos {
-                    Ok(idx) => Some(self.right_order[idx] as usize),
+                match self.right_order.get( &kmer ) {
+                    Some(pos) => Some(*pos as usize),
                     _ => None,
                 }
             }
@@ -885,6 +914,107 @@ impl<'a, K: Kmer + 'a, D: Debug + 'a> Iterator for NodeIter<'a, K, D> {
     }
 }
 
+impl<'a, K: Kmer + 'a, D: Debug + 'a> IntoIterator for &'a DebruijnGraph<K, D> {
+    type Item = NodeKmer<'a, K, D>;
+    type IntoIter = NodeIntoIter<'a, K, D>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        NodeIntoIter {
+            graph: self,
+            node_id: 0,
+        }
+    }
+}
+
+/// Iterator over nodes in a `DeBruijnGraph`
+pub struct NodeIntoIter<'a, K: Kmer + 'a, D: Debug + 'a> {
+    graph: &'a DebruijnGraph<K, D>,
+    node_id: usize,
+}
+
+impl<'a, K: Kmer + 'a, D: Debug + 'a> Iterator for NodeIntoIter<'a, K, D> {
+    type Item = NodeKmer<'a, K, D>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.node_id < self.graph.len() {
+            let node_id = self.node_id;
+            let node = self.graph.get_node(node_id);
+            let node_seq = node.sequence();
+
+            self.node_id += 1;
+            Some(
+                NodeKmer {
+                    node_id: node_id,
+                    node_seq_slice: node_seq,
+                    phantom_d: PhantomData,
+                    phantom_k: PhantomData,
+            })
+        } else {
+            None
+        }
+    }
+}
+
+/// Iterator over nodes in a `DeBruijnGraph`
+#[derive(Clone)]
+pub struct NodeKmer<'a, K: Kmer + 'a, D: Debug + 'a> {
+    pub node_id: usize,
+    node_seq_slice: DnaStringSlice<'a>,
+    phantom_k: PhantomData<K>,
+    phantom_d: PhantomData<D>,
+}
+
+pub struct NodeKmerIter<'a, K: Kmer + 'a, D: Debug + 'a> {
+    kmer_id: usize,
+    num_kmers: usize,
+    node_seq_slice: DnaStringSlice<'a>,
+    phantom_k: PhantomData<K>,
+    phantom_d: PhantomData<D>,
+}
+
+impl<'a, K: Kmer + 'a, D: Debug + 'a> IntoIterator for NodeKmer<'a, K, D> {
+    type Item = K;
+    type IntoIter = NodeKmerIter<'a, K, D>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        NodeKmerIter {
+            kmer_id: 0,
+            num_kmers: self.node_seq_slice.len() - K::k() + 1,
+            node_seq_slice: self.node_seq_slice,
+            phantom_k: PhantomData,
+            phantom_d: PhantomData,
+        }
+    }
+}
+
+impl<'a, K: Kmer + 'a, D: Debug + 'a> Iterator for NodeKmerIter<'a, K, D> {
+    type Item = K;
+
+    fn next(&mut self) -> Option<Self::Item> {
+
+        if self.num_kmers == self.kmer_id {
+            None
+        }
+        else{
+            let kmer = self.node_seq_slice.get_kmer::<K>(self.kmer_id);
+            self.kmer_id += 1;
+
+            Some(kmer)
+        }
+    }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        return (self.num_kmers, Some(self.num_kmers))
+    }
+}
+
+impl<'a, K: Kmer + 'a, D: Debug + 'a> FastIterator for NodeKmerIter<'a, K, D> {
+    fn skip_next(&mut self) {
+        self.kmer_id += 1;
+    }
+}
+
+impl<'a, K: Kmer + 'a, D: Debug + 'a> ExactSizeIterator for NodeKmerIter<'a, K, D> {}
 
 /// Unbranched sequence in the DeBruijn graph
 pub struct Node<'a, K: Kmer + 'a, D: 'a> {
@@ -981,12 +1111,13 @@ where
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(
             f,
-            "Node {{ id:{}, Exts: {:?}, L:{:?} R:{:?}, Seq: {:?} }}",
+            "Node {{ id:{}, Exts: {:?}, L:{:?} R:{:?}, Seq: {:?}, Data: {:?} }}",
             self.node_id,
             self.exts(),
             self.l_edges(),
             self.r_edges(),
-            self.sequence()
+            self.sequence().len(),
+            self.data()
         )
     }
 }

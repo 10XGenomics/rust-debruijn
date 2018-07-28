@@ -60,6 +60,9 @@ pub type Kmer40 = VarIntKmer<u128, K40>;
 /// 32-base kmer, backed by a single u64
 pub type Kmer32 = IntKmer<u64>;
 
+/// 30-base kmer, backed by a single u64
+pub type Kmer30 = VarIntKmer<u64, K30>;
+
 /// 24-base kmer, backed by a single u64
 pub type Kmer24 = VarIntKmer<u64, K24>;
 
@@ -74,6 +77,10 @@ pub type Kmer8 = IntKmer<u16>;
 
 pub type Kmer6 = VarIntKmer<u16, K6>;
 pub type Kmer5 = VarIntKmer<u16, K5>;
+
+pub type Kmer4 = IntKmer<u8>;
+pub type Kmer3 = VarIntKmer<u8, K3>;
+pub type Kmer2 = VarIntKmer<u8, K2>;
 
 /// Trait for specialized integer operations used in DeBruijn Graph
 pub trait IntHelp: PrimInt + FromPrimitive {
@@ -564,6 +571,16 @@ impl KmerSize for K40 {
     }
 }
 
+/// Marker trait for generating K=40 Kmers
+#[derive(Debug, Hash, Copy, Clone, Ord, PartialOrd, Eq, PartialEq)]
+pub struct K30;
+
+impl KmerSize for K30 {
+    fn K() -> usize {
+        30
+    }
+}
+
 /// Marker trait for generating K=24 Kmers
 #[derive(Debug, Hash, Copy, Clone, Ord, PartialOrd, Eq, PartialEq)]
 pub struct K24;
@@ -606,6 +623,37 @@ impl KmerSize for K5 {
         5
     }
 }
+/// Marker trait for generating K=6 Kmers
+#[derive(Debug, Hash, Copy, Clone, Ord, PartialOrd, Eq, PartialEq)]
+pub struct K4;
+
+impl KmerSize for K4 {
+    #[inline]
+    fn K() -> usize {
+        4
+    }
+}
+/// Marker trait for generating K=6 Kmers
+#[derive(Debug, Hash, Copy, Clone, Ord, PartialOrd, Eq, PartialEq)]
+pub struct K3;
+
+impl KmerSize for K3 {
+    #[inline]
+    fn K() -> usize {
+        3
+    }
+}
+/// Marker trait for generating K=6 Kmers
+#[derive(Debug, Hash, Copy, Clone, Ord, PartialOrd, Eq, PartialEq)]
+pub struct K2;
+
+impl KmerSize for K2 {
+    #[inline]
+    fn K() -> usize {
+        2
+    }
+}
+
 
 
 #[cfg(test)]
@@ -866,10 +914,17 @@ mod tests {
         }
     }
 
-        #[test]
+    #[test]
     fn test_kmer_5() {
         for _ in 0..10000 {
             check_kmer::<Kmer5>();
+        }
+    }
+
+    #[test]
+    fn test_kmer_4() {
+        for _ in 0..10000 {
+            check_kmer::<Kmer4>();
         }
     }
 }
