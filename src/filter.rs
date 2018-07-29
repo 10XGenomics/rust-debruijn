@@ -8,6 +8,7 @@ use std::marker::PhantomData;
 use std::hash::Hash;
 use concurrent_hashmap::*;
 use std::sync::atomic::{AtomicUsize, Ordering};
+use log::{log, info};
 
 use crate::Dir;
 use crate::Kmer;
@@ -206,7 +207,7 @@ impl<D: Eq + Ord + Hash + Send + Sync + Debug + Clone> KmerSummarizer<D, EqClass
 #[inline(never)]
 pub fn filter_kmers<K: Kmer, V: Vmer, D1: Clone, DS, S: KmerSummarizer<D1, DS>>(
     seqs: &[(V, Exts, D1)],
-    summarizer: &Deref<Target=S>,
+    summarizer: &dyn Deref<Target=S>,
     stranded: bool,
     report_all_kmers: bool,
     memory_size: usize,

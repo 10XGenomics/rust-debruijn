@@ -287,7 +287,7 @@ where K: Kmer + Send + Sync, D: Debug + Clone + PartialEq, S: CompressionSpec<D>
 
     /// Simplify a compressed Debruijn graph by merging adjacent unbranched nodes, and optionally
     /// censoring some nodes
-    pub fn compress_graph(
+    crate fn compress_graph(
         stranded: bool,
         compression: S,
         mut old_graph: DebruijnGraph<K, D>,
@@ -546,7 +546,7 @@ impl<'a, K: Kmer, D: Clone + Debug, S: CompressionSpec<D>> CompressFromHash<'a, 
 
     /// Compress a set of kmers and their extensions and metadata into a base DeBruijn graph.
     #[inline(never)]
-    pub fn compress_kmers(
+    crate fn compress_kmers(
         stranded: bool,
         spec: S,
         index: &BoomHashMap2<K, Exts, D>,

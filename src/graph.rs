@@ -17,6 +17,8 @@ use std::cmp::min;
 use std::io::Error;
 use std::hash::Hash;
 use std::f32;
+use serde_derive::{Deserialize, Serialize};
+use log::{log, debug, trace};
 
 use boomphf::FastIterator;
 use boomphf::hashmap::BoomHashMap;
@@ -482,7 +484,7 @@ impl<K: Kmer, D: Debug> DebruijnGraph<K, D> {
     }
 
 
-    fn node_to_dot<F: Fn(&D) -> String>(&self, node: &Node<K, D>, node_label: &F, f: &mut Write) {
+    fn node_to_dot<F: Fn(&D) -> String>(&self, node: &Node<'_, K, D>, node_label: &F, f: &mut dyn Write) {
 
         let label = node_label(node.data());
         writeln!(
@@ -526,10 +528,10 @@ impl<K: Kmer, D: Debug> DebruijnGraph<K, D> {
     }
 
 
-    fn node_to_gfa<F: Fn(&Node<K, D>) -> String>(
+    fn node_to_gfa<F: Fn(&Node<'_, K, D>) -> String>(
         &self,
-        node: &Node<K, D>,
-        w: &mut Write,
+        node: &Node<'_, K, D>,
+        w: &mut dyn Write,
         tag_func: Option<&F>,
     ) -> Result<(), Error> {
 
@@ -599,7 +601,7 @@ impl<K: Kmer, D: Debug> DebruijnGraph<K, D> {
         writeln!(wtr, "H\tVN:Z:debruijn-rs")?;
 
         // Hack to generate a None value with the right type.
-        let dummy_func = |_n: &Node<K, D>| "".to_string();
+        let dummy_func = |_n: &Node<'_, K, D>| "".to_string();
         let mut dummy_opt = Some(&dummy_func);
         let _ = dummy_opt.take();
 
@@ -612,7 +614,7 @@ impl<K: Kmer, D: Debug> DebruijnGraph<K, D> {
     }
 
     /// Write the graph to GFA format
-    pub fn to_gfa_with_tags<P: AsRef<Path>, F: Fn(&Node<K, D>) -> String>(
+    pub fn to_gfa_with_tags<P: AsRef<Path>, F: Fn(&Node<'_, K, D>) -> String>(
         &self,
         gfa_out: P,
         tag_func: F,
@@ -705,7 +707,7 @@ impl<K: Kmer, D: Debug> DebruijnGraph<K, D> {
         }
     }
 
-    pub fn to_supernova_bv(&self, w: &mut Write) -> Result<(), Error> {
+    pub fn to_supernova_bv(&self, w: &mut dyn Write) -> Result<(), Error> {
         use byteorder::{LittleEndian, WriteBytesExt};
 
         w.write(b"BINWRITE")?;   // magic number
@@ -1061,7 +1063,7 @@ impl<'a, K: Kmer, D: Debug> Node<'a, K, D> {
         self.graph.find_edges(self.node_id, dir)
     }
 
-    fn to_json<F: Fn(&D) -> Value>(&self, func: &F, f: &mut Write) {
+    fn to_json<F: Fn(&D) -> Value>(&self, func: &F, f: &mut dyn Write) {
         write!(f,
                "{{\"id\":\"{}\",\"L\":{},\"D\":{},\"Se\":\"{:?}\"}}",
                self.node_id,
@@ -1071,7 +1073,7 @@ impl<'a, K: Kmer, D: Debug> Node<'a, K, D> {
         ).unwrap();
     }
 
-    fn edges_to_json(&self, f: &mut Write) -> bool {
+    fn edges_to_json(&self, f: &mut dyn Write) -> bool {
         let mut wrote = false;
         let edges = self.r_edges();
         for (idx, &(id, incoming_dir, _)) in edges.iter().enumerate() {
@@ -1108,7 +1110,7 @@ impl<'a, K: Kmer, D> fmt::Debug for Node<'a, K, D>
 where
     D: Debug,
 {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
             f,
             "Node {{ id:{}, Exts: {:?}, L:{:?} R:{:?}, Seq: {:?}, Data: {:?} }}",

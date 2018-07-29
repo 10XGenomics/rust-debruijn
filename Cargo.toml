@@ -1,8 +1,11 @@
+cargo-features = ["edition"]
+
 [package]
 name = "debruijn"
 version = "0.2.0"
 authors = ["Patrick Marks <patrick@10xgenomics.com>"]
 license = "MIT"
+edition = '2018'
 
 [dependencies]
 serde = "^1"

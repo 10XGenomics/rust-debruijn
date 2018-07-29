@@ -11,6 +11,7 @@ use crate::Vmer;
 use crate::Mer;
 use crate::kmer::{IntHelp, IntKmer};
 use crate::bits_to_base;
+use serde_derive::{Deserialize, Serialize};
 
 fn block_set(kmer: u64, pos: usize, val: u8) -> u64 {
     let offset = (31 - pos) * 2;
@@ -168,7 +169,7 @@ impl<A: Array<Item = u64> + Copy + Eq + Ord + Hash> Vmer for Lmer<A> {
 }
 
 impl<A: Array<Item = u64> + Copy + Eq + Ord + Hash> fmt::Debug for Lmer<A> {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let mut s = String::new();
         for pos in 0..self.len() {
             s.push(bits_to_base(self.get(pos)))
