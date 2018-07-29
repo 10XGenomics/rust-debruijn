@@ -41,9 +41,9 @@ use num::PrimInt;
 use num::FromPrimitive;
 use std::marker::PhantomData;
 
-use Mer;
-use Kmer;
-use bits_to_base;
+use crate::Mer;
+use crate::Kmer;
+use crate::bits_to_base;
 
 
 // Pre-defined kmer types
@@ -660,10 +660,10 @@ impl KmerSize for K2 {
 mod tests {
     use super::*;
     use rand::{self, Rng, RngCore};
-    use vmer::Lmer;
+    use crate::vmer::Lmer;
 
-    use Vmer;
-    use MerImmut;
+    use crate::Vmer;
+    use crate::MerImmut;
 
     // Generate random kmers & test the methods for manipulating them
     fn check_kmer<T: Kmer>() {

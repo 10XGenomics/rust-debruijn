@@ -16,6 +16,7 @@
 //! which expects bases encoded as the integers 0,1,2,3, and a separate form names 'ascii',
 //! which expects bases encoded as the ASCII letters A,C,G,T.
 
+#![feature(rust_2018_preview)]
 
 extern crate num;
 extern crate rand;

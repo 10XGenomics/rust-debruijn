@@ -9,10 +9,10 @@ use std::hash::Hash;
 use concurrent_hashmap::*;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
-use Dir;
-use Kmer;
-use Exts;
-use Vmer;
+use crate::Dir;
+use crate::Kmer;
+use crate::Exts;
+use crate::Vmer;
 use boomphf::hashmap::BoomHashMap2;
 use pdqsort;
 use std::fmt::Debug;

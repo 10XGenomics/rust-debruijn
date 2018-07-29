@@ -27,12 +27,12 @@ use serde_json::Value;
 type SmallVec4<T> = SmallVec<[T; 4]>;
 type SmallVec8<T> = SmallVec<[T; 8]>;
 
-use Mer;
-use Kmer;
-use Vmer;
-use Dir;
-use Exts;
-use dna_string::{DnaString, DnaStringSlice, PackedDnaStringSet};
+use crate::Mer;
+use crate::Kmer;
+use crate::Vmer;
+use crate::Dir;
+use crate::Exts;
+use crate::dna_string::{DnaString, DnaStringSlice, PackedDnaStringSet};
 
 /// A compressed DeBruijn graph carrying auxiliary data on each node of type `D`.
 /// This type does not carry the sorted index arrays the allow the graph

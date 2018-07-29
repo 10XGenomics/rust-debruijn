@@ -6,11 +6,11 @@ use std::cmp::{max, min};
 use std::fmt;
 use std::hash::Hash;
 
-use Kmer;
-use Vmer;
-use Mer;
-use kmer::{IntHelp, IntKmer};
-use bits_to_base;
+use crate::Kmer;
+use crate::Vmer;
+use crate::Mer;
+use crate::kmer::{IntHelp, IntKmer};
+use crate::bits_to_base;
 
 fn block_set(kmer: u64, pos: usize, val: u8) -> u64 {
     let offset = (31 - pos) * 2;

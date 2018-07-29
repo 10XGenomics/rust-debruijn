@@ -2,9 +2,9 @@
 
 //! Generate random genomes (with lots of re-used sustrings), reassemble them, and check sanity
 
-use Kmer;
-use Vmer;
-use complement;
+use crate::Kmer;
+use crate::Vmer;
+use crate::complement;
 
 use std::cmp::{min, max};
 use rand::{self, Rng, RngCore};
@@ -141,21 +141,21 @@ pub fn random_contigs() -> Vec<Vec<u8>> {
 #[cfg(test)]
 mod tests {
 
-    use {Kmer, Dir, Exts};
-    use clean_graph::CleanGraph;
+    use crate::{Kmer, Dir, Exts};
+    use crate::clean_graph::CleanGraph;
     use std::collections::{HashSet, HashMap};
-    use graph::{BaseGraph};
-    use compression::{SimpleCompress, compress_kmers_with_hash, compress_graph};
+    use crate::graph::{BaseGraph};
+    use crate::compression::{SimpleCompress, compress_kmers_with_hash, compress_graph};
     use std::iter::FromIterator;
     use boomphf::hashmap::BoomHashMap2;
-    use DnaBytes;
+    use crate::DnaBytes;
 
     use std::ops::Sub;
-    use msp;
-    use kmer::IntKmer;
-    use kmer::Kmer6;
-    use dna_string::DnaString;
-    use filter;
+    use crate::msp;
+    use crate::kmer::IntKmer;
+    use crate::kmer::Kmer6;
+    use crate::dna_string::DnaString;
+    use crate::filter;
 
 
     use super::*;
@@ -205,7 +205,7 @@ mod tests {
 
     fn simplify_from_kmers<K: Kmer + Send + Sync>(mut contigs: Vec<Vec<u8>>, stranded: bool) {
 
-        use DnaBytes;
+        use crate::DnaBytes;
         let seqs : Vec<(DnaBytes, Exts, ())> = contigs
             .drain(..)
             .map(|x| (DnaBytes(x), Exts::empty(), ()))

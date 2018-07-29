@@ -29,17 +29,17 @@
 use std::fmt;
 use std::borrow::Borrow;
 
-use Kmer;
-use bits_to_base;
-use base_to_bits;
-use bits_to_ascii;
-use dna_only_base_to_bits;
+use crate::Kmer;
+use crate::bits_to_base;
+use crate::base_to_bits;
+use crate::bits_to_ascii;
+use crate::dna_only_base_to_bits;
 use std::cmp::min;
-use kmer::IntHelp;
+use crate::kmer::IntHelp;
 
-use Mer;
-use MerIter;
-use Vmer;
+use crate::Mer;
+use crate::MerIter;
+use crate::Vmer;
 
 const BLOCK_BITS: usize = 64;
 const WIDTH: usize = 2;
@@ -433,7 +433,7 @@ impl<'a> Mer for DnaStringSlice<'a> {
         if !self.is_rc {
             self.dna_string.get(i + self.start)
         } else {
-            ::complement(self.dna_string.get(self.start + self.length - 1 - i))
+            crate::complement(self.dna_string.get(self.start + self.length - 1 - i))
         }
     }
 
@@ -624,7 +624,7 @@ impl<'a> PackedDnaStringSet {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use kmer::IntKmer;
+    use crate::kmer::IntKmer;
 
     #[test]
     fn test_dna_string() {
