@@ -36,6 +36,8 @@ use bits_to_ascii;
 use dna_only_base_to_bits;
 use std::cmp::min;
 use kmer::IntHelp;
+use std::hash::{Hash, Hasher};
+use std::collections::hash_map::DefaultHasher;
 
 use Mer;
 use MerIter;
@@ -194,7 +196,8 @@ impl DnaString {
     }
 
 
-    /// Create a DnaString from an ACGT-encoded byte slice
+    /// Create a DnaString from an ASCII ACGT-encoded byte slice.
+    /// Non ACGT positions will be converted to 'A'
     pub fn from_acgt_bytes(bytes: &[u8]) -> DnaString {
         let mut dna_string = DnaString {
             storage: Vec::new(),
@@ -203,6 +206,39 @@ impl DnaString {
 
         for b in bytes.iter() {
             dna_string.push(base_to_bits(*b));
+        }
+
+        dna_string
+    }
+
+    /// Create a DnaString from an ACGT-encoded byte slice,
+    /// Non ACGT positions will be converted to repeatable random base determined
+    /// by a hash of the read name and the position within the string.
+    pub fn from_acgt_bytes_hashn(bytes: &[u8], read_name: &[u8]) -> DnaString {
+
+        let mut hasher = DefaultHasher::new();
+        read_name.hash(&mut hasher);
+        
+        let mut dna_string = DnaString {
+            storage: Vec::new(),
+            len: 0,
+        };
+
+        for (pos, c) in bytes.iter().enumerate() {
+
+            let v = match c {
+                b'A' => 0u8,
+                b'C' => 1u8,
+                b'G' => 2u8,
+                b'T' => 3u8,
+                _ => {
+                    let mut hasher_clone = hasher.clone();
+                    pos.hash(&mut hasher_clone);
+                    (hasher_clone.finish() % 4) as u8
+                    },
+            };
+
+            dna_string.push(v);
         }
 
         dna_string
