@@ -117,7 +117,7 @@ impl<D: Eq + Hash + Send + Sync + Debug + Clone> CountFilterEqClass<D> {
         }
     }
 
-    pub fn get_eq_classes(self) -> Vec<Vec<D>>{
+    pub fn get_eq_classes(&self) -> Vec<Vec<D>>{
         let mut eq_class_vec = Vec::new();
 
         for (key, value) in self.eq_classes.iter() {
