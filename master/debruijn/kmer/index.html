@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="API documentation for the Rust `kmer` mod in crate `debruijn`."><meta name="keywords" content="rust, rustlang, rust-lang, kmer"><title>debruijn::kmer - Rust</title><link rel="stylesheet" type="text/css" href="../../normalize.css"><link rel="stylesheet" type="text/css" href="../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../dark.css"><link rel="stylesheet" type="text/css" href="../../light.css" id="themeStyle"><script src="../../storage.js"></script></head><body class="rustdoc mod"><!--[if lte IE 8]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="sidebar-menu">&#9776;</div><p class='location'>Module kmer</p><div class="sidebar-elems"><div class="block items"><ul><li><a href="#structs">Structs</a></li><li><a href="#traits">Traits</a></li><li><a href="#types">Type Definitions</a></li></ul></div><p class='location'><a href='../index.html'>debruijn</a></p><script>window.sidebarCurrent = {name: 'kmer', ty: 'mod', relpath: '../'};</script><script defer src="../sidebar-items.js"></script></div></nav><div class="theme-picker"><button id="theme-picker" aria-label="Pick another theme!"><img src="../../brush.svg" width="18" alt="Pick another theme!"></button><div id="theme-choices"></div></div><script src="../../theme.js"></script><nav class="sub"><form class="search-form js-only"><div class="search-container"><input class="search-input" name="search" autocomplete="off" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><a id="settings-menu" href="../../settings.html"><img src="../../wheel.svg" width="18" alt="Change settings"></a></div></form></nav><section id="main" class="content"><h1 class='fqn'><span class='in-band'>Module <a href='../index.html'>debruijn</a>::<wbr><a class="mod" href=''>kmer</a></span><span class='out-of-band'><span id='render-detail'><a id="toggle-all-docs" href="javascript:void(0)" title="collapse all docs">[<span class='inner'>&#x2212;</span>]</a></span><a class='srclink' href='../../src/debruijn/kmer.rs.html#3-930' title='goto source code'>[src]</a></span></h1><div class='docblock'><p>Represent kmers with statically know length in compact integer types</p>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="API documentation for the Rust `kmer` mod in crate `debruijn`."><meta name="keywords" content="rust, rustlang, rust-lang, kmer"><title>debruijn::kmer - Rust</title><link rel="stylesheet" type="text/css" href="../../normalize.css"><link rel="stylesheet" type="text/css" href="../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../dark.css"><link rel="stylesheet" type="text/css" href="../../light.css" id="themeStyle"><script src="../../storage.js"></script></head><body class="rustdoc mod"><!--[if lte IE 8]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="sidebar-menu">&#9776;</div><p class='location'>Module kmer</p><div class="sidebar-elems"><div class="block items"><ul><li><a href="#structs">Structs</a></li><li><a href="#traits">Traits</a></li><li><a href="#types">Type Definitions</a></li></ul></div><p class='location'><a href='../index.html'>debruijn</a></p><script>window.sidebarCurrent = {name: 'kmer', ty: 'mod', relpath: '../'};</script><script defer src="../sidebar-items.js"></script></div></nav><div class="theme-picker"><button id="theme-picker" aria-label="Pick another theme!"><img src="../../brush.svg" width="18" alt="Pick another theme!"></button><div id="theme-choices"></div></div><script src="../../theme.js"></script><nav class="sub"><form class="search-form js-only"><div class="search-container"><input class="search-input" name="search" autocomplete="off" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><a id="settings-menu" href="../../settings.html"><img src="../../wheel.svg" width="18" alt="Change settings"></a></div></form></nav><section id="main" class="content"><h1 class='fqn'><span class='in-band'>Module <a href='../index.html'>debruijn</a>::<wbr><a class="mod" href=''>kmer</a></span><span class='out-of-band'><span id='render-detail'><a id="toggle-all-docs" href="javascript:void(0)" title="collapse all docs">[<span class='inner'>&#x2212;</span>]</a></span><a class='srclink' href='../../src/debruijn/kmer.rs.html#3-957' title='goto source code'>[src]</a></span></h1><div class='docblock'><p>Represent kmers with statically know length in compact integer types</p>
 <p>A kmer is a DNA sequence with statically-known length K. The sequence is stored the smallest possible integer type
 Efficient methods for reverse complement and shifting new bases into the left or right of a sequence are provided.
 Kmers implement <code>Eq</code> to test if two kmers represent the same string.
@@ -84,6 +84,14 @@ Kmers implement <code>Ord</code>, which corresponds to the natural lexicographic
                                   title='struct debruijn::kmer::K14'>K14</a></td>
                            <td class='docblock-short'>
                                 <p>Marker trait for generating K=14 Kmers</p>
+
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="struct" href="struct.K20.html"
+                                  title='struct debruijn::kmer::K20'>K20</a></td>
+                           <td class='docblock-short'>
+                                <p>Marker trait for generating K=20 Kmers</p>
 
                            </td>
                        </tr>
@@ -201,6 +209,14 @@ Kmers implement <code>Ord</code>, which corresponds to the natural lexicographic
                                   title='type debruijn::kmer::Kmer16'>Kmer16</a></td>
                            <td class='docblock-short'>
                                 <p>16-base kmer, backed by a single u32</p>
+
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="type" href="type.Kmer20.html"
+                                  title='type debruijn::kmer::Kmer20'>Kmer20</a></td>
+                           <td class='docblock-short'>
+                                <p>20-base kmer, backed by a single u64</p>
 
                            </td>
                        </tr>
