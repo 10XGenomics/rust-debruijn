@@ -460,12 +460,18 @@ pub struct DnaStringSlice<'a> {
 
 impl<'a> PartialEq for DnaStringSlice<'a> {
     fn eq( &self, other: &DnaStringSlice ) -> bool {
-        println!( "ENTERING EQ" ); // XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
         let n = self.len();
-        if other.length != n{ return false; }
+        if other.length != n { return false; }
         if self.is_rc == other.is_rc {
             for i in 0..n {
                 if self.get( self.start + i ) != other.get( other.start + i ) { 
+
+                    // XXX:
+                    println!( "eq returning false for {} and {}, whose actual\
+                        equality is {}",
+                        self.to_string(), other.to_string(),
+                        self.to_string() == other.to_string() );
+
                     return false; 
                 }
             }
@@ -474,10 +480,23 @@ impl<'a> PartialEq for DnaStringSlice<'a> {
             for i in 0..n {
                 if ( self.get( self.start + i ) 
                         + other.get( other.start + n - i - 1 ) ) % 4 != 3 { 
+
+                    // XXX:
+                    println!( "eq-rc returning false for {} and {}, whose actual\
+                        equality is {}",
+                        self.to_string(), other.to_string(),
+                        self.to_string() == other.to_string() );
+
                     return false; 
                 }
             }
         }
+
+        // XXX:
+        println!( "eq returning true for {} and {}, whose actual equality is {}",
+            self.to_string(), other.to_string(),
+            self.to_string() == other.to_string() );
+
         true
     }
 }
