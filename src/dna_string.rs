@@ -478,8 +478,8 @@ impl<'a> PartialEq for DnaStringSlice<'a> {
         }
         else {
             for i in 0..n {
-                if ( self.get( self.start + i ) 
-                        + other.get( other.start + n - i - 1 ) ) % 4 != 3 { 
+                if self.get( self.start + i ) 
+                        != ::complement( other.get( other.start + n - i - 1 ) ) { 
 
                     // XXX:
                     println!( "eq-rc returning false for {} and {}, whose actual\
