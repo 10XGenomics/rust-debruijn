@@ -471,7 +471,7 @@ impl<'a> PartialEq for DnaStringSlice<'a> {
             println!( "{} vs {}", self.get(i), other.get(i) );
         }
 
-        if self.is_rc == other.is_rc {
+        // if self.is_rc == other.is_rc {
             for i in 0..n {
                 if self.get( self.start + i ) != other.get( other.start + i ) { 
 
@@ -484,7 +484,8 @@ impl<'a> PartialEq for DnaStringSlice<'a> {
                     return false; 
                 }
             }
-        }
+        // }
+        /*
         else {
             for i in 0..n {
                 if self.get( self.start + i ) 
@@ -500,6 +501,7 @@ impl<'a> PartialEq for DnaStringSlice<'a> {
                 }
             }
         }
+        */
 
         // XXX:
         println!( "eq returning true for {}.{} and {}.{}, \
