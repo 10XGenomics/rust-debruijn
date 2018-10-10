@@ -493,8 +493,9 @@ impl<'a> PartialEq for DnaStringSlice<'a> {
         }
 
         // XXX:
-        println!( "eq returning true for {} and {}, whose actual equality is {}",
-            self.to_string(), other.to_string(),
+        println!( "eq returning true for {}.{} and {}.{}, \
+            whose actual equality is {}",
+            self.to_string(), self.is_rc, other.to_string(), other.is_rc,
             self.to_string() == other.to_string() );
 
         true
