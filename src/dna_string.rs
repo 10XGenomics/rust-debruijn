@@ -460,6 +460,7 @@ pub struct DnaStringSlice<'a> {
 
 impl<'a> PartialEq for DnaStringSlice<'a> {
     fn eq( &self, other: &DnaStringSlice ) -> bool {
+        println!( "ENTERING EQ" ); // XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
         let n = self.len();
         if other.length != n{ return false; }
         if self.is_rc == other.is_rc {
