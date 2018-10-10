@@ -460,8 +460,17 @@ pub struct DnaStringSlice<'a> {
 
 impl<'a> PartialEq for DnaStringSlice<'a> {
     fn eq( &self, other: &DnaStringSlice ) -> bool {
-        let n = self.len();
+        let n = self.length;
+
         if other.length != n { return false; }
+
+        println!( "\nn = {}", n );
+        println!( "self.is_rc = {}", self.is_rc );
+        println!( "other.is_rc = {}", other.is_rc );
+        for i in 0..n {
+            println!( "{} vs {}", self.get(i), other.get(i) );
+        }
+
         if self.is_rc == other.is_rc {
             for i in 0..n {
                 if self.get( self.start + i ) != other.get( other.start + i ) { 
