@@ -450,7 +450,7 @@ impl<'a> IntoIterator for &'a DnaString {
 
 
 /// An immutable slice into a DnaString
-#[derive(Eq, PartialEq, Clone)]
+#[derive(Clone)]
 pub struct DnaStringSlice<'a> {
     pub dna_string: &'a DnaString,
     pub start: usize,
@@ -458,6 +458,29 @@ pub struct DnaStringSlice<'a> {
     pub is_rc: bool,
 }
 
+impl<'a> PartialEq for DnaStringSlice<'a> {
+    fn eq( &self, other: &DnaStringSlice ) -> bool {
+        let n = self.len();
+        if other.length != n{ return false; }
+        if self.is_rc == other.is_rc {
+            for i in 0..n {
+                if self.get( self.start + i ) != other.get( other.start + i ) { 
+                    return false; 
+                }
+            }
+        }
+        else {
+            for i in 0..n {
+                if ( self.get( self.start + i ) 
+                        + other.get( other.start + n - i - 1 ) ) % 4 != 3 { 
+                    return false; 
+                }
+            }
+        }
+        true
+    }
+}
+impl<'a> Eq for DnaStringSlice<'a> { }
 
 impl<'a> Mer for DnaStringSlice<'a> {
     fn len(&self) -> usize {
