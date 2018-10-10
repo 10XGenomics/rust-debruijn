@@ -463,9 +463,18 @@ impl<'a> PartialEq for DnaStringSlice<'a> {
         let n = self.length;
         if other.length != n { return false; }
         for i in 0..n {
-            if self.dna_string.get( self.start + i ) 
-                != other.dna_string.get( other.start + i ) { 
-                return false; 
+            if self.is_rc == other.is_rc {
+                if self.dna_string.get( self.start + i ) 
+                    != other.dna_string.get( other.start + i ) { 
+                    return false; 
+                }
+            }
+            else {
+                if self.dna_string.get( self.start + i ) 
+                    != ::complement( other.dna_string.get( 
+                        other.start + other.length - i - 1 ) ) { 
+                    return false; 
+                }
             }
         }
         true
