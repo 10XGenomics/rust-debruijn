@@ -462,9 +462,7 @@ impl<'a> PartialEq for DnaStringSlice<'a> {
     fn eq( &self, other: &DnaStringSlice ) -> bool {
         if other.length != self.length { return false; }
         for i in 0..self.length {
-            if self.get( self.start + i ) != other.get( other.start + i ) {
-                return false
-            }
+            if self.get(i) != other.get(i) { return false }
         }
         true
     }
