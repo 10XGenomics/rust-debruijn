@@ -113,7 +113,7 @@ pub fn bits_to_base(c: u8) -> char {
 }
 
 /// The complement of a 2-bit encoded base
-#[inline]
+#[inline(always)]
 pub fn complement(base: u8) -> u8 {
     (!base) & 0x3u8
 }

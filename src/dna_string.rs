@@ -474,7 +474,8 @@ impl<'a> Mer for DnaStringSlice<'a> {
         self.length
     }
 
-    /// Get the value at position `i`.
+    /// Get the base at position `i`.
+    #[inline(always)]
     fn get(&self, i: usize) -> u8 {
         if !self.is_rc {
             self.dna_string.get(i + self.start)
@@ -483,7 +484,7 @@ impl<'a> Mer for DnaStringSlice<'a> {
         }
     }
 
-    /// Set the value as position `i`.
+    /// Set the base as position `i`.
     fn set_mut(&mut self, _: usize, _: u8) {
         unimplemented!()
         //debug_assert!(i < self.length);
