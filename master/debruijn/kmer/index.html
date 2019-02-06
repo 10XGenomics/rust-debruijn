@@ -1,10 +1,10 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="API documentation for the Rust `kmer` mod in crate `debruijn`."><meta name="keywords" content="rust, rustlang, rust-lang, kmer"><title>debruijn::kmer - Rust</title><link rel="stylesheet" type="text/css" href="../../normalize.css"><link rel="stylesheet" type="text/css" href="../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../dark.css"><link rel="stylesheet" type="text/css" href="../../light.css" id="themeStyle"><script src="../../storage.js"></script></head><body class="rustdoc mod"><!--[if lte IE 8]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="sidebar-menu">&#9776;</div><p class='location'>Module kmer</p><div class="sidebar-elems"><div class="block items"><ul><li><a href="#structs">Structs</a></li><li><a href="#traits">Traits</a></li><li><a href="#types">Type Definitions</a></li></ul></div><p class='location'><a href='../index.html'>debruijn</a></p><script>window.sidebarCurrent = {name: 'kmer', ty: 'mod', relpath: '../'};</script><script defer src="../sidebar-items.js"></script></div></nav><div class="theme-picker"><button id="theme-picker" aria-label="Pick another theme!"><img src="../../brush.svg" width="18" alt="Pick another theme!"></button><div id="theme-choices"></div></div><script src="../../theme.js"></script><nav class="sub"><form class="search-form js-only"><div class="search-container"><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><a id="settings-menu" href="../../settings.html"><img src="../../wheel.svg" width="18" alt="Change settings"></a></div></form></nav><section id="main" class="content"><h1 class='fqn'><span class='out-of-band'><span id='render-detail'><a id="toggle-all-docs" href="javascript:void(0)" title="collapse all docs">[<span class='inner'>&#x2212;</span>]</a></span><a class='srclink' href='../../src/debruijn/kmer.rs.html#3-957' title='goto source code'>[src]</a></span><span class='in-band'>Module <a href='../index.html'>debruijn</a>::<wbr><a class="mod" href=''>kmer</a></span></h1><div class='docblock'><p>Represent kmers with statically know length in compact integer types</p>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="API documentation for the Rust `kmer` mod in crate `debruijn`."><meta name="keywords" content="rust, rustlang, rust-lang, kmer"><title>debruijn::kmer - Rust</title><link rel="stylesheet" type="text/css" href="../../normalize.css"><link rel="stylesheet" type="text/css" href="../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../dark.css"><link rel="stylesheet" type="text/css" href="../../light.css" id="themeStyle"><script src="../../storage.js"></script></head><body class="rustdoc mod"><!--[if lte IE 8]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="sidebar-menu">&#9776;</div><p class='location'>Module kmer</p><div class="sidebar-elems"><div class="block items"><ul><li><a href="#structs">Structs</a></li><li><a href="#traits">Traits</a></li><li><a href="#types">Type Definitions</a></li></ul></div><p class='location'><a href='../index.html'>debruijn</a></p><script>window.sidebarCurrent = {name: 'kmer', ty: 'mod', relpath: '../'};</script><script defer src="../sidebar-items.js"></script></div></nav><div class="theme-picker"><button id="theme-picker" aria-label="Pick another theme!"><img src="../../brush.svg" width="18" alt="Pick another theme!"></button><div id="theme-choices"></div></div><script src="../../theme.js"></script><nav class="sub"><form class="search-form js-only"><div class="search-container"><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><a id="settings-menu" href="../../settings.html"><img src="../../wheel.svg" width="18" alt="Change settings"></a></div></form></nav><section id="main" class="content"><h1 class='fqn'><span class='out-of-band'><span id='render-detail'><a id="toggle-all-docs" href="javascript:void(0)" title="collapse all docs">[<span class='inner'>&#x2212;</span>]</a></span><a class='srclink' href='../../src/debruijn/kmer.rs.html#3-978' title='goto source code'>[src]</a></span><span class='in-band'>Module <a href='../index.html'>debruijn</a>::<wbr><a class="mod" href=''>kmer</a></span></h1><div class='docblock'><p>Represent kmers with statically know length in compact integer types</p>
 <p>A kmer is a DNA sequence with statically-known length K. The sequence is stored the smallest possible integer type
 Efficient methods for reverse complement and shifting new bases into the left or right of a sequence are provided.
 Kmers implement <code>Eq</code> to test if two kmers represent the same string.
 Kmers implement <code>Ord</code>, which corresponds to the natural lexicographic ordering.</p>
 
-<pre class="rust rust-example-rendered">
+<div class="example-wrap"><pre class="rust rust-example-rendered">
 <span class="kw">use</span> <span class="ident">debruijn</span>::<span class="kw-2">*</span>;
 <span class="kw">use</span> <span class="ident">debruijn</span>::<span class="ident">kmer</span>::<span class="kw-2">*</span>;
 
@@ -28,243 +28,35 @@ Kmers implement <code>Ord</code>, which corresponds to the natural lexicographic
         <span class="ident">Kmer16</span>::<span class="ident">from_ascii</span>(<span class="string">b&quot;ACGTACGTACGTACGT&quot;</span>),
         <span class="ident">Kmer16</span>::<span class="ident">from_ascii</span>(<span class="string">b&quot;CGTACGTACGTACGTT&quot;</span>),
         <span class="ident">Kmer16</span>::<span class="ident">from_ascii</span>(<span class="string">b&quot;TACGTACGTACGTACG&quot;</span>)
-    ]);</pre>
+    ]);</pre></div>
 </div><h2 id='structs' class='section-header'><a href="#structs">Structs</a></h2>
-<table>
-                       <tr class=' module-item'>
-                           <td><a class="struct" href="struct.IntKmer.html"
-                                  title='struct debruijn::kmer::IntKmer'>IntKmer</a></td>
-                           <td class='docblock-short'>
-                                <p>A Kmer sequence with a statically know K. K will fill the underlying integer type.</p>
-
-                           </td>
-                       </tr>
-                       <tr class=' module-item'>
-                           <td><a class="struct" href="struct.K2.html"
-                                  title='struct debruijn::kmer::K2'>K2</a></td>
-                           <td class='docblock-short'>
-                                <p>Marker trait for generating K=6 Kmers</p>
-
-                           </td>
-                       </tr>
-                       <tr class=' module-item'>
-                           <td><a class="struct" href="struct.K3.html"
-                                  title='struct debruijn::kmer::K3'>K3</a></td>
-                           <td class='docblock-short'>
-                                <p>Marker trait for generating K=6 Kmers</p>
-
-                           </td>
-                       </tr>
-                       <tr class=' module-item'>
-                           <td><a class="struct" href="struct.K4.html"
-                                  title='struct debruijn::kmer::K4'>K4</a></td>
-                           <td class='docblock-short'>
-                                <p>Marker trait for generating K=6 Kmers</p>
-
-                           </td>
-                       </tr>
-                       <tr class=' module-item'>
-                           <td><a class="struct" href="struct.K5.html"
-                                  title='struct debruijn::kmer::K5'>K5</a></td>
-                           <td class='docblock-short'>
-                                <p>Marker trait for generating K=6 Kmers</p>
-
-                           </td>
-                       </tr>
-                       <tr class=' module-item'>
-                           <td><a class="struct" href="struct.K6.html"
-                                  title='struct debruijn::kmer::K6'>K6</a></td>
-                           <td class='docblock-short'>
-                                <p>Marker trait for generating K=6 Kmers</p>
-
-                           </td>
-                       </tr>
-                       <tr class=' module-item'>
-                           <td><a class="struct" href="struct.K14.html"
-                                  title='struct debruijn::kmer::K14'>K14</a></td>
-                           <td class='docblock-short'>
-                                <p>Marker trait for generating K=14 Kmers</p>
-
-                           </td>
-                       </tr>
-                       <tr class=' module-item'>
-                           <td><a class="struct" href="struct.K20.html"
-                                  title='struct debruijn::kmer::K20'>K20</a></td>
-                           <td class='docblock-short'>
-                                <p>Marker trait for generating K=20 Kmers</p>
-
-                           </td>
-                       </tr>
-                       <tr class=' module-item'>
-                           <td><a class="struct" href="struct.K24.html"
-                                  title='struct debruijn::kmer::K24'>K24</a></td>
-                           <td class='docblock-short'>
-                                <p>Marker trait for generating K=24 Kmers</p>
-
-                           </td>
-                       </tr>
-                       <tr class=' module-item'>
-                           <td><a class="struct" href="struct.K30.html"
-                                  title='struct debruijn::kmer::K30'>K30</a></td>
-                           <td class='docblock-short'>
-                                <p>Marker trait for generating K=40 Kmers</p>
-
-                           </td>
-                       </tr>
-                       <tr class=' module-item'>
-                           <td><a class="struct" href="struct.K40.html"
-                                  title='struct debruijn::kmer::K40'>K40</a></td>
-                           <td class='docblock-short'>
-                                <p>Marker trait for generating K=40 Kmers</p>
-
-                           </td>
-                       </tr>
-                       <tr class=' module-item'>
-                           <td><a class="struct" href="struct.K48.html"
-                                  title='struct debruijn::kmer::K48'>K48</a></td>
-                           <td class='docblock-short'>
-                                <p>Marker struct for generating K=48 Kmers</p>
-
-                           </td>
-                       </tr>
-                       <tr class=' module-item'>
-                           <td><a class="struct" href="struct.VarIntKmer.html"
-                                  title='struct debruijn::kmer::VarIntKmer'>VarIntKmer</a></td>
-                           <td class='docblock-short'>
-                                <p>A fixed-length Kmer sequence that may not fill the bits of T</p>
-
-                           </td>
-                       </tr></table><h2 id='traits' class='section-header'><a href="#traits">Traits</a></h2>
-<table>
-                       <tr class=' module-item'>
-                           <td><a class="trait" href="trait.IntHelp.html"
-                                  title='trait debruijn::kmer::IntHelp'>IntHelp</a></td>
-                           <td class='docblock-short'>
-                                <p>Trait for specialized integer operations used in DeBruijn Graph</p>
-
-                           </td>
-                       </tr>
-                       <tr class=' module-item'>
-                           <td><a class="trait" href="trait.KmerSize.html"
-                                  title='trait debruijn::kmer::KmerSize'>KmerSize</a></td>
-                           <td class='docblock-short'>
-                                <p>Helper trait for declaring the K value of a Kmer. Will be removed when const generics are available</p>
-
-                           </td>
-                       </tr></table><h2 id='types' class='section-header'><a href="#types">Type Definitions</a></h2>
-<table>
-                       <tr class=' module-item'>
-                           <td><a class="type" href="type.Kmer2.html"
-                                  title='type debruijn::kmer::Kmer2'>Kmer2</a></td>
-                           <td class='docblock-short'>
-                                
-                           </td>
-                       </tr>
-                       <tr class=' module-item'>
-                           <td><a class="type" href="type.Kmer3.html"
-                                  title='type debruijn::kmer::Kmer3'>Kmer3</a></td>
-                           <td class='docblock-short'>
-                                
-                           </td>
-                       </tr>
-                       <tr class=' module-item'>
-                           <td><a class="type" href="type.Kmer4.html"
-                                  title='type debruijn::kmer::Kmer4'>Kmer4</a></td>
-                           <td class='docblock-short'>
-                                
-                           </td>
-                       </tr>
-                       <tr class=' module-item'>
-                           <td><a class="type" href="type.Kmer5.html"
-                                  title='type debruijn::kmer::Kmer5'>Kmer5</a></td>
-                           <td class='docblock-short'>
-                                
-                           </td>
-                       </tr>
-                       <tr class=' module-item'>
-                           <td><a class="type" href="type.Kmer6.html"
-                                  title='type debruijn::kmer::Kmer6'>Kmer6</a></td>
-                           <td class='docblock-short'>
-                                
-                           </td>
-                       </tr>
-                       <tr class=' module-item'>
-                           <td><a class="type" href="type.Kmer8.html"
-                                  title='type debruijn::kmer::Kmer8'>Kmer8</a></td>
-                           <td class='docblock-short'>
-                                <p>16-base kmer, backed by a single u16</p>
-
-                           </td>
-                       </tr>
-                       <tr class=' module-item'>
-                           <td><a class="type" href="type.Kmer14.html"
-                                  title='type debruijn::kmer::Kmer14'>Kmer14</a></td>
-                           <td class='docblock-short'>
-                                <p>14-base kmer, backed by a single u32</p>
-
-                           </td>
-                       </tr>
-                       <tr class=' module-item'>
-                           <td><a class="type" href="type.Kmer16.html"
-                                  title='type debruijn::kmer::Kmer16'>Kmer16</a></td>
-                           <td class='docblock-short'>
-                                <p>16-base kmer, backed by a single u32</p>
-
-                           </td>
-                       </tr>
-                       <tr class=' module-item'>
-                           <td><a class="type" href="type.Kmer20.html"
-                                  title='type debruijn::kmer::Kmer20'>Kmer20</a></td>
-                           <td class='docblock-short'>
-                                <p>20-base kmer, backed by a single u64</p>
-
-                           </td>
-                       </tr>
-                       <tr class=' module-item'>
-                           <td><a class="type" href="type.Kmer24.html"
-                                  title='type debruijn::kmer::Kmer24'>Kmer24</a></td>
-                           <td class='docblock-short'>
-                                <p>24-base kmer, backed by a single u64</p>
-
-                           </td>
-                       </tr>
-                       <tr class=' module-item'>
-                           <td><a class="type" href="type.Kmer30.html"
-                                  title='type debruijn::kmer::Kmer30'>Kmer30</a></td>
-                           <td class='docblock-short'>
-                                <p>30-base kmer, backed by a single u64</p>
-
-                           </td>
-                       </tr>
-                       <tr class=' module-item'>
-                           <td><a class="type" href="type.Kmer32.html"
-                                  title='type debruijn::kmer::Kmer32'>Kmer32</a></td>
-                           <td class='docblock-short'>
-                                <p>32-base kmer, backed by a single u64</p>
-
-                           </td>
-                       </tr>
-                       <tr class=' module-item'>
-                           <td><a class="type" href="type.Kmer40.html"
-                                  title='type debruijn::kmer::Kmer40'>Kmer40</a></td>
-                           <td class='docblock-short'>
-                                <p>40-base kmer, backed by a single u128</p>
-
-                           </td>
-                       </tr>
-                       <tr class=' module-item'>
-                           <td><a class="type" href="type.Kmer48.html"
-                                  title='type debruijn::kmer::Kmer48'>Kmer48</a></td>
-                           <td class='docblock-short'>
-                                <p>48-base kmer, backed by a single u128</p>
-
-                           </td>
-                       </tr>
-                       <tr class=' module-item'>
-                           <td><a class="type" href="type.Kmer64.html"
-                                  title='type debruijn::kmer::Kmer64'>Kmer64</a></td>
-                           <td class='docblock-short'>
-                                <p>64-base kmer, backed by a single u128</p>
-
-                           </td>
-                       </tr></table></section><section id="search" class="content hidden"></section><section class="footer"></section><aside id="help" class="hidden"><div><h1 class="hidden">Help</h1><div class="shortcuts"><h2>Keyboard Shortcuts</h2><dl><dt><kbd>?</kbd></dt><dd>Show this help dialog</dd><dt><kbd>S</kbd></dt><dd>Focus the search field</dd><dt><kbd>↑</kbd></dt><dd>Move up in search results</dd><dt><kbd>↓</kbd></dt><dd>Move down in search results</dd><dt><kbd>↹</kbd></dt><dd>Switch tab</dd><dt><kbd>&#9166;</kbd></dt><dd>Go to active search result</dd><dt><kbd>+</kbd></dt><dd>Expand all sections</dd><dt><kbd>-</kbd></dt><dd>Collapse all sections</dd></dl></div><div class="infos"><h2>Search Tricks</h2><p>Prefix searches with a type followed by a colon (e.g. <code>fn:</code>) to restrict the search to a given type.</p><p>Accepted types are: <code>fn</code>, <code>mod</code>, <code>struct</code>, <code>enum</code>, <code>trait</code>, <code>type</code>, <code>macro</code>, and <code>const</code>.</p><p>Search functions by type signature (e.g. <code>vec -> usize</code> or <code>* -> vec</code>)</p><p>Search multiple things at once by splitting your query with comma (e.g. <code>str,u8</code> or <code>String,struct:Vec,test</code>)</p></div></div></aside><script>window.rootPath = "../../";window.currentCrate = "debruijn";</script><script src="../../aliases.js"></script><script src="../../main.js"></script><script defer src="../../search-index.js"></script></body></html>
+<table><tr class='module-item'><td><a class="struct" href="struct.IntKmer.html" title='debruijn::kmer::IntKmer struct'>IntKmer</a></td><td class='docblock-short'><p>A Kmer sequence with a statically know K. K will fill the underlying integer type.</p>
+</td></tr><tr class='module-item'><td><a class="struct" href="struct.K2.html" title='debruijn::kmer::K2 struct'>K2</a></td><td class='docblock-short'><p>Marker trait for generating K=6 Kmers</p>
+</td></tr><tr class='module-item'><td><a class="struct" href="struct.K3.html" title='debruijn::kmer::K3 struct'>K3</a></td><td class='docblock-short'><p>Marker trait for generating K=6 Kmers</p>
+</td></tr><tr class='module-item'><td><a class="struct" href="struct.K4.html" title='debruijn::kmer::K4 struct'>K4</a></td><td class='docblock-short'><p>Marker trait for generating K=6 Kmers</p>
+</td></tr><tr class='module-item'><td><a class="struct" href="struct.K5.html" title='debruijn::kmer::K5 struct'>K5</a></td><td class='docblock-short'><p>Marker trait for generating K=6 Kmers</p>
+</td></tr><tr class='module-item'><td><a class="struct" href="struct.K6.html" title='debruijn::kmer::K6 struct'>K6</a></td><td class='docblock-short'><p>Marker trait for generating K=6 Kmers</p>
+</td></tr><tr class='module-item'><td><a class="struct" href="struct.K12.html" title='debruijn::kmer::K12 struct'>K12</a></td><td class='docblock-short'><p>Marker trait for generating K=12 Kmers</p>
+</td></tr><tr class='module-item'><td><a class="struct" href="struct.K14.html" title='debruijn::kmer::K14 struct'>K14</a></td><td class='docblock-short'><p>Marker trait for generating K=14 Kmers</p>
+</td></tr><tr class='module-item'><td><a class="struct" href="struct.K20.html" title='debruijn::kmer::K20 struct'>K20</a></td><td class='docblock-short'><p>Marker trait for generating K=20 Kmers</p>
+</td></tr><tr class='module-item'><td><a class="struct" href="struct.K24.html" title='debruijn::kmer::K24 struct'>K24</a></td><td class='docblock-short'><p>Marker trait for generating K=24 Kmers</p>
+</td></tr><tr class='module-item'><td><a class="struct" href="struct.K30.html" title='debruijn::kmer::K30 struct'>K30</a></td><td class='docblock-short'><p>Marker trait for generating K=40 Kmers</p>
+</td></tr><tr class='module-item'><td><a class="struct" href="struct.K40.html" title='debruijn::kmer::K40 struct'>K40</a></td><td class='docblock-short'><p>Marker trait for generating K=40 Kmers</p>
+</td></tr><tr class='module-item'><td><a class="struct" href="struct.K48.html" title='debruijn::kmer::K48 struct'>K48</a></td><td class='docblock-short'><p>Marker struct for generating K=48 Kmers</p>
+</td></tr><tr class='module-item'><td><a class="struct" href="struct.VarIntKmer.html" title='debruijn::kmer::VarIntKmer struct'>VarIntKmer</a></td><td class='docblock-short'><p>A fixed-length Kmer sequence that may not fill the bits of T</p>
+</td></tr></table><h2 id='traits' class='section-header'><a href="#traits">Traits</a></h2>
+<table><tr class='module-item'><td><a class="trait" href="trait.IntHelp.html" title='debruijn::kmer::IntHelp trait'>IntHelp</a></td><td class='docblock-short'><p>Trait for specialized integer operations used in DeBruijn Graph</p>
+</td></tr><tr class='module-item'><td><a class="trait" href="trait.KmerSize.html" title='debruijn::kmer::KmerSize trait'>KmerSize</a></td><td class='docblock-short'><p>Helper trait for declaring the K value of a Kmer. Will be removed when const generics are available</p>
+</td></tr></table><h2 id='types' class='section-header'><a href="#types">Type Definitions</a></h2>
+<table><tr class='module-item'><td><a class="type" href="type.Kmer2.html" title='debruijn::kmer::Kmer2 type'>Kmer2</a></td><td class='docblock-short'></td></tr><tr class='module-item'><td><a class="type" href="type.Kmer3.html" title='debruijn::kmer::Kmer3 type'>Kmer3</a></td><td class='docblock-short'></td></tr><tr class='module-item'><td><a class="type" href="type.Kmer4.html" title='debruijn::kmer::Kmer4 type'>Kmer4</a></td><td class='docblock-short'></td></tr><tr class='module-item'><td><a class="type" href="type.Kmer5.html" title='debruijn::kmer::Kmer5 type'>Kmer5</a></td><td class='docblock-short'></td></tr><tr class='module-item'><td><a class="type" href="type.Kmer6.html" title='debruijn::kmer::Kmer6 type'>Kmer6</a></td><td class='docblock-short'></td></tr><tr class='module-item'><td><a class="type" href="type.Kmer8.html" title='debruijn::kmer::Kmer8 type'>Kmer8</a></td><td class='docblock-short'><p>8-base kmer, backed by a single u16</p>
+</td></tr><tr class='module-item'><td><a class="type" href="type.Kmer12.html" title='debruijn::kmer::Kmer12 type'>Kmer12</a></td><td class='docblock-short'><p>12-base kmer, backed by a single u32</p>
+</td></tr><tr class='module-item'><td><a class="type" href="type.Kmer14.html" title='debruijn::kmer::Kmer14 type'>Kmer14</a></td><td class='docblock-short'><p>14-base kmer, backed by a single u32</p>
+</td></tr><tr class='module-item'><td><a class="type" href="type.Kmer16.html" title='debruijn::kmer::Kmer16 type'>Kmer16</a></td><td class='docblock-short'><p>16-base kmer, backed by a single u32</p>
+</td></tr><tr class='module-item'><td><a class="type" href="type.Kmer20.html" title='debruijn::kmer::Kmer20 type'>Kmer20</a></td><td class='docblock-short'><p>20-base kmer, backed by a single u64</p>
+</td></tr><tr class='module-item'><td><a class="type" href="type.Kmer24.html" title='debruijn::kmer::Kmer24 type'>Kmer24</a></td><td class='docblock-short'><p>24-base kmer, backed by a single u64</p>
+</td></tr><tr class='module-item'><td><a class="type" href="type.Kmer30.html" title='debruijn::kmer::Kmer30 type'>Kmer30</a></td><td class='docblock-short'><p>30-base kmer, backed by a single u64</p>
+</td></tr><tr class='module-item'><td><a class="type" href="type.Kmer32.html" title='debruijn::kmer::Kmer32 type'>Kmer32</a></td><td class='docblock-short'><p>32-base kmer, backed by a single u64</p>
+</td></tr><tr class='module-item'><td><a class="type" href="type.Kmer40.html" title='debruijn::kmer::Kmer40 type'>Kmer40</a></td><td class='docblock-short'><p>40-base kmer, backed by a single u128</p>
+</td></tr><tr class='module-item'><td><a class="type" href="type.Kmer48.html" title='debruijn::kmer::Kmer48 type'>Kmer48</a></td><td class='docblock-short'><p>48-base kmer, backed by a single u128</p>
+</td></tr><tr class='module-item'><td><a class="type" href="type.Kmer64.html" title='debruijn::kmer::Kmer64 type'>Kmer64</a></td><td class='docblock-short'><p>64-base kmer, backed by a single u128</p>
+</td></tr></table></section><section id="search" class="content hidden"></section><section class="footer"></section><aside id="help" class="hidden"><div><h1 class="hidden">Help</h1><div class="shortcuts"><h2>Keyboard Shortcuts</h2><dl><dt><kbd>?</kbd></dt><dd>Show this help dialog</dd><dt><kbd>S</kbd></dt><dd>Focus the search field</dd><dt><kbd>↑</kbd></dt><dd>Move up in search results</dd><dt><kbd>↓</kbd></dt><dd>Move down in search results</dd><dt><kbd>↹</kbd></dt><dd>Switch tab</dd><dt><kbd>&#9166;</kbd></dt><dd>Go to active search result</dd><dt><kbd>+</kbd></dt><dd>Expand all sections</dd><dt><kbd>-</kbd></dt><dd>Collapse all sections</dd></dl></div><div class="infos"><h2>Search Tricks</h2><p>Prefix searches with a type followed by a colon (e.g. <code>fn:</code>) to restrict the search to a given type.</p><p>Accepted types are: <code>fn</code>, <code>mod</code>, <code>struct</code>, <code>enum</code>, <code>trait</code>, <code>type</code>, <code>macro</code>, and <code>const</code>.</p><p>Search functions by type signature (e.g. <code>vec -> usize</code> or <code>* -> vec</code>)</p><p>Search multiple things at once by splitting your query with comma (e.g. <code>str,u8</code> or <code>String,struct:Vec,test</code>)</p></div></div></aside><script>window.rootPath = "../../";window.currentCrate = "debruijn";</script><script src="../../aliases.js"></script><script src="../../main.js"></script><script defer src="../../search-index.js"></script></body></html>

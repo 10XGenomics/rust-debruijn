@@ -955,7 +955,28 @@
 <span id="955">955</span>
 <span id="956">956</span>
 <span id="957">957</span>
-</pre><pre class="rust ">
+<span id="958">958</span>
+<span id="959">959</span>
+<span id="960">960</span>
+<span id="961">961</span>
+<span id="962">962</span>
+<span id="963">963</span>
+<span id="964">964</span>
+<span id="965">965</span>
+<span id="966">966</span>
+<span id="967">967</span>
+<span id="968">968</span>
+<span id="969">969</span>
+<span id="970">970</span>
+<span id="971">971</span>
+<span id="972">972</span>
+<span id="973">973</span>
+<span id="974">974</span>
+<span id="975">975</span>
+<span id="976">976</span>
+<span id="977">977</span>
+<span id="978">978</span>
+</pre><div class="example-wrap"><pre class="rust ">
 <span class="comment">// Copyright 2017 10x Genomics</span>
 
 <span class="doccomment">//! Represent kmers with statically know length in compact integer types</span>
@@ -1033,7 +1054,10 @@
 <span class="doccomment">/// 14-base kmer, backed by a single u32</span>
 <span class="kw">pub</span> <span class="kw">type</span> <span class="ident">Kmer14</span> <span class="op">=</span> <span class="ident">VarIntKmer</span><span class="op">&lt;</span><span class="ident">u32</span>, <span class="ident">K14</span><span class="op">&gt;</span>;
 
-<span class="doccomment">/// 16-base kmer, backed by a single u16</span>
+<span class="doccomment">/// 12-base kmer, backed by a single u32</span>
+<span class="kw">pub</span> <span class="kw">type</span> <span class="ident">Kmer12</span> <span class="op">=</span> <span class="ident">VarIntKmer</span><span class="op">&lt;</span><span class="ident">u32</span>, <span class="ident">K12</span><span class="op">&gt;</span>;
+
+<span class="doccomment">/// 8-base kmer, backed by a single u16</span>
 <span class="kw">pub</span> <span class="kw">type</span> <span class="ident">Kmer8</span> <span class="op">=</span> <span class="ident">IntKmer</span><span class="op">&lt;</span><span class="ident">u16</span><span class="op">&gt;</span>;
 
 <span class="kw">pub</span> <span class="kw">type</span> <span class="ident">Kmer6</span> <span class="op">=</span> <span class="ident">VarIntKmer</span><span class="op">&lt;</span><span class="ident">u16</span>, <span class="ident">K6</span><span class="op">&gt;</span>;
@@ -1573,6 +1597,17 @@
     }
 }
 
+<span class="doccomment">/// Marker trait for generating K=12 Kmers</span>
+<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Hash</span>, <span class="ident">Copy</span>, <span class="ident">Clone</span>, <span class="ident">Ord</span>, <span class="ident">PartialOrd</span>, <span class="ident">Eq</span>, <span class="ident">PartialEq</span>)]</span>
+<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">K12</span>;
+
+<span class="kw">impl</span> <span class="ident">KmerSize</span> <span class="kw">for</span> <span class="ident">K12</span> {
+    <span class="attribute">#[<span class="ident">inline</span>]</span>
+    <span class="kw">fn</span> <span class="ident">K</span>() <span class="op">-&gt;</span> <span class="ident">usize</span> {
+        <span class="number">12</span>
+    }
+}
+
 <span class="doccomment">/// Marker trait for generating K=6 Kmers</span>
 <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Hash</span>, <span class="ident">Copy</span>, <span class="ident">Clone</span>, <span class="ident">Ord</span>, <span class="ident">PartialOrd</span>, <span class="ident">Eq</span>, <span class="ident">PartialEq</span>)]</span>
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">K6</span>;
@@ -1886,6 +1921,13 @@
     }
 
     <span class="attribute">#[<span class="ident">test</span>]</span>
+    <span class="kw">fn</span> <span class="ident">test_kmer_12</span>() {
+        <span class="kw">for</span> <span class="kw">_</span> <span class="kw">in</span> <span class="number">0</span>..<span class="number">10000</span> {
+            <span class="ident">check_kmer</span>::<span class="op">&lt;</span><span class="ident">VarIntKmer</span><span class="op">&lt;</span><span class="ident">u32</span>, <span class="ident">K12</span><span class="op">&gt;&gt;</span>();
+        }
+    }
+
+    <span class="attribute">#[<span class="ident">test</span>]</span>
     <span class="kw">fn</span> <span class="ident">test_kmer_8</span>() {
         <span class="kw">for</span> <span class="kw">_</span> <span class="kw">in</span> <span class="number">0</span>..<span class="number">10000</span> {
             <span class="ident">check_kmer</span>::<span class="op">&lt;</span><span class="ident">IntKmer</span><span class="op">&lt;</span><span class="ident">u16</span><span class="op">&gt;&gt;</span>();
@@ -1913,5 +1955,5 @@
         }
     }
 }
-</pre>
-</section><section id="search" class="content hidden"></section><section class="footer"></section><aside id="help" class="hidden"><div><h1 class="hidden">Help</h1><div class="shortcuts"><h2>Keyboard Shortcuts</h2><dl><dt><kbd>?</kbd></dt><dd>Show this help dialog</dd><dt><kbd>S</kbd></dt><dd>Focus the search field</dd><dt><kbd>↑</kbd></dt><dd>Move up in search results</dd><dt><kbd>↓</kbd></dt><dd>Move down in search results</dd><dt><kbd>↹</kbd></dt><dd>Switch tab</dd><dt><kbd>&#9166;</kbd></dt><dd>Go to active search result</dd><dt><kbd>+</kbd></dt><dd>Expand all sections</dd><dt><kbd>-</kbd></dt><dd>Collapse all sections</dd></dl></div><div class="infos"><h2>Search Tricks</h2><p>Prefix searches with a type followed by a colon (e.g. <code>fn:</code>) to restrict the search to a given type.</p><p>Accepted types are: <code>fn</code>, <code>mod</code>, <code>struct</code>, <code>enum</code>, <code>trait</code>, <code>type</code>, <code>macro</code>, and <code>const</code>.</p><p>Search functions by type signature (e.g. <code>vec -> usize</code> or <code>* -> vec</code>)</p><p>Search multiple things at once by splitting your query with comma (e.g. <code>str,u8</code> or <code>String,struct:Vec,test</code>)</p></div></div></aside><script>window.rootPath = "../../";window.currentCrate = "debruijn";</script><script src="../../aliases.js"></script><script src="../../main.js"></script><script defer src="../../search-index.js"></script></body></html>
+</pre></div>
+</section><section id="search" class="content hidden"></section><section class="footer"></section><aside id="help" class="hidden"><div><h1 class="hidden">Help</h1><div class="shortcuts"><h2>Keyboard Shortcuts</h2><dl><dt><kbd>?</kbd></dt><dd>Show this help dialog</dd><dt><kbd>S</kbd></dt><dd>Focus the search field</dd><dt><kbd>↑</kbd></dt><dd>Move up in search results</dd><dt><kbd>↓</kbd></dt><dd>Move down in search results</dd><dt><kbd>↹</kbd></dt><dd>Switch tab</dd><dt><kbd>&#9166;</kbd></dt><dd>Go to active search result</dd><dt><kbd>+</kbd></dt><dd>Expand all sections</dd><dt><kbd>-</kbd></dt><dd>Collapse all sections</dd></dl></div><div class="infos"><h2>Search Tricks</h2><p>Prefix searches with a type followed by a colon (e.g. <code>fn:</code>) to restrict the search to a given type.</p><p>Accepted types are: <code>fn</code>, <code>mod</code>, <code>struct</code>, <code>enum</code>, <code>trait</code>, <code>type</code>, <code>macro</code>, and <code>const</code>.</p><p>Search functions by type signature (e.g. <code>vec -> usize</code> or <code>* -> vec</code>)</p><p>Search multiple things at once by splitting your query with comma (e.g. <code>str,u8</code> or <code>String,struct:Vec,test</code>)</p></div></div></aside><script>window.rootPath = "../../";window.currentCrate = "debruijn";</script><script src="../../aliases.js"></script><script src="../../main.js"></script><script src="../../source-files.js"></script><script src="../../source-script.js"></script><script defer src="../../search-index.js"></script></body></html>

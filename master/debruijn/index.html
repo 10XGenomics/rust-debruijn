@@ -12,215 +12,33 @@ sequences.</p>
 which expects bases encoded as the integers 0,1,2,3, and a separate form names 'ascii',
 which expects bases encoded as the ASCII letters A,C,G,T.</p>
 </div><h2 id='modules' class='section-header'><a href="#modules">Modules</a></h2>
-<table>
-                       <tr class=' module-item'>
-                           <td><a class="mod" href="clean_graph/index.html"
-                                  title='mod debruijn::clean_graph'>clean_graph</a></td>
-                           <td class='docblock-short'>
-                                <p>DeBruijn graph simplification routines. Currently tip-removal is implemented.</p>
-
-                           </td>
-                       </tr>
-                       <tr class=' module-item'>
-                           <td><a class="mod" href="compression/index.html"
-                                  title='mod debruijn::compression'>compression</a></td>
-                           <td class='docblock-short'>
-                                <p>Create compressed DeBruijn graphs from uncompressed DeBruijn graphs, or a collection of disjoint DeBruijn graphs.</p>
-
-                           </td>
-                       </tr>
-                       <tr class=' module-item'>
-                           <td><a class="mod" href="dna_string/index.html"
-                                  title='mod debruijn::dna_string'>dna_string</a></td>
-                           <td class='docblock-short'>
-                                <p>A 2-bit encoding of arbitrary length DNA sequences.</p>
-
-                           </td>
-                       </tr>
-                       <tr class=' module-item'>
-                           <td><a class="mod" href="filter/index.html"
-                                  title='mod debruijn::filter'>filter</a></td>
-                           <td class='docblock-short'>
-                                <p>Methods for converting sequences into kmers, filtering observed kmers before De Bruijn graph construction, and summarizing 'color' annotations.</p>
-
-                           </td>
-                       </tr>
-                       <tr class=' module-item'>
-                           <td><a class="mod" href="graph/index.html"
-                                  title='mod debruijn::graph'>graph</a></td>
-                           <td class='docblock-short'>
-                                <p>Containers for path-compressed De Bruijn graphs</p>
-
-                           </td>
-                       </tr>
-                       <tr class=' module-item'>
-                           <td><a class="mod" href="kmer/index.html"
-                                  title='mod debruijn::kmer'>kmer</a></td>
-                           <td class='docblock-short'>
-                                <p>Represent kmers with statically know length in compact integer types</p>
-
-                           </td>
-                       </tr>
-                       <tr class=' module-item'>
-                           <td><a class="mod" href="msp/index.html"
-                                  title='mod debruijn::msp'>msp</a></td>
-                           <td class='docblock-short'>
-                                <p>Methods for minimum substring partitioning of a DNA string</p>
-
-                           </td>
-                       </tr>
-                       <tr class=' module-item'>
-                           <td><a class="mod" href="test/index.html"
-                                  title='mod debruijn::test'>test</a></td>
-                           <td class='docblock-short'>
-                                <p>Generate random genomes (with lots of re-used sustrings), reassemble them, and check sanity</p>
-
-                           </td>
-                       </tr>
-                       <tr class=' module-item'>
-                           <td><a class="mod" href="vmer/index.html"
-                                  title='mod debruijn::vmer'>vmer</a></td>
-                           <td class='docblock-short'>
-                                <p>Variable-length DNA strings packed into fixed-size structs.</p>
-
-                           </td>
-                       </tr></table><h2 id='structs' class='section-header'><a href="#structs">Structs</a></h2>
-<table>
-                       <tr class=' module-item'>
-                           <td><a class="struct" href="struct.DnaBytes.html"
-                                  title='struct debruijn::DnaBytes'>DnaBytes</a></td>
-                           <td class='docblock-short'>
-                                <p>A newtype wrapper around a <code>Vec&lt;u8&gt;</code> with implementations </p>
-
-                           </td>
-                       </tr>
-                       <tr class=' module-item'>
-                           <td><a class="struct" href="struct.DnaSlice.html"
-                                  title='struct debruijn::DnaSlice'>DnaSlice</a></td>
-                           <td class='docblock-short'>
-                                <p>A newtype wrapper around a <code>&amp;[u8]</code> with implementations </p>
-
-                           </td>
-                       </tr>
-                       <tr class=' module-item'>
-                           <td><a class="struct" href="struct.Exts.html"
-                                  title='struct debruijn::Exts'>Exts</a></td>
-                           <td class='docblock-short'>
-                                <p>Store single-base extensions for a DNA Debruijn graph.</p>
-
-                           </td>
-                       </tr>
-                       <tr class=' module-item'>
-                           <td><a class="struct" href="struct.KmerExtsIter.html"
-                                  title='struct debruijn::KmerExtsIter'>KmerExtsIter</a></td>
-                           <td class='docblock-short'>
-                                <p>Iterate over the <code>(Kmer, Exts)</code> tuples of a sequence and it's extensions efficiently</p>
-
-                           </td>
-                       </tr>
-                       <tr class=' module-item'>
-                           <td><a class="struct" href="struct.KmerIter.html"
-                                  title='struct debruijn::KmerIter'>KmerIter</a></td>
-                           <td class='docblock-short'>
-                                <p>Iterate over the <code>Kmer</code>s of a DNA sequence efficiently</p>
-
-                           </td>
-                       </tr>
-                       <tr class=' module-item'>
-                           <td><a class="struct" href="struct.MerIter.html"
-                                  title='struct debruijn::MerIter'>MerIter</a></td>
-                           <td class='docblock-short'>
-                                <p>Iterator over bases of a DNA sequence (bases will be unpacked into bytes).</p>
-
-                           </td>
-                       </tr></table><h2 id='enums' class='section-header'><a href="#enums">Enums</a></h2>
-<table>
-                       <tr class=' module-item'>
-                           <td><a class="enum" href="enum.Dir.html"
-                                  title='enum debruijn::Dir'>Dir</a></td>
-                           <td class='docblock-short'>
-                                <p>Direction of motion in a DeBruijn graph</p>
-
-                           </td>
-                       </tr></table><h2 id='traits' class='section-header'><a href="#traits">Traits</a></h2>
-<table>
-                       <tr class=' module-item'>
-                           <td><a class="trait" href="trait.Kmer.html"
-                                  title='trait debruijn::Kmer'>Kmer</a></td>
-                           <td class='docblock-short'>
-                                <p>Encapsulates a Kmer sequence with statically known K.</p>
-
-                           </td>
-                       </tr>
-                       <tr class=' module-item'>
-                           <td><a class="trait" href="trait.Mer.html"
-                                  title='trait debruijn::Mer'>Mer</a></td>
-                           <td class='docblock-short'>
-                                <p>Trait for interacting with DNA sequences</p>
-
-                           </td>
-                       </tr>
-                       <tr class=' module-item'>
-                           <td><a class="trait" href="trait.MerImmut.html"
-                                  title='trait debruijn::MerImmut'>MerImmut</a></td>
-                           <td class='docblock-short'>
-                                <p>An immutable interface to a Mer sequence.</p>
-
-                           </td>
-                       </tr>
-                       <tr class=' module-item'>
-                           <td><a class="trait" href="trait.Vmer.html"
-                                  title='trait debruijn::Vmer'>Vmer</a></td>
-                           <td class='docblock-short'>
-                                <p>A DNA sequence with run-time variable length, up to a statically known maximum length</p>
-
-                           </td>
-                       </tr></table><h2 id='functions' class='section-header'><a href="#functions">Functions</a></h2>
-<table>
-                       <tr class=' module-item'>
-                           <td><a class="fn" href="fn.base_to_bits.html"
-                                  title='fn debruijn::base_to_bits'>base_to_bits</a></td>
-                           <td class='docblock-short'>
-                                <p>Convert an ASCII-encoded DNA base to a 2-bit representation</p>
-
-                           </td>
-                       </tr>
-                       <tr class=' module-item'>
-                           <td><a class="fn" href="fn.bits_to_ascii.html"
-                                  title='fn debruijn::bits_to_ascii'>bits_to_ascii</a></td>
-                           <td class='docblock-short'>
-                                <p>Convert a 2-bit representation of a base to a char</p>
-
-                           </td>
-                       </tr>
-                       <tr class=' module-item'>
-                           <td><a class="fn" href="fn.bits_to_base.html"
-                                  title='fn debruijn::bits_to_base'>bits_to_base</a></td>
-                           <td class='docblock-short'>
-                                <p>Convert a 2-bit representation of a base to a char</p>
-
-                           </td>
-                       </tr>
-                       <tr class=' module-item'>
-                           <td><a class="fn" href="fn.complement.html"
-                                  title='fn debruijn::complement'>complement</a></td>
-                           <td class='docblock-short'>
-                                <p>The complement of a 2-bit encoded base</p>
-
-                           </td>
-                       </tr>
-                       <tr class=' module-item'>
-                           <td><a class="fn" href="fn.dna_only_base_to_bits.html"
-                                  title='fn debruijn::dna_only_base_to_bits'>dna_only_base_to_bits</a></td>
-                           <td class='docblock-short'>
-                                
-                           </td>
-                       </tr>
-                       <tr class=' module-item'>
-                           <td><a class="fn" href="fn.is_valid_base.html"
-                                  title='fn debruijn::is_valid_base'>is_valid_base</a></td>
-                           <td class='docblock-short'>
-                                <p>Convert an ASCII-encoded DNA base to a 2-bit representation</p>
-
-                           </td>
-                       </tr></table></section><section id="search" class="content hidden"></section><section class="footer"></section><aside id="help" class="hidden"><div><h1 class="hidden">Help</h1><div class="shortcuts"><h2>Keyboard Shortcuts</h2><dl><dt><kbd>?</kbd></dt><dd>Show this help dialog</dd><dt><kbd>S</kbd></dt><dd>Focus the search field</dd><dt><kbd>↑</kbd></dt><dd>Move up in search results</dd><dt><kbd>↓</kbd></dt><dd>Move down in search results</dd><dt><kbd>↹</kbd></dt><dd>Switch tab</dd><dt><kbd>&#9166;</kbd></dt><dd>Go to active search result</dd><dt><kbd>+</kbd></dt><dd>Expand all sections</dd><dt><kbd>-</kbd></dt><dd>Collapse all sections</dd></dl></div><div class="infos"><h2>Search Tricks</h2><p>Prefix searches with a type followed by a colon (e.g. <code>fn:</code>) to restrict the search to a given type.</p><p>Accepted types are: <code>fn</code>, <code>mod</code>, <code>struct</code>, <code>enum</code>, <code>trait</code>, <code>type</code>, <code>macro</code>, and <code>const</code>.</p><p>Search functions by type signature (e.g. <code>vec -> usize</code> or <code>* -> vec</code>)</p><p>Search multiple things at once by splitting your query with comma (e.g. <code>str,u8</code> or <code>String,struct:Vec,test</code>)</p></div></div></aside><script>window.rootPath = "../";window.currentCrate = "debruijn";</script><script src="../aliases.js"></script><script src="../main.js"></script><script defer src="../search-index.js"></script></body></html>
+<table><tr class='module-item'><td><a class="mod" href="clean_graph/index.html" title='debruijn::clean_graph mod'>clean_graph</a></td><td class='docblock-short'><p>DeBruijn graph simplification routines. Currently tip-removal is implemented.</p>
+</td></tr><tr class='module-item'><td><a class="mod" href="compression/index.html" title='debruijn::compression mod'>compression</a></td><td class='docblock-short'><p>Create compressed DeBruijn graphs from uncompressed DeBruijn graphs, or a collection of disjoint DeBruijn graphs.</p>
+</td></tr><tr class='module-item'><td><a class="mod" href="dna_string/index.html" title='debruijn::dna_string mod'>dna_string</a></td><td class='docblock-short'><p>A 2-bit encoding of arbitrary length DNA sequences.</p>
+</td></tr><tr class='module-item'><td><a class="mod" href="filter/index.html" title='debruijn::filter mod'>filter</a></td><td class='docblock-short'><p>Methods for converting sequences into kmers, filtering observed kmers before De Bruijn graph construction, and summarizing 'color' annotations.</p>
+</td></tr><tr class='module-item'><td><a class="mod" href="graph/index.html" title='debruijn::graph mod'>graph</a></td><td class='docblock-short'><p>Containers for path-compressed De Bruijn graphs</p>
+</td></tr><tr class='module-item'><td><a class="mod" href="kmer/index.html" title='debruijn::kmer mod'>kmer</a></td><td class='docblock-short'><p>Represent kmers with statically know length in compact integer types</p>
+</td></tr><tr class='module-item'><td><a class="mod" href="msp/index.html" title='debruijn::msp mod'>msp</a></td><td class='docblock-short'><p>Methods for minimum substring partitioning of a DNA string</p>
+</td></tr><tr class='module-item'><td><a class="mod" href="test/index.html" title='debruijn::test mod'>test</a></td><td class='docblock-short'><p>Generate random genomes (with lots of re-used sustrings), reassemble them, and check sanity</p>
+</td></tr><tr class='module-item'><td><a class="mod" href="vmer/index.html" title='debruijn::vmer mod'>vmer</a></td><td class='docblock-short'><p>Variable-length DNA strings packed into fixed-size structs.</p>
+</td></tr></table><h2 id='structs' class='section-header'><a href="#structs">Structs</a></h2>
+<table><tr class='module-item'><td><a class="struct" href="struct.DnaBytes.html" title='debruijn::DnaBytes struct'>DnaBytes</a></td><td class='docblock-short'><p>A newtype wrapper around a <code>Vec&lt;u8&gt;</code> with implementations </p>
+</td></tr><tr class='module-item'><td><a class="struct" href="struct.DnaSlice.html" title='debruijn::DnaSlice struct'>DnaSlice</a></td><td class='docblock-short'><p>A newtype wrapper around a <code>&amp;[u8]</code> with implementations </p>
+</td></tr><tr class='module-item'><td><a class="struct" href="struct.Exts.html" title='debruijn::Exts struct'>Exts</a></td><td class='docblock-short'><p>Store single-base extensions for a DNA Debruijn graph.</p>
+</td></tr><tr class='module-item'><td><a class="struct" href="struct.KmerExtsIter.html" title='debruijn::KmerExtsIter struct'>KmerExtsIter</a></td><td class='docblock-short'><p>Iterate over the <code>(Kmer, Exts)</code> tuples of a sequence and it's extensions efficiently</p>
+</td></tr><tr class='module-item'><td><a class="struct" href="struct.KmerIter.html" title='debruijn::KmerIter struct'>KmerIter</a></td><td class='docblock-short'><p>Iterate over the <code>Kmer</code>s of a DNA sequence efficiently</p>
+</td></tr><tr class='module-item'><td><a class="struct" href="struct.MerIter.html" title='debruijn::MerIter struct'>MerIter</a></td><td class='docblock-short'><p>Iterator over bases of a DNA sequence (bases will be unpacked into bytes).</p>
+</td></tr></table><h2 id='enums' class='section-header'><a href="#enums">Enums</a></h2>
+<table><tr class='module-item'><td><a class="enum" href="enum.Dir.html" title='debruijn::Dir enum'>Dir</a></td><td class='docblock-short'><p>Direction of motion in a DeBruijn graph</p>
+</td></tr></table><h2 id='traits' class='section-header'><a href="#traits">Traits</a></h2>
+<table><tr class='module-item'><td><a class="trait" href="trait.Kmer.html" title='debruijn::Kmer trait'>Kmer</a></td><td class='docblock-short'><p>Encapsulates a Kmer sequence with statically known K.</p>
+</td></tr><tr class='module-item'><td><a class="trait" href="trait.Mer.html" title='debruijn::Mer trait'>Mer</a></td><td class='docblock-short'><p>Trait for interacting with DNA sequences</p>
+</td></tr><tr class='module-item'><td><a class="trait" href="trait.MerImmut.html" title='debruijn::MerImmut trait'>MerImmut</a></td><td class='docblock-short'><p>An immutable interface to a Mer sequence.</p>
+</td></tr><tr class='module-item'><td><a class="trait" href="trait.Vmer.html" title='debruijn::Vmer trait'>Vmer</a></td><td class='docblock-short'><p>A DNA sequence with run-time variable length, up to a statically known maximum length</p>
+</td></tr></table><h2 id='functions' class='section-header'><a href="#functions">Functions</a></h2>
+<table><tr class='module-item'><td><a class="fn" href="fn.base_to_bits.html" title='debruijn::base_to_bits fn'>base_to_bits</a></td><td class='docblock-short'><p>Convert an ASCII-encoded DNA base to a 2-bit representation</p>
+</td></tr><tr class='module-item'><td><a class="fn" href="fn.bits_to_ascii.html" title='debruijn::bits_to_ascii fn'>bits_to_ascii</a></td><td class='docblock-short'><p>Convert a 2-bit representation of a base to a char</p>
+</td></tr><tr class='module-item'><td><a class="fn" href="fn.bits_to_base.html" title='debruijn::bits_to_base fn'>bits_to_base</a></td><td class='docblock-short'><p>Convert a 2-bit representation of a base to a char</p>
+</td></tr><tr class='module-item'><td><a class="fn" href="fn.complement.html" title='debruijn::complement fn'>complement</a></td><td class='docblock-short'><p>The complement of a 2-bit encoded base</p>
+</td></tr><tr class='module-item'><td><a class="fn" href="fn.dna_only_base_to_bits.html" title='debruijn::dna_only_base_to_bits fn'>dna_only_base_to_bits</a></td><td class='docblock-short'></td></tr><tr class='module-item'><td><a class="fn" href="fn.is_valid_base.html" title='debruijn::is_valid_base fn'>is_valid_base</a></td><td class='docblock-short'><p>Convert an ASCII-encoded DNA base to a 2-bit representation</p>
+</td></tr></table></section><section id="search" class="content hidden"></section><section class="footer"></section><aside id="help" class="hidden"><div><h1 class="hidden">Help</h1><div class="shortcuts"><h2>Keyboard Shortcuts</h2><dl><dt><kbd>?</kbd></dt><dd>Show this help dialog</dd><dt><kbd>S</kbd></dt><dd>Focus the search field</dd><dt><kbd>↑</kbd></dt><dd>Move up in search results</dd><dt><kbd>↓</kbd></dt><dd>Move down in search results</dd><dt><kbd>↹</kbd></dt><dd>Switch tab</dd><dt><kbd>&#9166;</kbd></dt><dd>Go to active search result</dd><dt><kbd>+</kbd></dt><dd>Expand all sections</dd><dt><kbd>-</kbd></dt><dd>Collapse all sections</dd></dl></div><div class="infos"><h2>Search Tricks</h2><p>Prefix searches with a type followed by a colon (e.g. <code>fn:</code>) to restrict the search to a given type.</p><p>Accepted types are: <code>fn</code>, <code>mod</code>, <code>struct</code>, <code>enum</code>, <code>trait</code>, <code>type</code>, <code>macro</code>, and <code>const</code>.</p><p>Search functions by type signature (e.g. <code>vec -> usize</code> or <code>* -> vec</code>)</p><p>Search multiple things at once by splitting your query with comma (e.g. <code>str,u8</code> or <code>String,struct:Vec,test</code>)</p></div></div></aside><script>window.rootPath = "../";window.currentCrate = "debruijn";</script><script src="../aliases.js"></script><script src="../main.js"></script><script defer src="../search-index.js"></script></body></html>
