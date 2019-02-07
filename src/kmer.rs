@@ -75,7 +75,10 @@ pub type Kmer16 = IntKmer<u32>;
 /// 14-base kmer, backed by a single u32
 pub type Kmer14 = VarIntKmer<u32, K14>;
 
-/// 16-base kmer, backed by a single u16
+/// 12-base kmer, backed by a single u32
+pub type Kmer12 = VarIntKmer<u32, K12>;
+
+/// 8-base kmer, backed by a single u16
 pub type Kmer8 = IntKmer<u16>;
 
 pub type Kmer6 = VarIntKmer<u16, K6>;
@@ -638,6 +641,17 @@ impl KmerSize for K14 {
     }
 }
 
+/// Marker trait for generating K=12 Kmers
+#[derive(Debug, Hash, Copy, Clone, Ord, PartialOrd, Eq, PartialEq)]
+pub struct K12;
+
+impl KmerSize for K12 {
+    #[inline]
+    fn K() -> usize {
+        12
+    }
+}
+
 /// Marker trait for generating K=6 Kmers
 #[derive(Debug, Hash, Copy, Clone, Ord, PartialOrd, Eq, PartialEq)]
 pub struct K6;
@@ -947,6 +961,13 @@ mod tests {
     fn test_kmer_14() {
         for _ in 0..10000 {
             check_kmer::<VarIntKmer<u32, K14>>();
+        }
+    }
+
+    #[test]
+    fn test_kmer_12() {
+        for _ in 0..10000 {
+            check_kmer::<VarIntKmer<u32, K12>>();
         }
     }
 
