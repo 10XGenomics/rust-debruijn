@@ -221,15 +221,18 @@ impl<T: PrimInt + FromPrimitive + Hash + IntHelp> IntKmer<T> {
         bitpos
     }
 
+    #[inline(always)]
     fn _k() -> usize {
         // 4 bases per byte
         std::mem::size_of::<T>() * 4
     }
 
+    #[inline(always)]
     fn _bits() -> usize {
         std::mem::size_of::<T>() * 8
     }
 
+    #[inline(always)]
     pub fn top_mask(n_bases: usize) -> T {
         if n_bases > 0 {
             // first pos bases
@@ -240,6 +243,7 @@ impl<T: PrimInt + FromPrimitive + Hash + IntHelp> IntKmer<T> {
         }
     }
 
+    #[inline(always)]
     pub fn bottom_mask(n_bases: usize) -> T {
         if n_bases > 0 {
             // first pos bases
@@ -253,6 +257,7 @@ impl<T: PrimInt + FromPrimitive + Hash + IntHelp> IntKmer<T> {
 
 
 impl<T: PrimInt + FromPrimitive + Hash + IntHelp> Mer for IntKmer<T> {
+    #[inline(always)]
     fn len(&self) -> usize {
         Self::_k()
     }
@@ -273,6 +278,7 @@ impl<T: PrimInt + FromPrimitive + Hash + IntHelp> Mer for IntKmer<T> {
     /// Set a slice of bases in the kmer, using the packed representation in value.
     /// Sets n_bases, starting at pos. Bases must always be packed into the upper-most
     /// bits of the value.
+    #[inline(always)]
     fn set_slice_mut(&mut self, pos: usize, n_bases: usize, value: u64) {
         debug_assert!(pos + n_bases <= Self::k());
 
@@ -312,6 +318,7 @@ impl<T: PrimInt + FromPrimitive + Hash + IntHelp> Kmer for IntKmer<T> {
         IntKmer { storage: T::zero() }
     }
 
+    #[inline(always)]
     fn k() -> usize {
         Self::_k()
     }
@@ -417,6 +424,7 @@ impl<T: PrimInt + FromPrimitive + Hash + IntHelp, KS: KmerSize> Kmer for VarIntK
 
 
 impl<T: PrimInt + FromPrimitive + Hash + IntHelp, KS: KmerSize> VarIntKmer<T, KS> {
+    #[inline(always)]
     fn msk() -> T {
         T::one() << 1 | T::one()
     }
@@ -429,10 +437,12 @@ impl<T: PrimInt + FromPrimitive + Hash + IntHelp, KS: KmerSize> VarIntKmer<T, KS
         T::from_u8(v).unwrap()
     }
 
+
     fn t_from_u64(v: u64) -> T {
         T::from_u64(v).unwrap()
     }
 
+    #[inline(always)]
     fn addr(&self, pos: usize) -> usize {
         let top_base = Self::k() - 1;
         let bitpos = (top_base - pos) * 2;
@@ -440,20 +450,24 @@ impl<T: PrimInt + FromPrimitive + Hash + IntHelp, KS: KmerSize> VarIntKmer<T, KS
     }
 
     // K of this kmer
+    #[inline(always)]
     fn _k() -> usize {
         KS::K()
     }
 
     // Bits used by this kmer
+    #[inline(always)]
     fn _bits() -> usize {
         Self::_k() * 2
     }
 
+    #[inline(always)]
     fn _total_bits() -> usize {
         std::mem::size_of::<T>() * 8
     }
 
     // mask the unused bits at the top, plus the requested number of bases
+    #[inline(always)]
     pub fn top_mask(n_bases: usize) -> T {
         let unused_bits = Self::_total_bits() - Self::_bits();
         let mask_bits = n_bases * 2 + unused_bits;
@@ -466,6 +480,7 @@ impl<T: PrimInt + FromPrimitive + Hash + IntHelp, KS: KmerSize> VarIntKmer<T, KS
         }
     }
 
+    #[inline(always)]
     pub fn bottom_mask(n_bases: usize) -> T {
         if n_bases > 0 {
             // first pos bases
@@ -479,6 +494,8 @@ impl<T: PrimInt + FromPrimitive + Hash + IntHelp, KS: KmerSize> VarIntKmer<T, KS
 
 
 impl<T: PrimInt + FromPrimitive + Hash + IntHelp, KS: KmerSize> Mer for VarIntKmer<T, KS> {
+
+    #[inline(always)]
     fn len(&self) -> usize {
         Self::_k()
     }
@@ -499,6 +516,7 @@ impl<T: PrimInt + FromPrimitive + Hash + IntHelp, KS: KmerSize> Mer for VarIntKm
     /// Set a slice of bases in the kmer, using the packed representation in value.
     /// Sets n_bases, starting at pos. Incoming bases must always be packed into the upper-most
     /// bits of the value.
+    #[inline(always)]
     fn set_slice_mut(&mut self, pos: usize, n_bases: usize, value: u64) {
         debug_assert!(pos + n_bases <= Self::k());
 
@@ -562,6 +580,7 @@ impl<T: PrimInt + FromPrimitive + Hash + IntHelp, KS: KmerSize> fmt::Debug for V
 pub struct K48;
 
 impl KmerSize for K48 {
+    #[inline(always)]
     fn K() -> usize {
         48
     }
@@ -572,6 +591,7 @@ impl KmerSize for K48 {
 pub struct K40;
 
 impl KmerSize for K40 {
+    #[inline(always)]
     fn K() -> usize {
         40
     }
@@ -582,6 +602,7 @@ impl KmerSize for K40 {
 pub struct K30;
 
 impl KmerSize for K30 {
+    #[inline(always)]
     fn K() -> usize {
         30
     }
@@ -592,6 +613,7 @@ impl KmerSize for K30 {
 pub struct K24;
 
 impl KmerSize for K24 {
+    #[inline(always)]
     fn K() -> usize {
         24
     }
@@ -602,6 +624,7 @@ impl KmerSize for K24 {
 pub struct K20;
 
 impl KmerSize for K20 {
+    #[inline(always)]
     fn K() -> usize {
         20
     }
@@ -612,7 +635,7 @@ impl KmerSize for K20 {
 pub struct K14;
 
 impl KmerSize for K14 {
-    #[inline]
+    #[inline(always)]
     fn K() -> usize {
         14
     }
@@ -634,7 +657,7 @@ impl KmerSize for K12 {
 pub struct K6;
 
 impl KmerSize for K6 {
-    #[inline]
+    #[inline(always)]
     fn K() -> usize {
         6
     }
@@ -645,7 +668,7 @@ impl KmerSize for K6 {
 pub struct K5;
 
 impl KmerSize for K5 {
-    #[inline]
+    #[inline(always)]
     fn K() -> usize {
         5
     }
@@ -655,7 +678,7 @@ impl KmerSize for K5 {
 pub struct K4;
 
 impl KmerSize for K4 {
-    #[inline]
+    #[inline(always)]
     fn K() -> usize {
         4
     }
@@ -665,7 +688,7 @@ impl KmerSize for K4 {
 pub struct K3;
 
 impl KmerSize for K3 {
-    #[inline]
+    #[inline(always)]
     fn K() -> usize {
         3
     }
@@ -675,7 +698,7 @@ impl KmerSize for K3 {
 pub struct K2;
 
 impl KmerSize for K2 {
-    #[inline]
+    #[inline(always)]
     fn K() -> usize {
         2
     }
