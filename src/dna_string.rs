@@ -218,10 +218,7 @@ impl DnaString {
         let mut hasher = DefaultHasher::new();
         read_name.hash(&mut hasher);
         
-        let mut dna_string = DnaString {
-            storage: Vec::new(),
-            len: 0,
-        };
+        let mut dna_string = DnaString::empty(bytes.len());
 
         for (pos, c) in bytes.iter().enumerate() {
 
@@ -283,6 +280,7 @@ impl DnaString {
     }
 
     /// Append a 0-4 encoded base.
+    #[inline]
     pub fn push(&mut self, value: u8) {
         let (block, bit) = self.addr(self.len);
         if bit == 0 && block >= self.storage.len() {
