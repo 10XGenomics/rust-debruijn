@@ -824,8 +824,6 @@
 <span id="824">824</span>
 <span id="825">825</span>
 <span id="826">826</span>
-<span id="827">827</span>
-<span id="828">828</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="comment">// Copyright 2014 Johannes Köster and 10x Genomics</span>
 <span class="comment">// Licensed under the MIT license (http://opensource.org/licenses/MIT)</span>
@@ -1047,10 +1045,7 @@
         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">hasher</span> <span class="op">=</span> <span class="ident">DefaultHasher</span>::<span class="ident">new</span>();
         <span class="ident">read_name</span>.<span class="ident">hash</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">hasher</span>);
         
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">dna_string</span> <span class="op">=</span> <span class="ident">DnaString</span> {
-            <span class="ident">storage</span>: <span class="ident">Vec</span>::<span class="ident">new</span>(),
-            <span class="ident">len</span>: <span class="number">0</span>,
-        };
+        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">dna_string</span> <span class="op">=</span> <span class="ident">DnaString</span>::<span class="ident">empty</span>(<span class="ident">bytes</span>.<span class="ident">len</span>());
 
         <span class="kw">for</span> (<span class="ident">pos</span>, <span class="ident">c</span>) <span class="kw">in</span> <span class="ident">bytes</span>.<span class="ident">iter</span>().<span class="ident">enumerate</span>() {
 
@@ -1112,6 +1107,7 @@
     }
 
     <span class="doccomment">/// Append a 0-4 encoded base.</span>
+    <span class="attribute">#[<span class="ident">inline</span>]</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">push</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">value</span>: <span class="ident">u8</span>) {
         <span class="kw">let</span> (<span class="ident">block</span>, <span class="ident">bit</span>) <span class="op">=</span> <span class="self">self</span>.<span class="ident">addr</span>(<span class="self">self</span>.<span class="ident">len</span>);
         <span class="kw">if</span> <span class="ident">bit</span> <span class="op">==</span> <span class="number">0</span> <span class="op">&amp;&amp;</span> <span class="ident">block</span> <span class="op">&gt;=</span> <span class="self">self</span>.<span class="ident">storage</span>.<span class="ident">len</span>() {
