@@ -21,9 +21,9 @@ pretty_assertions = "0.5"
 
 [dependencies.boomphf]
 git = "https://github.com/10XGenomics/rust-boomphf"
-version = ">=0.3.1"
+version = ">=0.4"
 branch = "master"
-features = ["serde", "fast-constructors"]
+features = ["serde"]
 
 [dependencies.concurrent-hashmap]
 version = "0.2.1"
