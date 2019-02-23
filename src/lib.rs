@@ -30,7 +30,6 @@ extern crate serde_json;
 extern crate smallvec;
 extern crate bit_set;
 extern crate itertools;
-extern crate pdqsort;
 
 #[macro_use]
 extern crate log;
