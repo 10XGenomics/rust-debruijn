@@ -88,7 +88,7 @@ impl Mer for DnaString {
 impl Vmer for DnaString
 {
     fn new(len: usize) -> Self {
-        Self::empty(len)
+        Self::with_capacity(len)
     }
 
     fn max_len() -> usize {
@@ -145,13 +145,13 @@ impl DnaString {
     }
 
     /// Create a new instance with a given capacity.
-    pub fn empty(n: usize) -> Self {
+    pub fn with_capacity(n: usize) -> Self {
         let blocks = (n * WIDTH >> 6) + (if n * WIDTH & 0x3F > 0 { 1 } else { 0 });
-        let storage = vec![0; blocks];
+        let storage = Vec::with_capacity(blocks);
 
         DnaString {
             storage: storage,
-            len: n,
+            len: 0,
         }
     }
 
@@ -218,7 +218,7 @@ impl DnaString {
         let mut hasher = DefaultHasher::new();
         read_name.hash(&mut hasher);
         
-        let mut dna_string = DnaString::empty(bytes.len());
+        let mut dna_string = DnaString::with_capacity(bytes.len());
 
         for (pos, c) in bytes.iter().enumerate() {
 
@@ -559,7 +559,7 @@ impl<'a> DnaStringSlice<'a> {
 
     pub fn to_owned(&self) -> DnaString {
         // FIXME make this faster
-        let mut be = DnaString::empty(self.length);
+        let mut be = DnaString::with_capacity(self.length);
         for pos in 0..self.length {
             be.set_mut(pos, self.get(pos));
         }
@@ -580,7 +580,6 @@ impl<'a> DnaStringSlice<'a> {
     }
 
 }
-
 
 impl<'a> fmt::Debug for DnaStringSlice<'a> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
@@ -675,7 +674,8 @@ mod tests {
 
     #[test]
     fn test_dna_string() {
-        let mut dna_string = DnaString::new();
+        let mut dna_string = DnaString::with_capacity(1000);
+        assert_eq!(dna_string.len(), 0);
         dna_string.push(0);
         dna_string.push(2);
         dna_string.push(1);
