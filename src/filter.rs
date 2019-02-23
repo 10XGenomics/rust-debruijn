@@ -119,12 +119,10 @@ impl<D: Eq + Hash + Send + Sync + Debug + Clone> CountFilterEqClass<D> {
 
     pub fn get_eq_classes(&self) -> Vec<Vec<D>>{
         let mut eq_class_vec = Vec::new();
+        eq_class_vec.resize(self.get_number_of_eq_classes(), Vec::new());
 
         for (key, value) in self.eq_classes.iter() {
             let num_classes = eq_class_vec.len();
-            if *value as usize >= num_classes {
-                eq_class_vec.resize((value+1) as usize, Vec::new());
-            }
             eq_class_vec[*value as usize] = key.clone();
         }
 
