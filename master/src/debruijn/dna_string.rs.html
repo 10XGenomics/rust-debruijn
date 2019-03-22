@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source to the Rust file `src/dna_string.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>dna_string.rs.html -- source</title><link rel="stylesheet" type="text/css" href="../../normalize.css"><link rel="stylesheet" type="text/css" href="../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../dark.css"><link rel="stylesheet" type="text/css" href="../../light.css" id="themeStyle"><script src="../../storage.js"></script></head><body class="rustdoc source"><!--[if lte IE 8]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="sidebar-menu">&#9776;</div></nav><div class="theme-picker"><button id="theme-picker" aria-label="Pick another theme!"><img src="../../brush.svg" width="18" alt="Pick another theme!"></button><div id="theme-choices"></div></div><script src="../../theme.js"></script><nav class="sub"><form class="search-form js-only"><div class="search-container"><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><a id="settings-menu" href="../../settings.html"><img src="../../wheel.svg" width="18" alt="Change settings"></a></div></form></nav><section id="main" class="content"><pre class="line-numbers"><span id="1">  1</span>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source to the Rust file `src/dna_string.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>dna_string.rs.html -- source</title><link rel="stylesheet" type="text/css" href="../../normalize.css"><link rel="stylesheet" type="text/css" href="../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../dark.css"><link rel="stylesheet" type="text/css" href="../../light.css" id="themeStyle"><script src="../../storage.js"></script><noscript><link rel="stylesheet" href="../../noscript.css"></noscript><style type="text/css">#crate-search{background-image:url("../../down-arrow.svg");}</style></head><body class="rustdoc source"><!--[if lte IE 8]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="sidebar-menu">&#9776;</div></nav><div class="theme-picker"><button id="theme-picker" aria-label="Pick another theme!"><img src="../../brush.svg" width="18" alt="Pick another theme!"></button><div id="theme-choices"></div></div><script src="../../theme.js"></script><nav class="sub"><form class="search-form js-only"><div class="search-container"><div><select id="crate-search"><option value="All crates">All crates</option></select><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"></div><a id="settings-menu" href="../../settings.html"><img src="../../wheel.svg" width="18" alt="Change settings"></a></div></form></nav><section id="main" class="content"><pre class="line-numbers"><span id="1">  1</span>
 <span id="2">  2</span>
 <span id="3">  3</span>
 <span id="4">  4</span>
@@ -824,6 +824,17 @@
 <span id="824">824</span>
 <span id="825">825</span>
 <span id="826">826</span>
+<span id="827">827</span>
+<span id="828">828</span>
+<span id="829">829</span>
+<span id="830">830</span>
+<span id="831">831</span>
+<span id="832">832</span>
+<span id="833">833</span>
+<span id="834">834</span>
+<span id="835">835</span>
+<span id="836">836</span>
+<span id="837">837</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="comment">// Copyright 2014 Johannes Köster and 10x Genomics</span>
 <span class="comment">// Licensed under the MIT license (http://opensource.org/licenses/MIT)</span>
@@ -915,7 +926,7 @@
 <span class="kw">impl</span> <span class="ident">Vmer</span> <span class="kw">for</span> <span class="ident">DnaString</span>
 {
     <span class="kw">fn</span> <span class="ident">new</span>(<span class="ident">len</span>: <span class="ident">usize</span>) <span class="op">-&gt;</span> <span class="self">Self</span> {
-        <span class="self">Self</span>::<span class="ident">empty</span>(<span class="ident">len</span>)
+        <span class="self">Self</span>::<span class="ident">blank</span>(<span class="ident">len</span>)
     }
 
     <span class="kw">fn</span> <span class="ident">max_len</span>() <span class="op">-&gt;</span> <span class="ident">usize</span> {
@@ -972,7 +983,18 @@
     }
 
     <span class="doccomment">/// Create a new instance with a given capacity.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">empty</span>(<span class="ident">n</span>: <span class="ident">usize</span>) <span class="op">-&gt;</span> <span class="self">Self</span> {
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">with_capacity</span>(<span class="ident">n</span>: <span class="ident">usize</span>) <span class="op">-&gt;</span> <span class="self">Self</span> {
+        <span class="kw">let</span> <span class="ident">blocks</span> <span class="op">=</span> (<span class="ident">n</span> <span class="op">*</span> <span class="ident">WIDTH</span> <span class="op">&gt;&gt;</span> <span class="number">6</span>) <span class="op">+</span> (<span class="kw">if</span> <span class="ident">n</span> <span class="op">*</span> <span class="ident">WIDTH</span> <span class="op">&amp;</span> <span class="number">0x3F</span> <span class="op">&gt;</span> <span class="number">0</span> { <span class="number">1</span> } <span class="kw">else</span> { <span class="number">0</span> });
+        <span class="kw">let</span> <span class="ident">storage</span> <span class="op">=</span> <span class="ident">Vec</span>::<span class="ident">with_capacity</span>(<span class="ident">blocks</span>);
+
+        <span class="ident">DnaString</span> {
+            <span class="ident">storage</span>: <span class="ident">storage</span>,
+            <span class="ident">len</span>: <span class="number">0</span>,
+        }
+    }
+
+    <span class="doccomment">/// Create a DnaString of length n initialized to all A&#39;s</span>
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">blank</span>(<span class="ident">n</span>: <span class="ident">usize</span>) <span class="op">-&gt;</span> <span class="self">Self</span> {
         <span class="kw">let</span> <span class="ident">blocks</span> <span class="op">=</span> (<span class="ident">n</span> <span class="op">*</span> <span class="ident">WIDTH</span> <span class="op">&gt;&gt;</span> <span class="number">6</span>) <span class="op">+</span> (<span class="kw">if</span> <span class="ident">n</span> <span class="op">*</span> <span class="ident">WIDTH</span> <span class="op">&amp;</span> <span class="number">0x3F</span> <span class="op">&gt;</span> <span class="number">0</span> { <span class="number">1</span> } <span class="kw">else</span> { <span class="number">0</span> });
         <span class="kw">let</span> <span class="ident">storage</span> <span class="op">=</span> <span class="macro">vec</span><span class="macro">!</span>[<span class="number">0</span>; <span class="ident">blocks</span>];
 
@@ -1045,7 +1067,7 @@
         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">hasher</span> <span class="op">=</span> <span class="ident">DefaultHasher</span>::<span class="ident">new</span>();
         <span class="ident">read_name</span>.<span class="ident">hash</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">hasher</span>);
         
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">dna_string</span> <span class="op">=</span> <span class="ident">DnaString</span>::<span class="ident">empty</span>(<span class="ident">bytes</span>.<span class="ident">len</span>());
+        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">dna_string</span> <span class="op">=</span> <span class="ident">DnaString</span>::<span class="ident">with_capacity</span>(<span class="ident">bytes</span>.<span class="ident">len</span>());
 
         <span class="kw">for</span> (<span class="ident">pos</span>, <span class="ident">c</span>) <span class="kw">in</span> <span class="ident">bytes</span>.<span class="ident">iter</span>().<span class="ident">enumerate</span>() {
 
@@ -1386,9 +1408,9 @@
 
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">to_owned</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-&gt;</span> <span class="ident">DnaString</span> {
         <span class="comment">// FIXME make this faster</span>
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">be</span> <span class="op">=</span> <span class="ident">DnaString</span>::<span class="ident">empty</span>(<span class="self">self</span>.<span class="ident">length</span>);
+        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">be</span> <span class="op">=</span> <span class="ident">DnaString</span>::<span class="ident">with_capacity</span>(<span class="self">self</span>.<span class="ident">length</span>);
         <span class="kw">for</span> <span class="ident">pos</span> <span class="kw">in</span> <span class="number">0</span>..<span class="self">self</span>.<span class="ident">length</span> {
-            <span class="ident">be</span>.<span class="ident">set_mut</span>(<span class="ident">pos</span>, <span class="self">self</span>.<span class="ident">get</span>(<span class="ident">pos</span>));
+            <span class="ident">be</span>.<span class="ident">push</span>(<span class="self">self</span>.<span class="ident">get</span>(<span class="ident">pos</span>));
         }
 
         <span class="ident">be</span>
@@ -1407,7 +1429,6 @@
     }
 
 }
-
 
 <span class="kw">impl</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span> <span class="ident">fmt</span>::<span class="ident">Debug</span> <span class="kw">for</span> <span class="ident">DnaStringSlice</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span> {
     <span class="kw">fn</span> <span class="ident">fmt</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">f</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">fmt</span>::<span class="ident">Formatter</span>) <span class="op">-&gt;</span> <span class="ident">fmt</span>::<span class="prelude-ty">Result</span> {
@@ -1502,7 +1523,8 @@
 
     <span class="attribute">#[<span class="ident">test</span>]</span>
     <span class="kw">fn</span> <span class="ident">test_dna_string</span>() {
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">dna_string</span> <span class="op">=</span> <span class="ident">DnaString</span>::<span class="ident">new</span>();
+        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">dna_string</span> <span class="op">=</span> <span class="ident">DnaString</span>::<span class="ident">with_capacity</span>(<span class="number">1000</span>);
+        <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="ident">dna_string</span>.<span class="ident">len</span>(), <span class="number">0</span>);
         <span class="ident">dna_string</span>.<span class="ident">push</span>(<span class="number">0</span>);
         <span class="ident">dna_string</span>.<span class="ident">push</span>(<span class="number">2</span>);
         <span class="ident">dna_string</span>.<span class="ident">push</span>(<span class="number">1</span>);
@@ -1652,4 +1674,4 @@
     }
 }
 </pre></div>
-</section><section id="search" class="content hidden"></section><section class="footer"></section><aside id="help" class="hidden"><div><h1 class="hidden">Help</h1><div class="shortcuts"><h2>Keyboard Shortcuts</h2><dl><dt><kbd>?</kbd></dt><dd>Show this help dialog</dd><dt><kbd>S</kbd></dt><dd>Focus the search field</dd><dt><kbd>↑</kbd></dt><dd>Move up in search results</dd><dt><kbd>↓</kbd></dt><dd>Move down in search results</dd><dt><kbd>↹</kbd></dt><dd>Switch tab</dd><dt><kbd>&#9166;</kbd></dt><dd>Go to active search result</dd><dt><kbd>+</kbd></dt><dd>Expand all sections</dd><dt><kbd>-</kbd></dt><dd>Collapse all sections</dd></dl></div><div class="infos"><h2>Search Tricks</h2><p>Prefix searches with a type followed by a colon (e.g. <code>fn:</code>) to restrict the search to a given type.</p><p>Accepted types are: <code>fn</code>, <code>mod</code>, <code>struct</code>, <code>enum</code>, <code>trait</code>, <code>type</code>, <code>macro</code>, and <code>const</code>.</p><p>Search functions by type signature (e.g. <code>vec -> usize</code> or <code>* -> vec</code>)</p><p>Search multiple things at once by splitting your query with comma (e.g. <code>str,u8</code> or <code>String,struct:Vec,test</code>)</p></div></div></aside><script>window.rootPath = "../../";window.currentCrate = "debruijn";</script><script src="../../aliases.js"></script><script src="../../main.js"></script><script src="../../source-files.js"></script><script src="../../source-script.js"></script><script defer src="../../search-index.js"></script></body></html>
+</section><section id="search" class="content hidden"></section><section class="footer"></section><aside id="help" class="hidden"><div><h1 class="hidden">Help</h1><div class="shortcuts"><h2>Keyboard Shortcuts</h2><dl><dt><kbd>?</kbd></dt><dd>Show this help dialog</dd><dt><kbd>S</kbd></dt><dd>Focus the search field</dd><dt><kbd>↑</kbd></dt><dd>Move up in search results</dd><dt><kbd>↓</kbd></dt><dd>Move down in search results</dd><dt><kbd>↹</kbd></dt><dd>Switch tab</dd><dt><kbd>&#9166;</kbd></dt><dd>Go to active search result</dd><dt><kbd>+</kbd></dt><dd>Expand all sections</dd><dt><kbd>-</kbd></dt><dd>Collapse all sections</dd></dl></div><div class="infos"><h2>Search Tricks</h2><p>Prefix searches with a type followed by a colon (e.g., <code>fn:</code>) to restrict the search to a given type.</p><p>Accepted types are: <code>fn</code>, <code>mod</code>, <code>struct</code>, <code>enum</code>, <code>trait</code>, <code>type</code>, <code>macro</code>, and <code>const</code>.</p><p>Search functions by type signature (e.g., <code>vec -> usize</code> or <code>* -> vec</code>)</p><p>Search multiple things at once by splitting your query with comma (e.g., <code>str,u8</code> or <code>String,struct:Vec,test</code>)</p></div></div></aside><script>window.rootPath = "../../";window.currentCrate = "debruijn";</script><script src="../../aliases.js"></script><script src="../../main.js"></script><script src="../../source-script.js"></script><script src="../../source-files.js"></script><script defer src="../../search-index.js"></script></body></html>
