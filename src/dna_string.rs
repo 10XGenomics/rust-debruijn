@@ -88,7 +88,7 @@ impl Mer for DnaString {
 impl Vmer for DnaString
 {
     fn new(len: usize) -> Self {
-        Self::with_capacity(len)
+        Self::blank(len)
     }
 
     fn max_len() -> usize {
@@ -152,6 +152,17 @@ impl DnaString {
         DnaString {
             storage: storage,
             len: 0,
+        }
+    }
+
+    /// Create a DnaString of length n initialized to all A's
+    pub fn blank(n: usize) -> Self {
+        let blocks = (n * WIDTH >> 6) + (if n * WIDTH & 0x3F > 0 { 1 } else { 0 });
+        let storage = vec![0; blocks];
+
+        DnaString {
+            storage: storage,
+            len: n,
         }
     }
 
@@ -561,7 +572,7 @@ impl<'a> DnaStringSlice<'a> {
         // FIXME make this faster
         let mut be = DnaString::with_capacity(self.length);
         for pos in 0..self.length {
-            be.set_mut(pos, self.get(pos));
+            be.push(self.get(pos));
         }
 
         be

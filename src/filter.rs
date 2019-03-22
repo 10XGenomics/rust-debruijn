@@ -14,7 +14,6 @@ use Kmer;
 use Exts;
 use Vmer;
 use boomphf::hashmap::BoomHashMap2;
-use pdqsort;
 use std::fmt::Debug;
 
 fn bucket<K: Kmer>(kmer: K) -> usize {
@@ -271,8 +270,7 @@ where DS: Debug{
         //info!("Validating kmers...");
         for mut kmer_vec in kmer_buckets {
 
-            pdqsort::sort_by_key(&mut kmer_vec, |elt| elt.0);
-            //kmer_vec.sort_by_key(|elt| elt.0);
+            kmer_vec.sort_by_key(|elt| elt.0);
 
             for (kmer, kmer_obs_iter) in &kmer_vec.into_iter().group_by(|elt| elt.0) {
                 let (is_valid, exts, summary_data) = summarizer.summarize(kmer_obs_iter);
