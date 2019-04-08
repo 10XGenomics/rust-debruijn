@@ -233,9 +233,10 @@ where DS: Debug{
         start += sz;
     }
     assert!(bucket_ranges[bucket_ranges.len() - 1].end >= 256);
+    let n_buckets = bucket_ranges.len();
 
     if bucket_ranges.len() > 1 {
-        info!(
+        debug!(
             "{} sequences, {} kmers, {} passes",
             seqs.len(),
             input_kmers,
@@ -243,7 +244,8 @@ where DS: Debug{
         );
     }
 
-    for bucket_range in bucket_ranges {
+    for (i, bucket_range) in bucket_ranges.into_iter().enumerate() {
+        debug!("Processing bucket {} of {}", i, n_buckets);
 
         let mut kmer_buckets: Vec<Vec<(K, Exts, D1)>> = Vec::new();
         for _ in 0..256 {
@@ -267,7 +269,7 @@ where DS: Debug{
             }
         }
 
-        //info!("Validating kmers...");
+       
         for mut kmer_vec in kmer_buckets {
 
             kmer_vec.sort_by_key(|elt| elt.0);
@@ -284,16 +286,7 @@ where DS: Debug{
         }
     }
 
-    // pdqsort::sort_by_key(&mut valid_kmers, |x| x.0);
-    // pdqsort::sort(&mut all_kmers);
-    // TODO: Have to modify this function is it requires the valid_kmers and we can't
-    // just pass the keys since it might alter the order of mphf
-    if report_all_kmers {
-        //remove_censored_exts_sharded(stranded, &mut valid_kmers, &all_kmers);
-    }
-    //eprintln!("");
-
-    info!(
+    debug!(
         "Unique kmers: {}, All kmers (if returned): {}",
         valid_kmers.len(),
         all_kmers.len(),
