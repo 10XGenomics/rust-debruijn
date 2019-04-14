@@ -1,17 +1,29 @@
 // Copyright 2017 10x Genomics
 
-//! # debruijn-rs: a De Bruijn graph for DNA seqeunces in Rust.
-//! This library provides tools for efficient construction DeBruijn graphs
+//! # debruijn: a De Bruijn graph library for DNA seqeunces in Rust.
+//! This library provides tools for efficient construction DeBruijn graphs (dBG)
 //! from DNA sequences, tracking arbitrary metadata associated with kmers in the
 //! graph, and performing path-compression of unbranched graph paths to improve
 //! speed and reduce memory consumption.
-
+//!
+//! Most applications of `debruijn` will follow this general workflow:
+//! 1. You generate a set of sequences to make a dBG from.
+//! 2. You pass those sequences to the `filter_kmers` function, which converts the sequences into kmers, while tracking 'metadata' about each kmer in a very customizable way. The metadata could be read count, a set of colors, a set of read counts split by haplotype, a UMI count, etc.
+//! 3. The the library will convert the kmers to a compressed dBG. You can also customize the rules for how to compress the dBG and how to 'combine' the per-kmer metadata.
+//!
+//! Then you can use the final compressed dBG how you like. There are some methods for simplifying and re-building the  graph, but those could be developed more.
+//!
+//! ## Examples
+//! - [Local phased SV assembly tool in our Long Ranger package](https://github.com/10XGenomics/longranger/blob/master/lib/pvc/src/asm_caller.rs#L205)
+//! - [Single-cell VDJ assember](https://github.com/10XGenomics/cellranger/blob/master/lib/rust/vdj_asm/src/asm.rs#L191)
+//! - [Build a colored, compressed dBG of a transcriptome reference](https://github.com/10XGenomics/rust-pseudoaligner/blob/master/src/build_index.rs#L40)
+//!
 //! All the data structures in debruijn-rs are specialized to the 4 base DNA alphabet,
 //! and use 2-bit packed encoding of base-pairs into integer types, and efficient methods for
 //! reverse complement, enumerating kmers from longer sequences, and transfering data between
 //! sequences.
-//!
-//! # Encodings
+//! 
+//! ## Encodings
 //! Most methods for ingesting sequence data into the library have a form named 'bytes',
 //! which expects bases encoded as the integers 0,1,2,3, and a separate form names 'ascii',
 //! which expects bases encoded as the ASCII letters A,C,G,T.
