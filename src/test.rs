@@ -148,6 +148,7 @@ mod tests {
     use crate::compression::{SimpleCompress, compress_kmers_with_hash, compress_graph};
     use std::iter::FromIterator;
     use boomphf::hashmap::BoomHashMap2;
+    use boomphf::Mphf;
     use crate::DnaBytes;
 
     use std::ops::Sub;
@@ -157,7 +158,7 @@ mod tests {
     use crate::dna_string::DnaString;
     use crate::filter;
 
-
+    use pretty_assertions::assert_eq;
     use super::*;
 
     #[test]
@@ -175,7 +176,7 @@ mod tests {
 
     #[test]
     fn complex_kmer_compress() {
-        for _ in 0..5 {
+        for _ in 0..10 {
             let contigs = random_contigs();
             reassemble_contigs::<IntKmer<u64>, DnaString>(contigs, false);
         }
@@ -183,7 +184,7 @@ mod tests {
 
     #[test]
     fn complex_sharded() {
-        for _ in 0..5 {
+        for _ in 0..10 {
             let contigs = random_contigs();
             reassemble_sharded::<IntKmer<u64>, DnaString>(contigs, false);
         }
@@ -197,7 +198,7 @@ mod tests {
 
     #[test]
     fn complex_path_compress() {
-        for _ in 0..5 {
+        for _ in 0..10 {
             let contigs = random_contigs();
             simplify_from_kmers::<IntKmer<u64>>(contigs, false);
         }
@@ -205,7 +206,6 @@ mod tests {
 
     fn simplify_from_kmers<K: Kmer + Send + Sync>(mut contigs: Vec<Vec<u8>>, stranded: bool) {
 
-        use crate::DnaBytes;
         let seqs : Vec<(DnaBytes, Exts, ())> = contigs
             .drain(..)
             .map(|x| (DnaBytes(x), Exts::empty(), ()))
@@ -240,6 +240,25 @@ mod tests {
         }
 
         assert!(simp_dbg.is_compressed() == None);
+
+        let total_kmers = valid_kmers.len();
+
+        // Test the Boomphf DBG indexing machinery
+        // Make an MPHF of the kmers in the DBG.
+        // Each kmer should hash to a unique slot.
+        let mphf = Mphf::from_chunked_iterator_parallel(1.7, &simp_dbg, None, valid_kmers.len(), 2);
+
+        let mut got_slot = vec![false; total_kmers];
+
+        for n in simp_dbg.iter_nodes() {
+            for kmer in n.sequence().iter_kmers() {
+                let r = mphf.try_hash(&kmer).unwrap() as usize;
+                assert_eq!(got_slot[r], false);
+                got_slot[r] = true;
+            }
+        }
+
+        assert!(got_slot.iter().all(|x| *x));
     }
 
     // Take some input contig, which likely form a complicated graph,
@@ -434,7 +453,6 @@ mod tests {
 
         //graph
     }
-
 
     #[test]
     fn simple_tip_clean() {

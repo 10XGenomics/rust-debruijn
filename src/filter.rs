@@ -8,14 +8,13 @@ use std::marker::PhantomData;
 use std::hash::Hash;
 use concurrent_hashmap::*;
 use std::sync::atomic::{AtomicUsize, Ordering};
-use log::{log, info};
+use log::debug;
 
 use crate::Dir;
 use crate::Kmer;
 use crate::Exts;
 use crate::Vmer;
 use boomphf::hashmap::BoomHashMap2;
-use pdqsort;
 use std::fmt::Debug;
 
 fn bucket<K: Kmer>(kmer: K) -> usize {
@@ -118,14 +117,11 @@ impl<D: Eq + Hash + Send + Sync + Debug + Clone> CountFilterEqClass<D> {
         }
     }
 
-    pub fn get_eq_classes(self) -> Vec<Vec<D>>{
+    pub fn get_eq_classes(&self) -> Vec<Vec<D>>{
         let mut eq_class_vec = Vec::new();
+        eq_class_vec.resize(self.get_number_of_eq_classes(), Vec::new());
 
         for (key, value) in self.eq_classes.iter() {
-            let num_classes = eq_class_vec.len();
-            if *value as usize >= num_classes {
-                eq_class_vec.resize((value+1) as usize, Vec::new());
-            }
             eq_class_vec[*value as usize] = key.clone();
         }
 
@@ -237,9 +233,10 @@ where DS: Debug{
         start += sz;
     }
     assert!(bucket_ranges[bucket_ranges.len() - 1].end >= 256);
+    let n_buckets = bucket_ranges.len();
 
     if bucket_ranges.len() > 1 {
-        info!(
+        debug!(
             "{} sequences, {} kmers, {} passes",
             seqs.len(),
             input_kmers,
@@ -247,7 +244,8 @@ where DS: Debug{
         );
     }
 
-    for bucket_range in bucket_ranges {
+    for (i, bucket_range) in bucket_ranges.into_iter().enumerate() {
+        debug!("Processing bucket {} of {}", i, n_buckets);
 
         let mut kmer_buckets: Vec<Vec<(K, Exts, D1)>> = Vec::new();
         for _ in 0..256 {
@@ -271,11 +269,10 @@ where DS: Debug{
             }
         }
 
-        //info!("Validating kmers...");
+       
         for mut kmer_vec in kmer_buckets {
 
-            pdqsort::sort_by_key(&mut kmer_vec, |elt| elt.0);
-            //kmer_vec.sort_by_key(|elt| elt.0);
+            kmer_vec.sort_by_key(|elt| elt.0);
 
             for (kmer, kmer_obs_iter) in &kmer_vec.into_iter().group_by(|elt| elt.0) {
                 let (is_valid, exts, summary_data) = summarizer.summarize(kmer_obs_iter);
@@ -289,16 +286,7 @@ where DS: Debug{
         }
     }
 
-    // pdqsort::sort_by_key(&mut valid_kmers, |x| x.0);
-    // pdqsort::sort(&mut all_kmers);
-    // TODO: Have to modify this function is it requires the valid_kmers and we can't
-    // just pass the keys since it might alter the order of mphf
-    if report_all_kmers {
-        //remove_censored_exts_sharded(stranded, &mut valid_kmers, &all_kmers);
-    }
-    //eprintln!("");
-
-    info!(
+    debug!(
         "Unique kmers: {}, All kmers (if returned): {}",
         valid_kmers.len(),
         all_kmers.len(),

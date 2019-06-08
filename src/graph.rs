@@ -18,9 +18,8 @@ use std::io::Error;
 use std::hash::Hash;
 use std::f32;
 use serde_derive::{Deserialize, Serialize};
-use log::{log, debug, trace};
+use log::{debug, trace};
 
-use boomphf::FastIterator;
 use boomphf::hashmap::BoomHashMap;
 
 use serde_json;
@@ -302,13 +301,20 @@ impl<K: Kmer, D: Debug> DebruijnGraph<K, D> {
                     let ret_edges = next.edges(return_dir);
                     if ret_edges.len() == 1 {
 
+                        // Test for us being a palindrome
                         if n.len() == K::k() && n.sequence().first_kmer::<K>().is_palindrome()
                         {
                             return None;
                         }
 
+                        // Test for a neighbor being a palindrome
                         if next.len() == K::k() && next.sequence().first_kmer::<K>().is_palindrome()
                         {
+                            return None;
+                        }
+
+                        // Test for this edge representing a smooth circle (biting it's own tail)
+                        if n.node_id == next_id {
                             return None;
                         }
 
@@ -1008,14 +1014,17 @@ impl<'a, K: Kmer + 'a, D: Debug + 'a> Iterator for NodeKmerIter<'a, K, D> {
     fn size_hint(&self) -> (usize, Option<usize>) {
         return (self.num_kmers, Some(self.num_kmers))
     }
-}
 
-impl<'a, K: Kmer + 'a, D: Debug + 'a> FastIterator for NodeKmerIter<'a, K, D> {
-    fn skip_next(&mut self) {
-        self.kmer_id += 1;
+    /// Provide a 'fast-forward' capability for this iterator
+    /// MPHF will use this to reduce the number of kmers that 
+    /// need to be produced.
+    fn nth(&mut self, n: usize) -> Option<Self::Item> {
+        self.kmer_id += n;
+        self.next()
     }
 }
 
+/// Marker signifying that NodeKmerIter has a known size. 
 impl<'a, K: Kmer + 'a, D: Debug + 'a> ExactSizeIterator for NodeKmerIter<'a, K, D> {}
 
 /// Unbranched sequence in the DeBruijn graph

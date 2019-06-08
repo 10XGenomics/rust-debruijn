@@ -25,19 +25,19 @@
 //! let first_kmer: Kmer16 = slice1.get_kmer(0);
 //! assert_eq!(first_kmer, Kmer16::from_ascii(b"CACGTATGACAGATAG"))
 
-
 use std::fmt;
 use std::borrow::Borrow;
 use serde_derive::{Deserialize, Serialize};
+use std::cmp::min;
+use std::hash::{Hash, Hasher};
+use std::collections::hash_map::DefaultHasher;
 
-use crate::Kmer;
 use crate::bits_to_base;
 use crate::base_to_bits;
 use crate::bits_to_ascii;
 use crate::dna_only_base_to_bits;
-use std::cmp::min;
-use crate::kmer::IntHelp;
 
+use crate::Kmer;
 use crate::Mer;
 use crate::MerIter;
 use crate::Vmer;
@@ -88,7 +88,7 @@ impl Mer for DnaString {
 impl Vmer for DnaString
 {
     fn new(len: usize) -> Self {
-        Self::empty(len)
+        Self::blank(len)
     }
 
     fn max_len() -> usize {
@@ -114,7 +114,7 @@ impl Vmer for DnaString
             // get relevent bases for current block
             let nb = min(K::k() - kmer_pos, 32 - block_pos);
 
-            let v = self.storage[block].reverse_by_twos();
+            let v = self.storage[block];
             let val = v << (2 * block_pos);
             kmer.set_slice_mut(kmer_pos, nb, val);
 
@@ -145,7 +145,18 @@ impl DnaString {
     }
 
     /// Create a new instance with a given capacity.
-    pub fn empty(n: usize) -> Self {
+    pub fn with_capacity(n: usize) -> Self {
+        let blocks = (n * WIDTH >> 6) + (if n * WIDTH & 0x3F > 0 { 1 } else { 0 });
+        let storage = Vec::with_capacity(blocks);
+
+        DnaString {
+            storage: storage,
+            len: 0,
+        }
+    }
+
+    /// Create a DnaString of length n initialized to all A's
+    pub fn blank(n: usize) -> Self {
         let blocks = (n * WIDTH >> 6) + (if n * WIDTH & 0x3F > 0 { 1 } else { 0 });
         let storage = vec![0; blocks];
 
@@ -195,7 +206,8 @@ impl DnaString {
     }
 
 
-    /// Create a DnaString from an ACGT-encoded byte slice
+    /// Create a DnaString from an ASCII ACGT-encoded byte slice.
+    /// Non ACGT positions will be converted to 'A'
     pub fn from_acgt_bytes(bytes: &[u8]) -> DnaString {
         let mut dna_string = DnaString {
             storage: Vec::new(),
@@ -204,6 +216,36 @@ impl DnaString {
 
         for b in bytes.iter() {
             dna_string.push(base_to_bits(*b));
+        }
+
+        dna_string
+    }
+
+    /// Create a DnaString from an ACGT-encoded byte slice,
+    /// Non ACGT positions will be converted to repeatable random base determined
+    /// by a hash of the read name and the position within the string.
+    pub fn from_acgt_bytes_hashn(bytes: &[u8], read_name: &[u8]) -> DnaString {
+
+        let mut hasher = DefaultHasher::new();
+        read_name.hash(&mut hasher);
+        
+        let mut dna_string = DnaString::with_capacity(bytes.len());
+
+        for (pos, c) in bytes.iter().enumerate() {
+
+            let v = match c {
+                b'A' => 0u8,
+                b'C' => 1u8,
+                b'G' => 2u8,
+                b'T' => 3u8,
+                _ => {
+                    let mut hasher_clone = hasher.clone();
+                    pos.hash(&mut hasher_clone);
+                    (hasher_clone.finish() % 4) as u8
+                    },
+            };
+
+            dna_string.push(v);
         }
 
         dna_string
@@ -249,6 +291,7 @@ impl DnaString {
     }
 
     /// Append a 0-4 encoded base.
+    #[inline]
     pub fn push(&mut self, value: u8) {
         let (block, bit) = self.addr(self.len);
         if bit == 0 && block >= self.storage.len() {
@@ -295,17 +338,20 @@ impl DnaString {
         self.len = 0;
     }
 
+    #[inline(always)]
     fn get_by_addr(&self, block: usize, bit: usize) -> u8 {
-        ((self.storage[block] >> bit) & MASK) as u8
+        ((self.storage[block] >> (62 - bit)) & MASK) as u8
     }
 
+    #[inline(always)]
     fn set_by_addr(&mut self, block: usize, bit: usize, value: u8) {
-        let mask = MASK << bit;
+        let mask = MASK << (62 - bit);
         self.storage[block] |= mask;
         self.storage[block] ^= mask;
-        self.storage[block] |= (value as u64 & MASK) << bit;
+        self.storage[block] |= (value as u64 & MASK) << (62 - bit);
     }
 
+    #[inline(always)]
     fn addr(&self, i: usize) -> (usize, usize) {
         let k = i * WIDTH;
         (k / BLOCK_BITS, k % BLOCK_BITS)
@@ -415,7 +461,7 @@ impl<'a> IntoIterator for &'a DnaString {
 
 
 /// An immutable slice into a DnaString
-#[derive(Eq, PartialEq, Clone)]
+#[derive(Clone)]
 pub struct DnaStringSlice<'a> {
     pub dna_string: &'a DnaString,
     pub start: usize,
@@ -423,13 +469,24 @@ pub struct DnaStringSlice<'a> {
     pub is_rc: bool,
 }
 
+impl<'a> PartialEq for DnaStringSlice<'a> {
+    fn eq( &self, other: &DnaStringSlice ) -> bool {
+        if other.length != self.length { return false; }
+        for i in 0..self.length {
+            if self.get(i) != other.get(i) { return false }
+        }
+        true
+    }
+}
+impl<'a> Eq for DnaStringSlice<'a> { }
 
 impl<'a> Mer for DnaStringSlice<'a> {
     fn len(&self) -> usize {
         self.length
     }
 
-    /// Get the value at position `i`.
+    /// Get the base at position `i`.
+    #[inline(always)]
     fn get(&self, i: usize) -> u8 {
         if !self.is_rc {
             self.dna_string.get(i + self.start)
@@ -438,7 +495,7 @@ impl<'a> Mer for DnaStringSlice<'a> {
         }
     }
 
-    /// Set the value as position `i`.
+    /// Set the base as position `i`.
     fn set_mut(&mut self, _: usize, _: u8) {
         unimplemented!()
         //debug_assert!(i < self.length);
@@ -513,9 +570,9 @@ impl<'a> DnaStringSlice<'a> {
 
     pub fn to_owned(&self) -> DnaString {
         // FIXME make this faster
-        let mut be = DnaString::empty(self.length);
+        let mut be = DnaString::with_capacity(self.length);
         for pos in 0..self.length {
-            be.set_mut(pos, self.get(pos));
+            be.push(self.get(pos));
         }
 
         be
@@ -534,7 +591,6 @@ impl<'a> DnaStringSlice<'a> {
     }
 
 }
-
 
 impl<'a> fmt::Debug for DnaStringSlice<'a> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -629,10 +685,12 @@ mod tests {
 
     #[test]
     fn test_dna_string() {
-        let mut dna_string = DnaString::new();
+        let mut dna_string = DnaString::with_capacity(1000);
+        assert_eq!(dna_string.len(), 0);
         dna_string.push(0);
         dna_string.push(2);
         dna_string.push(1);
+        println!("{:?}", dna_string);
         let mut values: Vec<u8> = dna_string.iter().collect();
         assert_eq!(values, [0, 2, 1]);
         dna_string.set_mut(1, 3);
@@ -646,17 +704,15 @@ mod tests {
 
         let mut dna_string = DnaString::new();
         dna_string.push_bytes(&in_values, 8);
-        // Contents should be 00010100 00000010
+        // Contents should be [01000000, 00101000]
         let values: Vec<u8> = dna_string.iter().collect();
         assert_eq!(values, [2, 0, 0, 0, 0, 1, 1, 0]);
-        assert_eq!(dna_string.storage, [5122]);
 
         let mut dna_string = DnaString::new();
         dna_string.push_bytes(&in_values, 2);
-        // Contents should be 00000010
+        // Contents should be 01000000
         let values: Vec<u8> = dna_string.iter().collect();
         assert_eq!(values, [2, 0]);
-        assert_eq!(dna_string.storage, [2]);
     }
 
     #[test]
@@ -677,7 +733,7 @@ mod tests {
         let in_values: Vec<u8> = vec![2, 20];
         let mut dna_string = DnaString::new();
         dna_string.push_bytes(&in_values, 8);
-        // Contents should be 00010100 00000010
+        // Contents should be [01000000, 00101000]
 
         let pref_dna_string = dna_string.prefix(0).to_owned();
         assert_eq!(pref_dna_string.len(), 0);
@@ -686,10 +742,10 @@ mod tests {
         assert_eq!(pref_dna_string, dna_string);
 
         let pref_dna_string = dna_string.prefix(4).to_owned();
-        assert_eq!(pref_dna_string.storage, [2]);
+        let values: Vec<u8> = pref_dna_string.iter().collect();
+        assert_eq!(values, [2, 0, 0, 0]);
 
         let pref_dna_string = dna_string.prefix(6).to_owned();
-        assert_eq!(pref_dna_string.storage, [1026]);
         let values: Vec<u8> = pref_dna_string.iter().collect();
         assert_eq!(values, [2, 0, 0, 0, 0, 1]);
 
@@ -706,7 +762,7 @@ mod tests {
         let in_values: Vec<u8> = vec![2, 20];
         let mut dna_string = DnaString::new();
         dna_string.push_bytes(&in_values, 8);
-        // Contents should be 00010100 00000010
+        // Contents should be [01000000, 00101000]
 
         let suf_dna_string = dna_string.suffix(0).to_owned();
         assert_eq!(suf_dna_string.len(), 0);
@@ -715,11 +771,12 @@ mod tests {
         assert_eq!(suf_dna_string, dna_string);
 
         let suf_dna_string = dna_string.suffix(4).to_owned();
-        assert_eq!(suf_dna_string.storage, [20]);
+        let values: Vec<u8> = suf_dna_string.iter().collect();
+        assert_eq!(values, [0, 1, 1, 0]);
+
 
         // 000101000000 64+256
         let suf_dna_string = dna_string.suffix(6).to_owned();
-        assert_eq!(suf_dna_string.storage, [320]);
         let values: Vec<u8> = suf_dna_string.iter().collect();
         assert_eq!(values, [0, 0, 0, 1, 1, 0]);
 

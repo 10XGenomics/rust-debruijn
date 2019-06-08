@@ -1,8 +1,6 @@
-cargo-features = ["edition"]
-
 [package]
 name = "debruijn"
-version = "0.2.0"
+version = "0.2.1"
 authors = ["Patrick Marks <patrick@10xgenomics.com>"]
 license = "MIT"
 edition = '2018'
@@ -15,7 +13,6 @@ rand = "0.5"
 smallvec = "*"
 bit-set = "0.4.0"
 itertools = ">=0.7"
-pdqsort = "*"
 byteorder = "*"
 num = "0.2"
 
@@ -24,8 +21,9 @@ pretty_assertions = "0.5"
 
 [dependencies.boomphf]
 git = "https://github.com/10XGenomics/rust-boomphf"
+version = ">=0.4"
 branch = "master"
-features = ["serde", "fast-constructors"]
+features = ["serde"]
 
 [dependencies.concurrent-hashmap]
 version = "0.2.1"
