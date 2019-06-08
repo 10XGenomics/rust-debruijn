@@ -60,15 +60,15 @@
 <span class="comment">// Copyright 2017 10x Genomics</span>
 
 <span class="doccomment">//! DeBruijn graph simplification routines. Currently tip-removal is implemented.</span>
-<span class="kw">use</span> <span class="ident">Kmer</span>;
-<span class="kw">use</span> <span class="ident">graph</span>::{<span class="ident">DebruijnGraph</span>, <span class="ident">Node</span>};
+<span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">Kmer</span>;
+<span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">graph</span>::{<span class="ident">DebruijnGraph</span>, <span class="ident">Node</span>};
 <span class="kw">use</span> <span class="ident">std</span>::<span class="ident">marker</span>::<span class="ident">PhantomData</span>;
 <span class="kw">use</span> <span class="ident">std</span>::<span class="ident">fmt</span>::<span class="ident">Debug</span>;
 
 
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">CleanGraph</span><span class="op">&lt;</span><span class="ident">K</span>: <span class="ident">Kmer</span>, <span class="ident">D</span>, <span class="ident">T1</span><span class="op">&gt;</span>
 <span class="kw">where</span>
-    <span class="ident">T1</span>: <span class="ident">Fn</span>(<span class="kw-2">&amp;</span><span class="ident">Node</span><span class="op">&lt;</span><span class="ident">K</span>, <span class="ident">D</span><span class="op">&gt;</span>) <span class="op">-&gt;</span> <span class="ident">bool</span>,
+    <span class="ident">T1</span>: <span class="ident">Fn</span>(<span class="kw-2">&amp;</span><span class="ident">Node</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span>, <span class="ident">K</span>, <span class="ident">D</span><span class="op">&gt;</span>) <span class="op">-&gt;</span> <span class="ident">bool</span>,
 {
     <span class="ident">tip_predicate</span>: <span class="ident">T1</span>,
     <span class="ident">_k</span>: <span class="ident">PhantomData</span><span class="op">&lt;</span><span class="ident">K</span><span class="op">&gt;</span>,
@@ -78,7 +78,7 @@
 
 <span class="kw">impl</span><span class="op">&lt;</span><span class="ident">K</span>: <span class="ident">Kmer</span>, <span class="ident">D</span>: <span class="ident">Debug</span>, <span class="ident">T1</span><span class="op">&gt;</span> <span class="ident">CleanGraph</span><span class="op">&lt;</span><span class="ident">K</span>, <span class="ident">D</span>, <span class="ident">T1</span><span class="op">&gt;</span>
 <span class="kw">where</span>
-    <span class="ident">T1</span>: <span class="ident">Fn</span>(<span class="kw-2">&amp;</span><span class="ident">Node</span><span class="op">&lt;</span><span class="ident">K</span>, <span class="ident">D</span><span class="op">&gt;</span>) <span class="op">-&gt;</span> <span class="ident">bool</span>,
+    <span class="ident">T1</span>: <span class="ident">Fn</span>(<span class="kw-2">&amp;</span><span class="ident">Node</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span>, <span class="ident">K</span>, <span class="ident">D</span><span class="op">&gt;</span>) <span class="op">-&gt;</span> <span class="ident">bool</span>,
 {
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new</span>(<span class="ident">tip_predicate</span>: <span class="ident">T1</span>) <span class="op">-&gt;</span> <span class="ident">CleanGraph</span><span class="op">&lt;</span><span class="ident">K</span>, <span class="ident">D</span>, <span class="ident">T1</span><span class="op">&gt;</span> {
         <span class="ident">CleanGraph</span> {

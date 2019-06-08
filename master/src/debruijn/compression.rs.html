@@ -619,7 +619,6 @@
 <span id="619">619</span>
 <span id="620">620</span>
 <span id="621">621</span>
-<span id="622">622</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="comment">// Copyright 2017 10x Genomics</span>
 
@@ -629,13 +628,13 @@
 <span class="kw">use</span> <span class="ident">bit_set</span>::<span class="ident">BitSet</span>;
 <span class="kw">use</span> <span class="ident">std</span>::<span class="ident">fmt</span>::<span class="ident">Debug</span>;
 
-<span class="kw">use</span> <span class="ident">Kmer</span>;
-<span class="kw">use</span> <span class="ident">Vmer</span>;
-<span class="kw">use</span> <span class="ident">Dir</span>;
-<span class="kw">use</span> <span class="ident">Exts</span>;
+<span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">Kmer</span>;
+<span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">Vmer</span>;
+<span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">Dir</span>;
+<span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">Exts</span>;
 <span class="kw">use</span> <span class="ident">boomphf</span>::<span class="ident">hashmap</span>::<span class="ident">BoomHashMap2</span>;
-<span class="kw">use</span> <span class="ident">graph</span>::{<span class="ident">DebruijnGraph</span>, <span class="ident">BaseGraph</span>};
-<span class="kw">use</span> <span class="ident">dna_string</span>::<span class="ident">DnaString</span>;
+<span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">graph</span>::{<span class="ident">DebruijnGraph</span>, <span class="ident">BaseGraph</span>};
+<span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">dna_string</span>::<span class="ident">DnaString</span>;
 
 <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Copy</span>, <span class="ident">Clone</span>)]</span>
 <span class="kw">enum</span> <span class="ident">ExtMode</span><span class="op">&lt;</span><span class="ident">K</span>: <span class="ident">Kmer</span><span class="op">&gt;</span> {
@@ -906,7 +905,6 @@
             <span class="ident">node_data</span>,
         )
     }
-
 
     <span class="doccomment">/// Simplify a compressed Debruijn graph by merging adjacent unbranched nodes, and optionally</span>
     <span class="doccomment">/// censoring some nodes</span>

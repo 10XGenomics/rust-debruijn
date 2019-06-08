@@ -999,6 +999,7 @@
 <span id="999"> 999</span>
 <span id="1000">1000</span>
 <span id="1001">1001</span>
+<span id="1002">1002</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="comment">// Copyright 2017 10x Genomics</span>
 
@@ -1042,10 +1043,11 @@
 <span class="kw">use</span> <span class="ident">num</span>::<span class="ident">PrimInt</span>;
 <span class="kw">use</span> <span class="ident">num</span>::<span class="ident">FromPrimitive</span>;
 <span class="kw">use</span> <span class="ident">std</span>::<span class="ident">marker</span>::<span class="ident">PhantomData</span>;
+<span class="kw">use</span> <span class="ident">serde_derive</span>::{<span class="ident">Deserialize</span>, <span class="ident">Serialize</span>};
 
-<span class="kw">use</span> <span class="ident">Mer</span>;
-<span class="kw">use</span> <span class="ident">Kmer</span>;
-<span class="kw">use</span> <span class="ident">bits_to_base</span>;
+<span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">Mer</span>;
+<span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">Kmer</span>;
+<span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">bits_to_base</span>;
 
 
 <span class="comment">// Pre-defined kmer types</span>
@@ -1348,7 +1350,7 @@
 }
 
 <span class="kw">impl</span><span class="op">&lt;</span><span class="ident">T</span>: <span class="ident">PrimInt</span> <span class="op">+</span> <span class="ident">FromPrimitive</span> <span class="op">+</span> <span class="ident">Hash</span> <span class="op">+</span> <span class="ident">IntHelp</span><span class="op">&gt;</span> <span class="ident">fmt</span>::<span class="ident">Debug</span> <span class="kw">for</span> <span class="ident">IntKmer</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span> {
-    <span class="kw">fn</span> <span class="ident">fmt</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">f</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">fmt</span>::<span class="ident">Formatter</span>) <span class="op">-&gt;</span> <span class="ident">fmt</span>::<span class="prelude-ty">Result</span> {
+    <span class="kw">fn</span> <span class="ident">fmt</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">f</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">fmt</span>::<span class="ident">Formatter</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span><span class="op">&gt;</span>) <span class="op">-&gt;</span> <span class="ident">fmt</span>::<span class="prelude-ty">Result</span> {
         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">s</span> <span class="op">=</span> <span class="ident">String</span>::<span class="ident">new</span>();
         <span class="kw">for</span> <span class="ident">pos</span> <span class="kw">in</span> <span class="number">0</span>..<span class="self">Self</span>::<span class="ident">k</span>() {
             <span class="ident">s</span>.<span class="ident">push</span>(<span class="ident">bits_to_base</span>(<span class="self">self</span>.<span class="ident">get</span>(<span class="ident">pos</span>)))
@@ -1567,7 +1569,7 @@
 }
 
 <span class="kw">impl</span><span class="op">&lt;</span><span class="ident">T</span>: <span class="ident">PrimInt</span> <span class="op">+</span> <span class="ident">FromPrimitive</span> <span class="op">+</span> <span class="ident">Hash</span> <span class="op">+</span> <span class="ident">IntHelp</span>, <span class="ident">KS</span>: <span class="ident">KmerSize</span><span class="op">&gt;</span> <span class="ident">fmt</span>::<span class="ident">Debug</span> <span class="kw">for</span> <span class="ident">VarIntKmer</span><span class="op">&lt;</span><span class="ident">T</span>, <span class="ident">KS</span><span class="op">&gt;</span> {
-    <span class="kw">fn</span> <span class="ident">fmt</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">f</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">fmt</span>::<span class="ident">Formatter</span>) <span class="op">-&gt;</span> <span class="ident">fmt</span>::<span class="prelude-ty">Result</span> {
+    <span class="kw">fn</span> <span class="ident">fmt</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">f</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">fmt</span>::<span class="ident">Formatter</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span><span class="op">&gt;</span>) <span class="op">-&gt;</span> <span class="ident">fmt</span>::<span class="prelude-ty">Result</span> {
         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">s</span> <span class="op">=</span> <span class="ident">String</span>::<span class="ident">new</span>();
         <span class="kw">for</span> <span class="ident">pos</span> <span class="kw">in</span> <span class="number">0</span>..<span class="self">Self</span>::<span class="ident">k</span>() {
             <span class="ident">s</span>.<span class="ident">push</span>(<span class="ident">bits_to_base</span>(<span class="self">self</span>.<span class="ident">get</span>(<span class="ident">pos</span>)))
@@ -1712,10 +1714,10 @@
 <span class="kw">mod</span> <span class="ident">tests</span> {
     <span class="kw">use</span> <span class="kw">super</span>::<span class="kw-2">*</span>;
     <span class="kw">use</span> <span class="ident">rand</span>::{<span class="self">self</span>, <span class="ident">Rng</span>, <span class="ident">RngCore</span>};
-    <span class="kw">use</span> <span class="ident">vmer</span>::<span class="ident">Lmer</span>;
+    <span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">vmer</span>::<span class="ident">Lmer</span>;
 
-    <span class="kw">use</span> <span class="ident">Vmer</span>;
-    <span class="kw">use</span> <span class="ident">MerImmut</span>;
+    <span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">Vmer</span>;
+    <span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">MerImmut</span>;
 
     <span class="comment">// Generate random kmers &amp; test the methods for manipulating them</span>
     <span class="kw">fn</span> <span class="ident">check_kmer</span><span class="op">&lt;</span><span class="ident">T</span>: <span class="ident">Kmer</span><span class="op">&gt;</span>() {

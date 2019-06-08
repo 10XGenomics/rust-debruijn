@@ -513,16 +513,14 @@
 <span id="513">513</span>
 <span id="514">514</span>
 <span id="515">515</span>
-<span id="516">516</span>
-<span id="517">517</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="comment">// Copyright 2017 10x Genomics</span>
 
 <span class="doccomment">//! Generate random genomes (with lots of re-used sustrings), reassemble them, and check sanity</span>
 
-<span class="kw">use</span> <span class="ident">Kmer</span>;
-<span class="kw">use</span> <span class="ident">Vmer</span>;
-<span class="kw">use</span> <span class="ident">complement</span>;
+<span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">Kmer</span>;
+<span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">Vmer</span>;
+<span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">complement</span>;
 
 <span class="kw">use</span> <span class="ident">std</span>::<span class="ident">cmp</span>::{<span class="ident">min</span>, <span class="ident">max</span>};
 <span class="kw">use</span> <span class="ident">rand</span>::{<span class="self">self</span>, <span class="ident">Rng</span>, <span class="ident">RngCore</span>};
@@ -659,24 +657,24 @@
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">test</span>)]</span>
 <span class="kw">mod</span> <span class="ident">tests</span> {
 
-    <span class="kw">use</span> {<span class="ident">Kmer</span>, <span class="ident">Dir</span>, <span class="ident">Exts</span>};
-    <span class="kw">use</span> <span class="ident">clean_graph</span>::<span class="ident">CleanGraph</span>;
+    <span class="kw">use</span> <span class="kw">crate</span>::{<span class="ident">Kmer</span>, <span class="ident">Dir</span>, <span class="ident">Exts</span>};
+    <span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">clean_graph</span>::<span class="ident">CleanGraph</span>;
     <span class="kw">use</span> <span class="ident">std</span>::<span class="ident">collections</span>::{<span class="ident">HashSet</span>, <span class="ident">HashMap</span>};
-    <span class="kw">use</span> <span class="ident">graph</span>::{<span class="ident">BaseGraph</span>};
-    <span class="kw">use</span> <span class="ident">compression</span>::{<span class="ident">SimpleCompress</span>, <span class="ident">compress_kmers_with_hash</span>, <span class="ident">compress_graph</span>};
+    <span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">graph</span>::{<span class="ident">BaseGraph</span>};
+    <span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">compression</span>::{<span class="ident">SimpleCompress</span>, <span class="ident">compress_kmers_with_hash</span>, <span class="ident">compress_graph</span>};
     <span class="kw">use</span> <span class="ident">std</span>::<span class="ident">iter</span>::<span class="ident">FromIterator</span>;
     <span class="kw">use</span> <span class="ident">boomphf</span>::<span class="ident">hashmap</span>::<span class="ident">BoomHashMap2</span>;
     <span class="kw">use</span> <span class="ident">boomphf</span>::<span class="ident">Mphf</span>;
-    <span class="kw">use</span> <span class="ident">DnaBytes</span>;
+    <span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">DnaBytes</span>;
 
     <span class="kw">use</span> <span class="ident">std</span>::<span class="ident">ops</span>::<span class="ident">Sub</span>;
-    <span class="kw">use</span> <span class="ident">msp</span>;
-    <span class="kw">use</span> <span class="ident">kmer</span>::<span class="ident">IntKmer</span>;
-    <span class="kw">use</span> <span class="ident">kmer</span>::<span class="ident">Kmer6</span>;
-    <span class="kw">use</span> <span class="ident">dna_string</span>::<span class="ident">DnaString</span>;
-    <span class="kw">use</span> <span class="ident">filter</span>;
+    <span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">msp</span>;
+    <span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">kmer</span>::<span class="ident">IntKmer</span>;
+    <span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">kmer</span>::<span class="ident">Kmer6</span>;
+    <span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">dna_string</span>::<span class="ident">DnaString</span>;
+    <span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">filter</span>;
 
-
+    <span class="kw">use</span> <span class="ident">pretty_assertions</span>::<span class="ident">assert_eq</span>;
     <span class="kw">use</span> <span class="kw">super</span>::<span class="kw-2">*</span>;
 
     <span class="attribute">#[<span class="ident">test</span>]</span>
@@ -724,7 +722,6 @@
 
     <span class="kw">fn</span> <span class="ident">simplify_from_kmers</span><span class="op">&lt;</span><span class="ident">K</span>: <span class="ident">Kmer</span> <span class="op">+</span> <span class="ident">Send</span> <span class="op">+</span> <span class="ident">Sync</span><span class="op">&gt;</span>(<span class="kw-2">mut</span> <span class="ident">contigs</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;&gt;</span>, <span class="ident">stranded</span>: <span class="ident">bool</span>) {
 
-        <span class="kw">use</span> <span class="ident">DnaBytes</span>;
         <span class="kw">let</span> <span class="ident">seqs</span> : <span class="ident">Vec</span><span class="op">&lt;</span>(<span class="ident">DnaBytes</span>, <span class="ident">Exts</span>, ())<span class="op">&gt;</span> <span class="op">=</span> <span class="ident">contigs</span>
             .<span class="ident">drain</span>(..)
             .<span class="ident">map</span>(<span class="op">|</span><span class="ident">x</span><span class="op">|</span> (<span class="ident">DnaBytes</span>(<span class="ident">x</span>), <span class="ident">Exts</span>::<span class="ident">empty</span>(), ()))
@@ -769,7 +766,6 @@
 
         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">got_slot</span> <span class="op">=</span> <span class="macro">vec</span><span class="macro">!</span>[<span class="bool-val">false</span>; <span class="ident">total_kmers</span>];
 
-        <span class="kw">use</span> <span class="ident">Vmer</span>;
         <span class="kw">for</span> <span class="ident">n</span> <span class="kw">in</span> <span class="ident">simp_dbg</span>.<span class="ident">iter_nodes</span>() {
             <span class="kw">for</span> <span class="ident">kmer</span> <span class="kw">in</span> <span class="ident">n</span>.<span class="ident">sequence</span>().<span class="ident">iter_kmers</span>() {
                 <span class="kw">let</span> <span class="ident">r</span> <span class="op">=</span> <span class="ident">mphf</span>.<span class="ident">try_hash</span>(<span class="kw-2">&amp;</span><span class="ident">kmer</span>).<span class="ident">unwrap</span>() <span class="kw">as</span> <span class="ident">usize</span>;

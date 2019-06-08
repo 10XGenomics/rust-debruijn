@@ -801,10 +801,10 @@
 <span class="kw">use</span> <span class="ident">std</span>::<span class="ident">cmp</span>::<span class="ident">min</span>;
 <span class="kw">use</span> <span class="ident">std</span>::<span class="ident">iter</span>::<span class="ident">Iterator</span>;
 <span class="kw">use</span> <span class="ident">std</span>::<span class="ident">ops</span>::<span class="ident">Range</span>;
-<span class="kw">use</span> <span class="ident">Kmer</span>;
-<span class="kw">use</span> <span class="ident">Vmer</span>;
-<span class="kw">use</span> <span class="ident">Exts</span>;
-<span class="kw">use</span> <span class="ident">DnaSlice</span>;
+<span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">Kmer</span>;
+<span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">Vmer</span>;
+<span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">Exts</span>;
+<span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">DnaSlice</span>;
 
 <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>)]</span>
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">MspInterval</span> {
@@ -984,12 +984,12 @@
 
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">test</span>)]</span>
 <span class="kw">mod</span> <span class="ident">tests</span> {
-    <span class="kw">use</span> <span class="ident">test</span>;
+    <span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">test</span>;
     <span class="kw">use</span> <span class="kw">super</span>::<span class="kw-2">*</span>;
     <span class="kw">use</span> <span class="ident">std</span>::<span class="ident">collections</span>::<span class="ident">HashSet</span>;
     <span class="kw">use</span> <span class="ident">std</span>::<span class="ident">iter</span>::<span class="ident">FromIterator</span>;
-    <span class="kw">use</span> <span class="ident">kmer</span>::{<span class="ident">Kmer8</span>, <span class="ident">Kmer5</span>};
-    <span class="kw">use</span> <span class="ident">DnaSlice</span>;
+    <span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">kmer</span>::{<span class="ident">Kmer8</span>, <span class="ident">Kmer5</span>};
+    <span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">DnaSlice</span>;
 
     <span class="kw">fn</span> <span class="ident">all_kmers</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span>(<span class="ident">k</span>: <span class="ident">usize</span>, <span class="ident">seq</span>: <span class="kw-2">&amp;</span>[<span class="ident">T</span>]) <span class="op">-&gt;</span> <span class="ident">Vec</span><span class="op">&lt;</span><span class="kw-2">&amp;</span>[<span class="ident">T</span>]<span class="op">&gt;</span> {
         (<span class="number">0</span>..(<span class="ident">seq</span>.<span class="ident">len</span>() <span class="op">-</span> <span class="ident">k</span> <span class="op">+</span> <span class="number">1</span>)).<span class="ident">map</span>(<span class="op">|</span><span class="ident">i</span><span class="op">|</span> <span class="kw-2">&amp;</span><span class="ident">seq</span>[<span class="ident">i</span>..<span class="ident">i</span> <span class="op">+</span> <span class="ident">k</span>]).<span class="ident">collect</span>()
