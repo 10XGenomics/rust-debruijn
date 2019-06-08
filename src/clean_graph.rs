@@ -1,15 +1,15 @@
 // Copyright 2017 10x Genomics
 
 //! DeBruijn graph simplification routines. Currently tip-removal is implemented.
-use Kmer;
-use graph::{DebruijnGraph, Node};
+use crate::Kmer;
+use crate::graph::{DebruijnGraph, Node};
 use std::marker::PhantomData;
 use std::fmt::Debug;
 
 
 pub struct CleanGraph<K: Kmer, D, T1>
 where
-    T1: Fn(&Node<K, D>) -> bool,
+    T1: Fn(&Node<'_, K, D>) -> bool,
 {
     tip_predicate: T1,
     _k: PhantomData<K>,
@@ -19,7 +19,7 @@ where
 
 impl<K: Kmer, D: Debug, T1> CleanGraph<K, D, T1>
 where
-    T1: Fn(&Node<K, D>) -> bool,
+    T1: Fn(&Node<'_, K, D>) -> bool,
 {
     pub fn new(tip_predicate: T1) -> CleanGraph<K, D, T1> {
         CleanGraph {

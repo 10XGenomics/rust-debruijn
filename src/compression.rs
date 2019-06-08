@@ -6,13 +6,13 @@ use std::collections::VecDeque;
 use bit_set::BitSet;
 use std::fmt::Debug;
 
-use Kmer;
-use Vmer;
-use Dir;
-use Exts;
+use crate::Kmer;
+use crate::Vmer;
+use crate::Dir;
+use crate::Exts;
 use boomphf::hashmap::BoomHashMap2;
-use graph::{DebruijnGraph, BaseGraph};
-use dna_string::DnaString;
+use crate::graph::{DebruijnGraph, BaseGraph};
+use crate::dna_string::DnaString;
 
 #[derive(Copy, Clone)]
 enum ExtMode<K: Kmer> {
@@ -283,7 +283,6 @@ where K: Kmer + Send + Sync, D: Debug + Clone + PartialEq, S: CompressionSpec<D>
             node_data,
         )
     }
-
 
     /// Simplify a compressed Debruijn graph by merging adjacent unbranched nodes, and optionally
     /// censoring some nodes

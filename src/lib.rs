@@ -28,28 +28,7 @@
 //! which expects bases encoded as the integers 0,1,2,3, and a separate form names 'ascii',
 //! which expects bases encoded as the ASCII letters A,C,G,T.
 
-
-extern crate num;
-extern crate rand;
-extern crate byteorder;
-extern crate boomphf;
-extern crate concurrent_hashmap;
-
-#[macro_use]
-extern crate serde_derive;
-extern crate serde;
-extern crate serde_json;
-extern crate smallvec;
-extern crate bit_set;
-extern crate itertools;
-
-#[macro_use]
-extern crate log;
-
-#[cfg(test)]
-#[macro_use]
-extern crate pretty_assertions;
-
+use serde_derive::{Deserialize, Serialize};
 use std::hash::Hash;
 use std::fmt;
 
@@ -394,7 +373,7 @@ pub trait Vmer: Mer + PartialEq + Eq {
     }
 
     /// Iterate over the kmers in the sequence
-    fn iter_kmers<K: Kmer>(&self) -> KmerIter<K, Self> {
+    fn iter_kmers<K: Kmer>(&self) -> KmerIter<'_, K, Self> {
 
         let kmer = if self.len() >= K::k() {
             self.first_kmer()
@@ -411,7 +390,7 @@ pub trait Vmer: Mer + PartialEq + Eq {
     }
 
     /// Iterate over the kmers and their extensions, given the extensions of the whole sequence
-    fn iter_kmer_exts<K: Kmer>(&self, seq_exts: Exts) -> KmerExtsIter<K, Self> {
+    fn iter_kmer_exts<K: Kmer>(&self, seq_exts: Exts) -> KmerExtsIter<'_, K, Self> {
         let kmer = if self.len() >= K::k() {
             self.first_kmer()
         } else {
@@ -736,7 +715,7 @@ impl Exts {
 }
 
 impl fmt::Debug for Exts {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let mut s = String::new();
 
         for b in self.get(Dir::Left) {

@@ -25,22 +25,22 @@
 //! let first_kmer: Kmer16 = slice1.get_kmer(0);
 //! assert_eq!(first_kmer, Kmer16::from_ascii(b"CACGTATGACAGATAG"))
 
-
 use std::fmt;
 use std::borrow::Borrow;
-
-use Kmer;
-use bits_to_base;
-use base_to_bits;
-use bits_to_ascii;
-use dna_only_base_to_bits;
+use serde_derive::{Deserialize, Serialize};
 use std::cmp::min;
 use std::hash::{Hash, Hasher};
 use std::collections::hash_map::DefaultHasher;
 
-use Mer;
-use MerIter;
-use Vmer;
+use crate::bits_to_base;
+use crate::base_to_bits;
+use crate::bits_to_ascii;
+use crate::dna_only_base_to_bits;
+
+use crate::Kmer;
+use crate::Mer;
+use crate::MerIter;
+use crate::Vmer;
 
 const BLOCK_BITS: usize = 64;
 const WIDTH: usize = 2;
@@ -325,7 +325,7 @@ impl DnaString {
     }
 
     /// Iterate over stored values (values will be unpacked into bytes).
-    pub fn iter(&self) -> DnaStringIter {
+    pub fn iter(&self) -> DnaStringIter<'_> {
         DnaStringIter {
             dna_string: self,
             i: 0,
@@ -362,7 +362,7 @@ impl DnaString {
     }
 
     /// Get the length `k` prefix of the DnaString
-    pub fn prefix(&self, k: usize) -> DnaStringSlice {
+    pub fn prefix(&self, k: usize) -> DnaStringSlice<'_> {
         assert!(k <= self.len, "Prefix size exceeds number of elements.");
         DnaStringSlice {
             dna_string: self,
@@ -373,7 +373,7 @@ impl DnaString {
     }
 
     /// Get the length `k` suffix of the DnaString
-    pub fn suffix(&self, k: usize) -> DnaStringSlice {
+    pub fn suffix(&self, k: usize) -> DnaStringSlice<'_> {
         assert!(k <= self.len, "Suffix size exceeds number of elements.");
 
         DnaStringSlice {
@@ -385,7 +385,7 @@ impl DnaString {
     }
 
     /// Get slice containing the interval [`start`, `end`) of `self`
-    pub fn slice(&self, start: usize, end: usize) -> DnaStringSlice {
+    pub fn slice(&self, start: usize, end: usize) -> DnaStringSlice<'_> {
         assert!(start <= self.len, "coordinate exceeds number of elements.");
         assert!(end <= self.len, "coordinate exceeds number of elements.");
 
@@ -419,7 +419,7 @@ impl DnaString {
 
 
 impl fmt::Debug for DnaString {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let mut s = String::new();
         for pos in 0..self.len() {
             s.push(bits_to_base(self.get(pos)))
@@ -491,7 +491,7 @@ impl<'a> Mer for DnaStringSlice<'a> {
         if !self.is_rc {
             self.dna_string.get(i + self.start)
         } else {
-            ::complement(self.dna_string.get(self.start + self.length - 1 - i))
+            crate::complement(self.dna_string.get(self.start + self.length - 1 - i))
         }
     }
 
@@ -578,7 +578,7 @@ impl<'a> DnaStringSlice<'a> {
         be
     }
         /// Get slice containing the interval [`start`, `end`) of `self`
-    pub fn slice(&self, start: usize, end: usize) -> DnaStringSlice {
+    pub fn slice(&self, start: usize, end: usize) -> DnaStringSlice<'_> {
         assert!(start <= self.length, "coordinate exceeds number of elements.");
         assert!(end <= self.length, "coordinate exceeds number of elements.");
 
@@ -593,7 +593,7 @@ impl<'a> DnaStringSlice<'a> {
 }
 
 impl<'a> fmt::Debug for DnaStringSlice<'a> {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let mut s = String::new();
         if self.length < 256 {
             for pos in self.start..(self.start + self.length) {
@@ -681,7 +681,7 @@ impl<'a> PackedDnaStringSet {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use kmer::IntKmer;
+    use crate::kmer::IntKmer;
 
     #[test]
     fn test_dna_string() {

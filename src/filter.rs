@@ -8,11 +8,12 @@ use std::marker::PhantomData;
 use std::hash::Hash;
 use concurrent_hashmap::*;
 use std::sync::atomic::{AtomicUsize, Ordering};
+use log::debug;
 
-use Dir;
-use Kmer;
-use Exts;
-use Vmer;
+use crate::Dir;
+use crate::Kmer;
+use crate::Exts;
+use crate::Vmer;
 use boomphf::hashmap::BoomHashMap2;
 use std::fmt::Debug;
 
@@ -121,7 +122,6 @@ impl<D: Eq + Hash + Send + Sync + Debug + Clone> CountFilterEqClass<D> {
         eq_class_vec.resize(self.get_number_of_eq_classes(), Vec::new());
 
         for (key, value) in self.eq_classes.iter() {
-            let num_classes = eq_class_vec.len();
             eq_class_vec[*value as usize] = key.clone();
         }
 
@@ -203,7 +203,7 @@ impl<D: Eq + Ord + Hash + Send + Sync + Debug + Clone> KmerSummarizer<D, EqClass
 #[inline(never)]
 pub fn filter_kmers<K: Kmer, V: Vmer, D1: Clone, DS, S: KmerSummarizer<D1, DS>>(
     seqs: &[(V, Exts, D1)],
-    summarizer: &Deref<Target=S>,
+    summarizer: &dyn Deref<Target=S>,
     stranded: bool,
     report_all_kmers: bool,
     memory_size: usize,

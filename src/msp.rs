@@ -8,10 +8,10 @@
 use std::cmp::min;
 use std::iter::Iterator;
 use std::ops::Range;
-use Kmer;
-use Vmer;
-use Exts;
-use DnaSlice;
+use crate::Kmer;
+use crate::Vmer;
+use crate::Exts;
+use crate::DnaSlice;
 
 #[derive(Debug)]
 pub struct MspInterval {
@@ -191,12 +191,12 @@ where
 
 #[cfg(test)]
 mod tests {
-    use test;
+    use crate::test;
     use super::*;
     use std::collections::HashSet;
     use std::iter::FromIterator;
-    use kmer::{Kmer8, Kmer5};
-    use DnaSlice;
+    use crate::kmer::{Kmer8, Kmer5};
+    use crate::DnaSlice;
 
     fn all_kmers<T>(k: usize, seq: &[T]) -> Vec<&[T]> {
         (0..(seq.len() - k + 1)).map(|i| &seq[i..i + k]).collect()

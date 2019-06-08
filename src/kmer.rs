@@ -40,10 +40,11 @@ use std::fmt;
 use num::PrimInt;
 use num::FromPrimitive;
 use std::marker::PhantomData;
+use serde_derive::{Deserialize, Serialize};
 
-use Mer;
-use Kmer;
-use bits_to_base;
+use crate::Mer;
+use crate::Kmer;
+use crate::bits_to_base;
 
 
 // Pre-defined kmer types
@@ -346,7 +347,7 @@ impl<T: PrimInt + FromPrimitive + Hash + IntHelp> Kmer for IntKmer<T> {
 }
 
 impl<T: PrimInt + FromPrimitive + Hash + IntHelp> fmt::Debug for IntKmer<T> {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let mut s = String::new();
         for pos in 0..Self::k() {
             s.push(bits_to_base(self.get(pos)))
@@ -565,7 +566,7 @@ impl<T: PrimInt + FromPrimitive + Hash + IntHelp, KS: KmerSize> Mer for VarIntKm
 }
 
 impl<T: PrimInt + FromPrimitive + Hash + IntHelp, KS: KmerSize> fmt::Debug for VarIntKmer<T, KS> {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let mut s = String::new();
         for pos in 0..Self::k() {
             s.push(bits_to_base(self.get(pos)))
@@ -710,10 +711,10 @@ impl KmerSize for K2 {
 mod tests {
     use super::*;
     use rand::{self, Rng, RngCore};
-    use vmer::Lmer;
+    use crate::vmer::Lmer;
 
-    use Vmer;
-    use MerImmut;
+    use crate::Vmer;
+    use crate::MerImmut;
 
     // Generate random kmers & test the methods for manipulating them
     fn check_kmer<T: Kmer>() {
