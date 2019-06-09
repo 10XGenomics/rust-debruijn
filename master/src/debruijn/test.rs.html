@@ -513,6 +513,34 @@
 <span id="513">513</span>
 <span id="514">514</span>
 <span id="515">515</span>
+<span id="516">516</span>
+<span id="517">517</span>
+<span id="518">518</span>
+<span id="519">519</span>
+<span id="520">520</span>
+<span id="521">521</span>
+<span id="522">522</span>
+<span id="523">523</span>
+<span id="524">524</span>
+<span id="525">525</span>
+<span id="526">526</span>
+<span id="527">527</span>
+<span id="528">528</span>
+<span id="529">529</span>
+<span id="530">530</span>
+<span id="531">531</span>
+<span id="532">532</span>
+<span id="533">533</span>
+<span id="534">534</span>
+<span id="535">535</span>
+<span id="536">536</span>
+<span id="537">537</span>
+<span id="538">538</span>
+<span id="539">539</span>
+<span id="540">540</span>
+<span id="541">541</span>
+<span id="542">542</span>
+<span id="543">543</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="comment">// Copyright 2017 10x Genomics</span>
 
@@ -669,7 +697,7 @@
 
     <span class="kw">use</span> <span class="ident">std</span>::<span class="ident">ops</span>::<span class="ident">Sub</span>;
     <span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">msp</span>;
-    <span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">kmer</span>::<span class="ident">IntKmer</span>;
+    <span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">kmer</span>::{<span class="ident">IntKmer</span>, <span class="ident">VarIntKmer</span>, <span class="ident">K31</span>};
     <span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">kmer</span>::<span class="ident">Kmer6</span>;
     <span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">dna_string</span>::<span class="ident">DnaString</span>;
     <span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">filter</span>;
@@ -688,6 +716,24 @@
         <span class="kw">let</span> <span class="ident">contigs</span> <span class="op">=</span> <span class="ident">simple_random_contigs</span>();
         <span class="ident">reassemble_sharded</span>::<span class="op">&lt;</span><span class="ident">IntKmer</span><span class="op">&lt;</span><span class="ident">u64</span><span class="op">&gt;</span>, <span class="ident">DnaString</span><span class="op">&gt;</span>(<span class="ident">contigs</span>, <span class="bool-val">false</span>);
     }
+
+
+    <span class="attribute">#[<span class="ident">test</span>]</span>
+    <span class="kw">fn</span> <span class="ident">degen_seq_asm</span>() {
+        <span class="kw">let</span> <span class="ident">ctg</span> <span class="op">=</span> <span class="string">&quot;AAAAATAAAATAAAATAAAATAAAATAAAATAAAATAAAATAAAA&quot;</span>;
+        <span class="kw">let</span> <span class="ident">seq</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">ctg</span>.<span class="ident">as_bytes</span>().<span class="ident">iter</span>().<span class="ident">cloned</span>().<span class="ident">map</span>(<span class="kw">crate</span>::<span class="ident">base_to_bits</span>).<span class="ident">collect</span>();
+
+        <span class="ident">reassemble_contigs</span>::<span class="op">&lt;</span><span class="ident">VarIntKmer</span><span class="op">&lt;</span><span class="ident">u64</span>, <span class="ident">K31</span><span class="op">&gt;</span>, <span class="ident">DnaString</span><span class="op">&gt;</span>(<span class="macro">vec</span><span class="macro">!</span>[<span class="ident">seq</span>.<span class="ident">clone</span>(), <span class="ident">seq</span>], <span class="bool-val">false</span>);
+    }
+
+    <span class="attribute">#[<span class="ident">test</span>]</span>
+    <span class="kw">fn</span> <span class="ident">degen_seq_asm_sharded</span>() {
+        <span class="kw">let</span> <span class="ident">ctg</span> <span class="op">=</span> <span class="string">&quot;AAAAATAAAATAAAATAAAATAAAATAAAATAAAATAAAATAAAA&quot;</span>;
+        <span class="kw">let</span> <span class="ident">seq</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">ctg</span>.<span class="ident">as_bytes</span>().<span class="ident">iter</span>().<span class="ident">cloned</span>().<span class="ident">map</span>(<span class="kw">crate</span>::<span class="ident">base_to_bits</span>).<span class="ident">collect</span>();
+
+        <span class="ident">reassemble_sharded</span>::<span class="op">&lt;</span><span class="ident">VarIntKmer</span><span class="op">&lt;</span><span class="ident">u64</span>, <span class="ident">K31</span><span class="op">&gt;</span>, <span class="ident">DnaString</span><span class="op">&gt;</span>(<span class="macro">vec</span><span class="macro">!</span>[<span class="ident">seq</span>.<span class="ident">clone</span>(), <span class="ident">seq</span>], <span class="bool-val">false</span>);
+    }
+
 
 
     <span class="attribute">#[<span class="ident">test</span>]</span>
@@ -711,6 +757,15 @@
         <span class="kw">let</span> <span class="ident">contigs</span> <span class="op">=</span> <span class="ident">simple_random_contigs</span>();
         <span class="ident">simplify_from_kmers</span>::<span class="op">&lt;</span><span class="ident">IntKmer</span><span class="op">&lt;</span><span class="ident">u64</span><span class="op">&gt;&gt;</span>(<span class="ident">contigs</span>, <span class="bool-val">false</span>);
     }
+
+     <span class="attribute">#[<span class="ident">test</span>]</span>
+    <span class="kw">fn</span> <span class="ident">complex_path_compress_k31</span>() {
+        <span class="kw">for</span> <span class="kw">_</span> <span class="kw">in</span> <span class="number">0</span>..<span class="number">100</span> {
+            <span class="kw">let</span> <span class="ident">contigs</span> <span class="op">=</span> <span class="ident">random_contigs</span>();
+            <span class="ident">simplify_from_kmers</span>::<span class="op">&lt;</span><span class="ident">VarIntKmer</span><span class="op">&lt;</span><span class="ident">u64</span>, <span class="ident">K31</span><span class="op">&gt;&gt;</span>(<span class="ident">contigs</span>, <span class="bool-val">false</span>);
+        }
+    }
+
 
     <span class="attribute">#[<span class="ident">test</span>]</span>
     <span class="kw">fn</span> <span class="ident">complex_path_compress</span>() {
@@ -887,7 +942,6 @@
         }
 
         <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="ident">kmer_set</span>, <span class="ident">all_contig_set</span>);
-        <span class="comment">//graph</span>
     }
 
     <span class="comment">// Take some input contig, which likely form a complicated graph,</span>
@@ -926,11 +980,10 @@
             <span class="comment">// Generate compress DBG for this shard</span>
             <span class="kw">let</span> <span class="ident">spec</span> <span class="op">=</span> <span class="ident">SimpleCompress</span>::<span class="ident">new</span>(<span class="op">|</span><span class="ident">d1</span>: <span class="ident">u16</span>, <span class="ident">d2</span>: <span class="kw-2">&amp;</span><span class="ident">u16</span><span class="op">|</span> <span class="ident">d1</span>.<span class="ident">saturating_add</span>(<span class="kw-2">*</span><span class="ident">d2</span>));
 
-            <span class="macro">print</span><span class="macro">!</span>(<span class="string">&quot;{:?}&quot;</span>, <span class="ident">valid_kmers</span>);
+            <span class="comment">//print!(&quot;{:?}&quot;, valid_kmers);</span>
             <span class="kw">let</span> <span class="ident">graph</span> <span class="op">=</span> <span class="ident">compress_kmers_with_hash</span>(<span class="ident">stranded</span>, <span class="ident">spec</span>, <span class="kw-2">&amp;</span><span class="ident">valid_kmers</span>);
             <span class="ident">shard_asms</span>.<span class="ident">push</span>(<span class="ident">graph</span>.<span class="ident">clone</span>());
-
-            <span class="ident">graph</span>.<span class="ident">finish</span>().<span class="ident">print</span>();
+            <span class="comment">//graph.finish().print();</span>
         }
 
 
@@ -938,6 +991,11 @@
         <span class="kw">let</span> <span class="ident">combined_graph</span> <span class="op">=</span> <span class="ident">BaseGraph</span>::<span class="ident">combine</span>(<span class="ident">shard_asms</span>.<span class="ident">into_iter</span>()).<span class="ident">finish</span>();
         <span class="kw">let</span> <span class="ident">cmp</span> <span class="op">=</span> <span class="ident">SimpleCompress</span>::<span class="ident">new</span>(<span class="op">|</span><span class="ident">a</span>: <span class="ident">u16</span>, <span class="ident">b</span>: <span class="kw-2">&amp;</span><span class="ident">u16</span><span class="op">|</span> { <span class="ident">max</span>(<span class="ident">a</span>, <span class="kw-2">*</span><span class="ident">b</span>) });
         <span class="kw">let</span> <span class="ident">dbg_graph</span> <span class="op">=</span> <span class="ident">compress_graph</span>(<span class="bool-val">false</span>, <span class="ident">cmp</span>, <span class="ident">combined_graph</span>, <span class="prelude-val">None</span>);
+        
+        <span class="comment">// Switch on for debugging</span>
+        <span class="comment">//dbg_graph.print();</span>
+        <span class="comment">//dbg_graph.write_gfa(&amp;mut std::io::stdout().lock());</span>
+
         <span class="kw">let</span> <span class="ident">graph</span> <span class="op">=</span> <span class="ident">dbg_graph</span>.<span class="ident">base</span>;
 
         <span class="comment">// Check that all the lines have valid kmers,</span>
@@ -966,8 +1024,6 @@
         }
 
         <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="ident">kmer_set</span>, <span class="ident">all_contig_set</span>);
-
-        <span class="comment">//graph</span>
     }
 
     <span class="attribute">#[<span class="ident">test</span>]</span>

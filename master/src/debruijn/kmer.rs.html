@@ -1000,6 +1000,25 @@
 <span id="1000">1000</span>
 <span id="1001">1001</span>
 <span id="1002">1002</span>
+<span id="1003">1003</span>
+<span id="1004">1004</span>
+<span id="1005">1005</span>
+<span id="1006">1006</span>
+<span id="1007">1007</span>
+<span id="1008">1008</span>
+<span id="1009">1009</span>
+<span id="1010">1010</span>
+<span id="1011">1011</span>
+<span id="1012">1012</span>
+<span id="1013">1013</span>
+<span id="1014">1014</span>
+<span id="1015">1015</span>
+<span id="1016">1016</span>
+<span id="1017">1017</span>
+<span id="1018">1018</span>
+<span id="1019">1019</span>
+<span id="1020">1020</span>
+<span id="1021">1021</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="comment">// Copyright 2017 10x Genomics</span>
 
@@ -1601,7 +1620,19 @@
     }
 }
 
-<span class="doccomment">/// Marker trait for generating K=40 Kmers</span>
+<span class="doccomment">/// Marker trait for generating K=31 Kmers</span>
+<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Hash</span>, <span class="ident">Copy</span>, <span class="ident">Clone</span>, <span class="ident">Ord</span>, <span class="ident">PartialOrd</span>, <span class="ident">Eq</span>, <span class="ident">PartialEq</span>)]</span>
+<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">K31</span>;
+
+<span class="kw">impl</span> <span class="ident">KmerSize</span> <span class="kw">for</span> <span class="ident">K31</span> {
+    <span class="attribute">#[<span class="ident">inline</span>(<span class="ident">always</span>)]</span>
+    <span class="kw">fn</span> <span class="ident">K</span>() <span class="op">-&gt;</span> <span class="ident">usize</span> {
+        <span class="number">31</span>
+    }
+}
+
+
+<span class="doccomment">/// Marker trait for generating K=30 Kmers</span>
 <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Hash</span>, <span class="ident">Copy</span>, <span class="ident">Clone</span>, <span class="ident">Ord</span>, <span class="ident">PartialOrd</span>, <span class="ident">Eq</span>, <span class="ident">PartialEq</span>)]</span>
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">K30</span>;
 
@@ -1937,6 +1968,13 @@
     <span class="kw">fn</span> <span class="ident">test_kmer_32</span>() {
         <span class="kw">for</span> <span class="kw">_</span> <span class="kw">in</span> <span class="number">0</span>..<span class="number">10000</span> {
             <span class="ident">check_kmer</span>::<span class="op">&lt;</span><span class="ident">IntKmer</span><span class="op">&lt;</span><span class="ident">u64</span><span class="op">&gt;&gt;</span>();
+        }
+    }
+
+    <span class="attribute">#[<span class="ident">test</span>]</span>
+    <span class="kw">fn</span> <span class="ident">test_kmer_31</span>() {
+        <span class="kw">for</span> <span class="kw">_</span> <span class="kw">in</span> <span class="number">0</span>..<span class="number">10000</span> {
+            <span class="ident">check_kmer</span>::<span class="op">&lt;</span><span class="ident">VarIntKmer</span><span class="op">&lt;</span><span class="ident">u64</span>, <span class="ident">K31</span><span class="op">&gt;&gt;</span>();
         }
     }
 

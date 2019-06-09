@@ -1132,6 +1132,11 @@
 <span id="1132">1132</span>
 <span id="1133">1133</span>
 <span id="1134">1134</span>
+<span id="1135">1135</span>
+<span id="1136">1136</span>
+<span id="1137">1137</span>
+<span id="1138">1138</span>
+<span id="1139">1139</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="comment">// Copyright 2017 10x Genomics</span>
 
@@ -1698,7 +1703,7 @@
         }
 
         <span class="kw">for</span> (<span class="ident">target</span>, <span class="ident">dir</span>, <span class="kw">_</span>) <span class="kw">in</span> <span class="ident">node</span>.<span class="ident">l_edges</span>() {
-            <span class="kw">if</span> <span class="ident">target</span> <span class="op">&gt;</span> <span class="ident">node</span>.<span class="ident">node_id</span> <span class="kw">as</span> <span class="ident">usize</span> {
+            <span class="kw">if</span> <span class="ident">target</span> <span class="op">&gt;=</span> <span class="ident">node</span>.<span class="ident">node_id</span> <span class="kw">as</span> <span class="ident">usize</span> {
                 <span class="kw">let</span> <span class="ident">to_dir</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">dir</span> {
                     <span class="ident">Dir</span>::<span class="ident">Left</span> <span class="op">=&gt;</span> <span class="string">&quot;+&quot;</span>,
                     <span class="ident">Dir</span>::<span class="ident">Right</span> <span class="op">=&gt;</span> <span class="string">&quot;-&quot;</span>,
@@ -1738,7 +1743,12 @@
 
     <span class="doccomment">/// Write the graph to GFA format</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">to_gfa</span><span class="op">&lt;</span><span class="ident">P</span>: <span class="ident">AsRef</span><span class="op">&lt;</span><span class="ident">Path</span><span class="op">&gt;&gt;</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">gfa_out</span>: <span class="ident">P</span>) <span class="op">-&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">Error</span><span class="op">&gt;</span> {
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">wtr</span> <span class="op">=</span> <span class="ident">File</span>::<span class="ident">create</span>(<span class="ident">gfa_out</span>)<span class="question-mark">?</span>;
+        <span class="kw">let</span> <span class="ident">wtr</span> <span class="op">=</span> <span class="ident">File</span>::<span class="ident">create</span>(<span class="ident">gfa_out</span>)<span class="question-mark">?</span>;
+        <span class="self">self</span>.<span class="ident">write_gfa</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">std</span>::<span class="ident">io</span>::<span class="ident">BufWriter</span>::<span class="ident">new</span>(<span class="ident">wtr</span>))
+    }
+
+
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">write_gfa</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">wtr</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="kw">impl</span> <span class="ident">Write</span>) <span class="op">-&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">Error</span><span class="op">&gt;</span> {
         <span class="macro">writeln</span><span class="macro">!</span>(<span class="ident">wtr</span>, <span class="string">&quot;H\tVN:Z:debruijn-rs&quot;</span>)<span class="question-mark">?</span>;
 
         <span class="comment">// Hack to generate a None value with the right type.</span>
@@ -1748,7 +1758,7 @@
 
         <span class="kw">for</span> <span class="ident">i</span> <span class="kw">in</span> <span class="number">0</span>..<span class="self">self</span>.<span class="ident">len</span>() {
             <span class="kw">let</span> <span class="ident">n</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">get_node</span>(<span class="ident">i</span>);
-            <span class="self">self</span>.<span class="ident">node_to_gfa</span>(<span class="kw-2">&amp;</span><span class="ident">n</span>, <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">wtr</span>, <span class="ident">dummy_opt</span>)<span class="question-mark">?</span>;
+            <span class="self">self</span>.<span class="ident">node_to_gfa</span>(<span class="kw-2">&amp;</span><span class="ident">n</span>, <span class="ident">wtr</span>, <span class="ident">dummy_opt</span>)<span class="question-mark">?</span>;
         }
 
         <span class="prelude-val">Ok</span>(())
