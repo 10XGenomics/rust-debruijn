@@ -598,7 +598,19 @@ impl KmerSize for K40 {
     }
 }
 
-/// Marker trait for generating K=40 Kmers
+/// Marker trait for generating K=31 Kmers
+#[derive(Debug, Hash, Copy, Clone, Ord, PartialOrd, Eq, PartialEq)]
+pub struct K31;
+
+impl KmerSize for K31 {
+    #[inline(always)]
+    fn K() -> usize {
+        31
+    }
+}
+
+
+/// Marker trait for generating K=30 Kmers
 #[derive(Debug, Hash, Copy, Clone, Ord, PartialOrd, Eq, PartialEq)]
 pub struct K30;
 
@@ -934,6 +946,13 @@ mod tests {
     fn test_kmer_32() {
         for _ in 0..10000 {
             check_kmer::<IntKmer<u64>>();
+        }
+    }
+
+    #[test]
+    fn test_kmer_31() {
+        for _ in 0..10000 {
+            check_kmer::<VarIntKmer<u64, K31>>();
         }
     }
 

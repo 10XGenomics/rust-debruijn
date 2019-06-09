@@ -153,7 +153,7 @@ mod tests {
 
     use std::ops::Sub;
     use crate::msp;
-    use crate::kmer::IntKmer;
+    use crate::kmer::{IntKmer, VarIntKmer, K31};
     use crate::kmer::Kmer6;
     use crate::dna_string::DnaString;
     use crate::filter;
@@ -172,6 +172,24 @@ mod tests {
         let contigs = simple_random_contigs();
         reassemble_sharded::<IntKmer<u64>, DnaString>(contigs, false);
     }
+
+
+    #[test]
+    fn degen_seq_asm() {
+        let ctg = "AAAAATAAAATAAAATAAAATAAAATAAAATAAAATAAAATAAAA";
+        let seq: Vec<u8> = ctg.as_bytes().iter().cloned().map(crate::base_to_bits).collect();
+
+        reassemble_contigs::<VarIntKmer<u64, K31>, DnaString>(vec![seq.clone(), seq], false);
+    }
+
+    #[test]
+    fn degen_seq_asm_sharded() {
+        let ctg = "AAAAATAAAATAAAATAAAATAAAATAAAATAAAATAAAATAAAA";
+        let seq: Vec<u8> = ctg.as_bytes().iter().cloned().map(crate::base_to_bits).collect();
+
+        reassemble_sharded::<VarIntKmer<u64, K31>, DnaString>(vec![seq.clone(), seq], false);
+    }
+
 
 
     #[test]
@@ -195,6 +213,15 @@ mod tests {
         let contigs = simple_random_contigs();
         simplify_from_kmers::<IntKmer<u64>>(contigs, false);
     }
+
+     #[test]
+    fn complex_path_compress_k31() {
+        for _ in 0..100 {
+            let contigs = random_contigs();
+            simplify_from_kmers::<VarIntKmer<u64, K31>>(contigs, false);
+        }
+    }
+
 
     #[test]
     fn complex_path_compress() {
@@ -371,7 +398,6 @@ mod tests {
         }
 
         assert_eq!(kmer_set, all_contig_set);
-        //graph
     }
 
     // Take some input contig, which likely form a complicated graph,
@@ -410,11 +436,10 @@ mod tests {
             // Generate compress DBG for this shard
             let spec = SimpleCompress::new(|d1: u16, d2: &u16| d1.saturating_add(*d2));
 
-            print!("{:?}", valid_kmers);
+            //print!("{:?}", valid_kmers);
             let graph = compress_kmers_with_hash(stranded, spec, &valid_kmers);
             shard_asms.push(graph.clone());
-
-            graph.finish().print();
+            //graph.finish().print();
         }
 
 
@@ -422,6 +447,11 @@ mod tests {
         let combined_graph = BaseGraph::combine(shard_asms.into_iter()).finish();
         let cmp = SimpleCompress::new(|a: u16, b: &u16| { max(a, *b) });
         let dbg_graph = compress_graph(false, cmp, combined_graph, None);
+        
+        // Switch on for debugging
+        //dbg_graph.print();
+        //dbg_graph.write_gfa(&mut std::io::stdout().lock());
+
         let graph = dbg_graph.base;
 
         // Check that all the lines have valid kmers,
@@ -450,8 +480,6 @@ mod tests {
         }
 
         assert_eq!(kmer_set, all_contig_set);
-
-        //graph
     }
 
     #[test]

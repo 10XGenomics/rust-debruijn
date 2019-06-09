@@ -563,7 +563,7 @@ impl<K: Kmer, D: Debug> DebruijnGraph<K, D> {
         }
 
         for (target, dir, _) in node.l_edges() {
-            if target > node.node_id as usize {
+            if target >= node.node_id as usize {
                 let to_dir = match dir {
                     Dir::Left => "+",
                     Dir::Right => "-",
@@ -603,7 +603,12 @@ impl<K: Kmer, D: Debug> DebruijnGraph<K, D> {
 
     /// Write the graph to GFA format
     pub fn to_gfa<P: AsRef<Path>>(&self, gfa_out: P) -> Result<(), Error> {
-        let mut wtr = File::create(gfa_out)?;
+        let wtr = File::create(gfa_out)?;
+        self.write_gfa(&mut std::io::BufWriter::new(wtr))
+    }
+
+
+    pub fn write_gfa(&self, wtr: &mut impl Write) -> Result<(), Error> {
         writeln!(wtr, "H\tVN:Z:debruijn-rs")?;
 
         // Hack to generate a None value with the right type.
@@ -613,7 +618,7 @@ impl<K: Kmer, D: Debug> DebruijnGraph<K, D> {
 
         for i in 0..self.len() {
             let n = self.get_node(i);
-            self.node_to_gfa(&n, &mut wtr, dummy_opt)?;
+            self.node_to_gfa(&n, wtr, dummy_opt)?;
         }
 
         Ok(())
