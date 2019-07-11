@@ -240,13 +240,13 @@ mod tests {
         let (valid_kmers, _): (BoomHashMap2<K, Exts, u16>, _) = filter::filter_kmers(&seqs, &Box::new(filter::CountFilter::new(1)), stranded, false, 4);
 
         let spec = SimpleCompress::new(|d1: u16, d2: &u16| ( (d1 as u32 + *d2 as u32) % 65535 ) as u16 );
-        let from_kmers = compress_kmers_with_hash(stranded, spec, &valid_kmers).finish();
-        let is_cmp = from_kmers.is_compressed();
+        let from_kmers = compress_kmers_with_hash(stranded, &spec, &valid_kmers).finish();
+        let is_cmp = from_kmers.is_compressed(&spec);
         if is_cmp.is_some() {
             println!("not compressed: nodes: {:?}", is_cmp);
             from_kmers.print();
         }
-        assert!(from_kmers.is_compressed() == None);
+        assert!(from_kmers.is_compressed(&spec) == None);
 
         // Create a DBG with one node per input kmer
         let mut base_graph: BaseGraph<K, u16> = BaseGraph::new(stranded);
@@ -258,15 +258,15 @@ mod tests {
 
         // Canonicalize the graph with
         let spec = SimpleCompress::new(|d1: u16, d2: &u16| d1 + d2);
-        let simp_dbg = compress_graph(stranded, spec, uncompressed_dbg, None);
+        let simp_dbg = compress_graph(stranded, &spec, uncompressed_dbg, None);
 
-        let is_cmp = simp_dbg.is_compressed();
+        let is_cmp = simp_dbg.is_compressed(&spec);
         if is_cmp.is_some() {
             println!("not compressed: nodes: {:?}", is_cmp);
             simp_dbg.print();
         }
 
-        assert!(simp_dbg.is_compressed() == None);
+        assert!(simp_dbg.is_compressed(&spec) == None);
 
         let total_kmers = valid_kmers.len();
 
@@ -370,7 +370,7 @@ mod tests {
         let spec = SimpleCompress::new(|d1: u16, d2: &u16| d1.saturating_add(*d2));
 
         // Generate compress DBG for these kmers
-        let graph = compress_kmers_with_hash(stranded, spec, &valid_kmers);
+        let graph = compress_kmers_with_hash(stranded, &spec, &valid_kmers);
 
         // Check that all the lines have valid kmers,
         // and have extensions into other valid kmers
@@ -437,7 +437,7 @@ mod tests {
             let spec = SimpleCompress::new(|d1: u16, d2: &u16| d1.saturating_add(*d2));
 
             //print!("{:?}", valid_kmers);
-            let graph = compress_kmers_with_hash(stranded, spec, &valid_kmers);
+            let graph = compress_kmers_with_hash(stranded, &spec, &valid_kmers);
             shard_asms.push(graph.clone());
             //graph.finish().print();
         }
@@ -446,7 +446,7 @@ mod tests {
         // Shove the subassemblies into a partially compress base graph
         let combined_graph = BaseGraph::combine(shard_asms.into_iter()).finish();
         let cmp = SimpleCompress::new(|a: u16, b: &u16| { max(a, *b) });
-        let dbg_graph = compress_graph(false, cmp, combined_graph, None);
+        let dbg_graph = compress_graph(false, &cmp, combined_graph, None);
         
         // Switch on for debugging
         //dbg_graph.print();
@@ -519,7 +519,7 @@ mod tests {
         // Assemble w/o tips
         let (valid_kmers_clean, _): (BoomHashMap2<K, Exts, u16>, _) = filter::filter_kmers(&clean_seqs, &Box::new(filter::CountFilter::new(2)), stranded, false, 4);
         let spec = SimpleCompress::new(|d1: u16, d2: &u16| d1 + d2);
-        let graph = compress_kmers_with_hash(stranded, spec, &valid_kmers_clean);
+        let graph = compress_kmers_with_hash(stranded, &spec, &valid_kmers_clean);
         let graph1 = graph.finish();
         graph1.print();
 
@@ -527,7 +527,7 @@ mod tests {
         let (valid_kmers_errs, _): (BoomHashMap2<K, Exts, u16> ,_)=
             filter::filter_kmers(&all_seqs, &Box::new(filter::CountFilter::new(2)), stranded, false, 4);
         let spec = SimpleCompress::new(|d1: u16, d2: &u16| d1 + d2);
-        let graph = compress_kmers_with_hash(stranded, spec, &valid_kmers_errs);
+        let graph = compress_kmers_with_hash(stranded, &spec, &valid_kmers_errs);
         let graph2 = graph.finish();
         graph2.print();
 
@@ -537,7 +537,7 @@ mod tests {
 
         println!("censor: {:?}", nodes_to_censor);
         let spec = SimpleCompress::new(|d1: u16, d2: &u16| d1 + d2);
-        let fixed = compress_graph(stranded, spec, graph2, Some(nodes_to_censor));
+        let fixed = compress_graph(stranded, &spec, graph2, Some(nodes_to_censor));
         fixed.print();
     }
 }

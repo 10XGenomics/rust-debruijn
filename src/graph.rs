@@ -34,6 +34,7 @@ use crate::Vmer;
 use crate::Dir;
 use crate::Exts;
 use crate::dna_string::{DnaString, DnaStringSlice, PackedDnaStringSet};
+use crate::compression::CompressionSpec;
 
 /// A compressed DeBruijn graph carrying auxiliary data on each node of type `D`.
 /// This type does not carry the sorted index arrays the allow the graph
@@ -287,7 +288,7 @@ impl<K: Kmer, D: Debug> DebruijnGraph<K, D> {
     /// Check whether the graph is fully compressed. Return `None` if it's compressed,
     /// otherwise return `Some(node1, node2)` representing a pair of node that could
     /// be collapsed. Probably only useful for testing.
-    pub fn is_compressed(&self) -> Option<(usize, usize)> {
+    pub fn is_compressed<S: CompressionSpec<D>>(&self, spec: &S) -> Option<(usize, usize)> {
         for i in 0..self.len() {
             let n = self.get_node(i);
 
@@ -301,25 +302,27 @@ impl<K: Kmer, D: Debug> DebruijnGraph<K, D> {
                     let ret_edges = next.edges(return_dir);
                     if ret_edges.len() == 1 {
 
-                        // Test for us being a palindrome
+                        // Test for us being a palindrome: this makes it OK
                         if n.len() == K::k() && n.sequence().first_kmer::<K>().is_palindrome()
                         {
-                            return None;
+                            continue;
                         }
 
-                        // Test for a neighbor being a palindrome
+                        // Test for a neighbor being a palindrome: this makes it OK
                         if next.len() == K::k() && next.sequence().first_kmer::<K>().is_palindrome()
                         {
-                            return None;
+                            continue;
                         }
 
-                        // Test for this edge representing a smooth circle (biting it's own tail)
+                        // Test for this edge representing a smooth circle (biting it's own tail): 
                         if n.node_id == next_id {
-                            return None;
+                            continue
                         }
 
-                        // Found a unbranched edge that should have been eliminated
-                        return Some((i, next_id));
+                        if spec.join_test(n.data(), next.data()) {
+                            // Found a unbranched edge that should have been eliminated
+                            return Some((i, next_id));
+                        }
                     }
                 }
             }

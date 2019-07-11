@@ -92,15 +92,15 @@ where D: Debug
     }
 }
 
-struct CompressFromGraph<'a, K: 'a + Kmer, D: 'a + PartialEq, S: CompressionSpec<D>> {
+struct CompressFromGraph<'a, 'b, K: 'a + Kmer, D: 'a + PartialEq, S: CompressionSpec<D>> {
     stranded: bool,
     d: PhantomData<D>,
-    spec: S,
+    spec: &'b S,
     available_nodes: BitSet,
     graph: &'a DebruijnGraph<K, D>,
 }
 
-impl<'a, K, D, S> CompressFromGraph<'a, K, D, S>
+impl<'a, 'b, K, D, S> CompressFromGraph<'a, 'b, K, D, S>
 where K: Kmer + Send + Sync, D: Debug + Clone + PartialEq, S: CompressionSpec<D> {
     #[inline(never)]
     fn try_extend_node(&mut self, node: usize, dir: Dir) -> ExtModeNode {
@@ -286,9 +286,9 @@ where K: Kmer + Send + Sync, D: Debug + Clone + PartialEq, S: CompressionSpec<D>
 
     /// Simplify a compressed Debruijn graph by merging adjacent unbranched nodes, and optionally
     /// censoring some nodes
-    pub fn compress_graph(
+    fn compress_graph(
         stranded: bool,
-        compression: S,
+        compression: &S,
         mut old_graph: DebruijnGraph<K, D>,
         censor_nodes: Option<Vec<usize>>,
     ) -> DebruijnGraph<K, D> {
@@ -332,7 +332,7 @@ where K: Kmer + Send + Sync, D: Debug + Clone + PartialEq, S: CompressionSpec<D>
         // We will have some hanging exts due to
         let mut dbg = graph.finish();
         dbg.fix_exts(None);
-        debug_assert!(dbg.is_compressed() == None);
+        debug_assert!(dbg.is_compressed(compression) == None);
         dbg
     }
 }
@@ -340,7 +340,7 @@ where K: Kmer + Send + Sync, D: Debug + Clone + PartialEq, S: CompressionSpec<D>
 /// Perform path-compression on a (possibly partially compressed) DeBruijn graph
 pub fn compress_graph<K: Kmer + Send + Sync, D: Clone + Debug + PartialEq, S: CompressionSpec<D>>(
     stranded: bool,
-    spec: S,
+    spec: &S,
     old_graph: DebruijnGraph<K, D>,
     censor_nodes: Option<Vec<usize>>,
 ) -> DebruijnGraph<K, D> {
@@ -352,17 +352,17 @@ pub fn compress_graph<K: Kmer + Send + Sync, D: Clone + Debug + PartialEq, S: Co
 // Compress from Hash a new Struct
 //////////////////////////////
 /// Generate a compressed DeBruijn graph from hash_index
-struct CompressFromHash<'a, K: 'a + Kmer, D: 'a, S: CompressionSpec<D>> {
+struct CompressFromHash<'a, 'b, K: 'a + Kmer, D: 'a, S: CompressionSpec<D>> {
     stranded: bool,
     k: PhantomData<K>,
     d: PhantomData<D>,
-    spec: S,
+    spec: &'b S,
     available_kmers: BitSet,
     index: &'a BoomHashMap2<K, Exts, D>,
 }
 
 /// Compression of paths in Debruijn graph
-impl<'a, K: Kmer, D: Clone + Debug, S: CompressionSpec<D>> CompressFromHash<'a, K, D, S> {
+impl<'a, 'b, K: Kmer, D: Clone + Debug, S: CompressionSpec<D>> CompressFromHash<'a, 'b, K, D, S> {
     fn get_kmer_data(&self, kmer: &K) -> (&Exts, &D) {
         match self.index.get(kmer) {
             Some(data) => data,
@@ -547,7 +547,7 @@ impl<'a, K: Kmer, D: Clone + Debug, S: CompressionSpec<D>> CompressFromHash<'a, 
     #[inline(never)]
     pub fn compress_kmers(
         stranded: bool,
-        spec: S,
+        spec: &S,
         index: &BoomHashMap2<K, Exts, D>,
     ) -> BaseGraph<K, D> {
 
@@ -591,7 +591,7 @@ impl<'a, K: Kmer, D: Clone + Debug, S: CompressionSpec<D>> CompressFromHash<'a, 
 #[inline(never)]
 pub fn compress_kmers_with_hash<K: Kmer, D: Clone + Debug, S: CompressionSpec<D>>(
     stranded: bool,
-    spec: S,
+    spec: &S,
     index: &BoomHashMap2<K, Exts, D>,
 ) -> BaseGraph<K, D> {
     CompressFromHash::<K, D, S>::compress_kmers(stranded, spec, index)
@@ -602,7 +602,7 @@ pub fn compress_kmers_with_hash<K: Kmer, D: Clone + Debug, S: CompressionSpec<D>
 #[inline(never)]
 pub fn compress_kmers<K: Kmer, D: Clone + Debug, S: CompressionSpec<D>>(
     stranded: bool,
-    spec: S,
+    spec: &S,
     kmer_exts: &Vec<(K, (Exts, D))>
 ) -> BaseGraph<K, D> {
 
