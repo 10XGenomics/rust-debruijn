@@ -50,7 +50,7 @@ const MASK: u64 = 0x3;
 /// A container for sequence of DNA bases.
 #[derive(Ord, PartialOrd, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct DnaString {
-    storage: Vec<u64>,
+    pub storage: Vec<u64>,
     len: usize,
 }
 
@@ -459,6 +459,40 @@ impl<'a> IntoIterator for &'a DnaString {
     }
 }
 
+// Static structure used by ndiffs, below.
+
+lazy_static! {
+    static ref DIFF_COUNT: Vec<u8> = {
+        let mut count = vec![0 as u8; 256];
+        for b in 0..256 {
+            let mut x = b as u8;
+            for _ in 0..4 {
+                if x % 4 != 0 {
+                    count[b] += 1;
+                }
+                x = x >> 2;
+            }
+        }
+        count
+    };
+}
+
+/// Compute the number of base positions at which two DnaStrings differ, assuming
+/// that they have the same length.
+
+pub fn ndiffs( b1: &DnaString, b2: &DnaString ) -> usize {
+    assert_eq!( b1.len(), b2.len() );
+    // The approach used here is a few times faster than traversing the bases one by one.
+    let mut diffs = 0;
+    let (s1, s2) = (&b1.storage, &b2.storage);
+    for i in 0..s1.len() {
+        let s = ( s1[i] ^ s2[i] ).to_ne_bytes();
+        for j in 0..BLOCK_BITS/8 {
+            diffs += DIFF_COUNT[s[j] as usize] as usize;
+        }
+    }
+    diffs
+}
 
 /// An immutable slice into a DnaString
 #[derive(Clone)]
@@ -811,6 +845,13 @@ mod tests {
 
         let kmers: Vec<IntKmer<u64>> = dna_string.iter_kmers().collect();
         kmer_test::<IntKmer<u64>>(&kmers, &dna, &dna_string);
+    }
+
+    #[test]
+    fn test_ndiffs() {
+        let x1 = DnaString::from_dna_string("TGCATTAGAAAACTCCTTGCCTGTCTAGAAACTCATTAATCCACACATTGA");
+        let x2 = DnaString::from_dna_string("TGCATTAGTAAACTCCTTCGCTGTCTAGAAAATCATTAAGCCACACATTGA");
+        assert!( ndiffs(&x1, &x2) == 5 );
     }
 
     #[test]

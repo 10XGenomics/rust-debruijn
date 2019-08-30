@@ -28,6 +28,9 @@
 //! which expects bases encoded as the integers 0,1,2,3, and a separate form names 'ascii',
 //! which expects bases encoded as the ASCII letters A,C,G,T.
 
+#[macro_use]
+extern crate lazy_static;
+
 use serde_derive::{Deserialize, Serialize};
 use std::hash::Hash;
 use std::fmt;
