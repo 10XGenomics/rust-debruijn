@@ -50,7 +50,7 @@ const MASK: u64 = 0x3;
 /// A container for sequence of DNA bases.
 #[derive(Ord, PartialOrd, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct DnaString {
-    pub storage: Vec<u64>,
+    storage: Vec<u64>,
     len: usize,
 }
 
