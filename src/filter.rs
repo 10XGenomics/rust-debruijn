@@ -6,7 +6,7 @@ use itertools::Itertools;
 use std::ops::Deref;
 use std::marker::PhantomData;
 use std::hash::Hash;
-use concurrent_hashmap::*;
+use dashmap::DashMap;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use log::debug;
 
@@ -104,7 +104,7 @@ impl<D: Ord> KmerSummarizer<D, Vec<D>> for CountFilterSet<D> {
 pub type EqClassIdType = u32 ;
 pub struct CountFilterEqClass<D: Eq + Hash + Send + Sync + Debug + Clone> {
     min_kmer_obs: usize,
-    eq_classes: ConcHashMap<Vec<D>, EqClassIdType>,
+    eq_classes: DashMap<Vec<D>, EqClassIdType>,
     num_eq_classes: AtomicUsize,
 }
 
@@ -112,7 +112,7 @@ impl<D: Eq + Hash + Send + Sync + Debug + Clone> CountFilterEqClass<D> {
     pub fn new(min_kmer_obs: usize) -> CountFilterEqClass<D> {
         CountFilterEqClass {
             min_kmer_obs: min_kmer_obs,
-            eq_classes: ConcHashMap::<Vec<D>, EqClassIdType>::new(),
+            eq_classes: DashMap::<Vec<D>, EqClassIdType>::new(4),
             num_eq_classes: AtomicUsize::new(0),
         }
     }
@@ -121,8 +121,16 @@ impl<D: Eq + Hash + Send + Sync + Debug + Clone> CountFilterEqClass<D> {
         let mut eq_class_vec = Vec::new();
         eq_class_vec.resize(self.get_number_of_eq_classes(), Vec::new());
 
-        for (key, value) in self.eq_classes.iter() {
-            eq_class_vec[*value as usize] = key.clone();
+        let mut eq_ids = Vec::new();
+
+        for item in self.eq_classes.iter() {
+            eq_class_vec[*item.value() as usize] = item.key().clone();
+            eq_ids.push(*item.value() as usize)
+        }
+
+        eq_ids.sort();
+        for i in 0 .. eq_ids.len() {
+            assert_eq!(eq_ids[i], i);
         }
 
         eq_class_vec
@@ -150,7 +158,7 @@ impl<D: Eq + Ord + Hash + Send + Sync + Debug + Clone> KmerSummarizer<D, EqClass
         }
 
         out_data.sort();  out_data.dedup();
-
+        /*
         let eq_id: EqClassIdType = match self.eq_classes.find(&out_data) {
             Some(val) => *val.get(),
             None => {
@@ -159,7 +167,14 @@ impl<D: Eq + Ord + Hash + Send + Sync + Debug + Clone> KmerSummarizer<D, EqClass
                 val
             },
         };
+        */
 
+        // hopefully this adds the key out_data & assigns it a unique id.
+        let eq_ref = self.eq_classes.get_or_insert_with(&out_data, || {
+            self.num_eq_classes.fetch_add(1, Ordering::SeqCst) as u32
+        });
+
+        let eq_id = eq_ref.deref().clone();
         (nobs as usize >= self.min_kmer_obs, all_exts, eq_id)
     }
 }

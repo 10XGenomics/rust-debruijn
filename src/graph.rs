@@ -189,6 +189,23 @@ impl<K: Kmer, D: Debug> DebruijnGraph<K, D> {
         }
     }
 
+
+    /// Get a node given it's `node_id`
+    pub fn get_node_kmer<'a>(&'a self, node_id: usize) -> NodeKmer<'a, K, D> {
+
+        let node = self.get_node(node_id);
+        let node_seq = node.sequence();
+
+        NodeKmer {
+            node_id: node_id,
+            node_seq_slice: node_seq,
+            phantom_d: PhantomData,
+            phantom_k: PhantomData,
+        }
+    }
+
+
+
     /// Return an iterator over all nodes in the graph
     pub fn iter_nodes<'a>(&'a self) -> NodeIter<'a, K, D> {
         NodeIter {
