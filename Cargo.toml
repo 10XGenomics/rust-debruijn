@@ -17,7 +17,6 @@ byteorder = "*"
 num = "0.2"
 lazy_static = "1.4"
 log = "0.4"
-dashmap = "1.2"
 
 [dev-dependencies]
 pretty_assertions = "0.5"
