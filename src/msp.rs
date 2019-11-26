@@ -71,9 +71,7 @@ pub fn simple_scan<V: Vmer, P: Kmer>(
 
     let p = P::k();
 
-    let pval = |i: usize| {
-        let pi = seq.get_kmer::<P>(i);
-
+    let pv = |pi: P| {
         if rc {
             min(
                 permutation[pi.to_u64() as usize],
@@ -83,6 +81,12 @@ pub fn simple_scan<V: Vmer, P: Kmer>(
         }
     };
 
+    let pval = |i: usize| {
+        let pi = seq.get_kmer::<P>(i);
+        pv(pi)
+    };
+
+
     let pmin = |i: usize, j: usize| if pval(i) <= pval(j) { i } else { j };
 
     let m = seq.len();
@@ -90,13 +94,17 @@ pub fn simple_scan<V: Vmer, P: Kmer>(
     let find_min = |start, stop| {
         let mut pos = start;
         let mut min_pos = start;
-        let mut min_val = pval(start);
+        let mut pmer = seq.get_kmer(pos);
+        let mut min_val = pv(pmer);
 
         while pos < stop {
             pos = pos + 1;
-            if pval(pos) < min_val {
+            pmer = pmer.extend_right(seq.get(pos + p - 1));
+            let val = pv(pmer);
+
+            if val < min_val {
                 min_pos = pos;
-                min_val = pval(pos);
+                min_val = val;
             }
         }
 
@@ -252,7 +260,7 @@ mod tests {
         let p = 8;
         let permutation: Vec<usize> = (0..(1 << 2 * p)).collect();
 
-        for _ in 0..10 {
+        for _ in 0..100 {
             let k = 50usize;
             let dna = test::random_dna(150);
             println!("{:?}", dna);

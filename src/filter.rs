@@ -2,20 +2,19 @@
 
 //! Methods for converting sequences into kmers, filtering observed kmers before De Bruijn graph construction, and summarizing 'color' annotations.
 use std::mem;
-use itertools::Itertools;
 use std::ops::Deref;
 use std::marker::PhantomData;
-use std::hash::Hash;
-use concurrent_hashmap::*;
-use std::sync::atomic::{AtomicUsize, Ordering};
+use std::fmt::Debug;
+
+use itertools::Itertools;
 use log::debug;
+use boomphf::hashmap::BoomHashMap2;
 
 use crate::Dir;
 use crate::Kmer;
 use crate::Exts;
 use crate::Vmer;
-use boomphf::hashmap::BoomHashMap2;
-use std::fmt::Debug;
+
 
 fn bucket<K: Kmer>(kmer: K) -> usize {
     (kmer.get(0) as usize) << 6 | (kmer.get(1) as usize) << 4 | (kmer.get(2) as usize) << 2 | (kmer.get(3) as usize)
@@ -99,71 +98,6 @@ impl<D: Ord> KmerSummarizer<D, Vec<D>> for CountFilterSet<D> {
         (nobs as usize >= self.min_kmer_obs, all_exts, out_data)
     }
 }
-
-//Equivalence class based implementation
-pub type EqClassIdType = u32 ;
-pub struct CountFilterEqClass<D: Eq + Hash + Send + Sync + Debug + Clone> {
-    min_kmer_obs: usize,
-    eq_classes: ConcHashMap<Vec<D>, EqClassIdType>,
-    num_eq_classes: AtomicUsize,
-}
-
-impl<D: Eq + Hash + Send + Sync + Debug + Clone> CountFilterEqClass<D> {
-    pub fn new(min_kmer_obs: usize) -> CountFilterEqClass<D> {
-        CountFilterEqClass {
-            min_kmer_obs: min_kmer_obs,
-            eq_classes: ConcHashMap::<Vec<D>, EqClassIdType>::new(),
-            num_eq_classes: AtomicUsize::new(0),
-        }
-    }
-
-    pub fn get_eq_classes(&self) -> Vec<Vec<D>>{
-        let mut eq_class_vec = Vec::new();
-        eq_class_vec.resize(self.get_number_of_eq_classes(), Vec::new());
-
-        for (key, value) in self.eq_classes.iter() {
-            eq_class_vec[*value as usize] = key.clone();
-        }
-
-        eq_class_vec
-    }
-
-    pub fn get_number_of_eq_classes(&self) -> usize{
-        self.num_eq_classes.load(Ordering::SeqCst)
-    }
-
-    pub fn fetch_add(&self) -> usize {
-        self.num_eq_classes.fetch_add(1, Ordering::SeqCst)
-    }
-}
-
-impl<D: Eq + Ord + Hash + Send + Sync + Debug + Clone> KmerSummarizer<D, EqClassIdType> for CountFilterEqClass<D> {
-    fn summarize<K, F: Iterator<Item = (K, Exts, D)>>(&self, items: F) -> (bool, Exts, EqClassIdType) {
-        let mut all_exts = Exts::empty();
-        let mut out_data = Vec::new();
-
-        let mut nobs = 0;
-        for (_, exts, d) in items {
-            out_data.push(d);
-            all_exts = all_exts.add(exts);
-            nobs += 1;
-        }
-
-        out_data.sort();  out_data.dedup();
-
-        let eq_id: EqClassIdType = match self.eq_classes.find(&out_data) {
-            Some(val) => *val.get(),
-            None => {
-                let val = self.fetch_add() as EqClassIdType;
-                self.eq_classes.insert(out_data, val);
-                val
-            },
-        };
-
-        (nobs as usize >= self.min_kmer_obs, all_exts, eq_id)
-    }
-}
-
 
 /// Process DNA sequences into kmers and determine the set of valid kmers,
 /// their extensions, and summarize associated label/'color' data. The input
