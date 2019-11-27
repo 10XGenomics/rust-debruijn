@@ -73,11 +73,17 @@ pub type Kmer20 = VarIntKmer<u64, K20>;
 /// 16-base kmer, backed by a single u32
 pub type Kmer16 = IntKmer<u32>;
 
+/// 15-base kmer, backed by a single u32
+pub type Kmer15 = VarIntKmer<u32, K15>;
+
 /// 14-base kmer, backed by a single u32
 pub type Kmer14 = VarIntKmer<u32, K14>;
 
 /// 12-base kmer, backed by a single u32
 pub type Kmer12 = VarIntKmer<u32, K12>;
+
+/// 10-base kmer, backed by a single u32
+pub type Kmer10 = VarIntKmer<u32, K10>;
 
 /// 8-base kmer, backed by a single u16
 pub type Kmer8 = IntKmer<u16>;
@@ -93,6 +99,8 @@ pub type Kmer2 = VarIntKmer<u8, K2>;
 pub trait IntHelp: PrimInt + FromPrimitive {
     /// Reverse the order of 2-bit units of the integer
     fn reverse_by_twos(&self) -> Self;
+
+    fn lower_of_two() -> Self;
 }
 
 impl IntHelp for u128 {
@@ -118,6 +126,11 @@ impl IntHelp for u128 {
 
         r
     }
+
+    #[inline]
+    fn lower_of_two() -> u128 {
+        0x55555555555555555555555555555555u128
+    }
 }
 
 
@@ -141,6 +154,11 @@ impl IntHelp for u64 {
 
         r
     }
+
+    #[inline]
+    fn lower_of_two() -> u64 {
+        0x5555555555555555u64
+    }
 }
 
 impl IntHelp for u32 {
@@ -160,6 +178,11 @@ impl IntHelp for u32 {
 
         r
     }
+
+    #[inline]
+    fn lower_of_two() -> u32 {
+        0x55555555u32
+    }
 }
 
 impl IntHelp for u16 {
@@ -176,6 +199,11 @@ impl IntHelp for u16 {
 
         r
     }
+
+    #[inline]
+    fn lower_of_two() -> u16 {
+        0x5555u16
+    }
 }
 
 impl IntHelp for u8 {
@@ -188,6 +216,11 @@ impl IntHelp for u8 {
         r = ((r & 0x0Fu8) << 4) | ((r >> 4) & 0x0Fu8);
 
         r
+    }
+
+    #[inline]
+    fn lower_of_two() -> u8 {
+        0x55u8
     }
 }
 
@@ -311,6 +344,22 @@ impl<T: PrimInt + FromPrimitive + Hash + IntHelp> Mer for IntKmer<T> {
 
         // NOTE: IntKmer always fills the bits, so we don't need to shift here.
         IntKmer { storage: new }
+    }
+
+    fn at_count(&self) -> u32 {
+        // A's and T's have upper_bit ^ lower_bit == 0
+        // count how many of these are present
+        let mix_base_bits = !((self.storage >> 1) ^ self.storage);
+        let mask_lower = mix_base_bits & IntHelp::lower_of_two();
+        mask_lower.count_ones()
+    }
+
+    fn gc_count(&self) -> u32 {
+        // A's and T's have upper_bit ^ lower_bit == 1
+        // count how many of these are present
+        let mix_base_bits = (self.storage >> 1) ^ self.storage;
+        let mask_lower = mix_base_bits & IntHelp::lower_of_two();
+        mask_lower.count_ones()
     }
 }
 
@@ -563,6 +612,22 @@ impl<T: PrimInt + FromPrimitive + Hash + IntHelp, KS: KmerSize> Mer for VarIntKm
             phantom: PhantomData,
         }
     }
+
+    fn at_count(&self) -> u32 {
+        // A's and T's have upper_bit ^ lower_bit == 0
+        // count how many of these are present
+        let mix_base_bits = !((self.storage >> 1) ^ self.storage);
+        let mask_lower = mix_base_bits & !Self::top_mask(0) & IntHelp::lower_of_two();
+        mask_lower.count_ones()
+    }
+
+    fn gc_count(&self) -> u32 {
+        // A's and T's have upper_bit ^ lower_bit == 1
+        // count how many of these are present
+        let mix_base_bits = (self.storage >> 1) ^ self.storage;
+        let mask_lower = mix_base_bits & !Self::top_mask(0) & IntHelp::lower_of_two();
+        mask_lower.count_ones()
+    }
 }
 
 impl<T: PrimInt + FromPrimitive + Hash + IntHelp, KS: KmerSize> fmt::Debug for VarIntKmer<T, KS> {
@@ -645,6 +710,18 @@ impl KmerSize for K20 {
 
 /// Marker trait for generating K=14 Kmers
 #[derive(Debug, Hash, Copy, Clone, Ord, PartialOrd, Eq, PartialEq)]
+pub struct K15;
+
+impl KmerSize for K15 {
+    #[inline(always)]
+    fn K() -> usize {
+        15
+    }
+}
+
+
+/// Marker trait for generating K=14 Kmers
+#[derive(Debug, Hash, Copy, Clone, Ord, PartialOrd, Eq, PartialEq)]
 pub struct K14;
 
 impl KmerSize for K14 {
@@ -662,6 +739,17 @@ impl KmerSize for K12 {
     #[inline]
     fn K() -> usize {
         12
+    }
+}
+
+/// Marker trait for generating K=12 Kmers
+#[derive(Debug, Hash, Copy, Clone, Ord, PartialOrd, Eq, PartialEq)]
+pub struct K10;
+
+impl KmerSize for K10 {
+    #[inline]
+    fn K() -> usize {
+        10
     }
 }
 
@@ -793,6 +881,21 @@ mod tests {
             assert_eq!(km, km2);
             assert_eq!(u64_1, u64_2);
         }
+
+        // check AT / GC counter
+        let mut at_count = 0;
+        let mut gc_count = 0;
+        for i in 0 .. km.len() {
+            let base = km.get(i);
+            if base == 0 || base == 3 {
+                at_count += 1;
+            } else {
+                gc_count += 1;
+            }
+        }
+
+        assert_eq!(km.at_count(), at_count);
+        assert_eq!(km.gc_count(), gc_count);
     }
 
     fn check_vmer<V: Vmer + MerImmut, T: Kmer>() {
@@ -978,6 +1081,13 @@ mod tests {
     }
 
     #[test]
+    fn test_kmer_15() {
+        for _ in 0..10000 {
+            check_kmer::<VarIntKmer<u32, K15>>();
+        }
+    }
+
+    #[test]
     fn test_kmer_14() {
         for _ in 0..10000 {
             check_kmer::<VarIntKmer<u32, K14>>();
@@ -988,6 +1098,13 @@ mod tests {
     fn test_kmer_12() {
         for _ in 0..10000 {
             check_kmer::<VarIntKmer<u32, K12>>();
+        }
+    }
+
+    #[test]
+    fn test_kmer_10() {
+        for _ in 0..10000 {
+            check_kmer::<VarIntKmer<u32, K10>>();
         }
     }
 
