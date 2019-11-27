@@ -137,6 +137,30 @@ pub trait Mer: Sized + fmt::Debug {
             i: 0,
         }
     }
+
+    /// Count the number of A/T bases in the kmer
+    fn at_count(&self) -> u32 {
+        let mut count = 0;
+        for i in 0 .. self.len() {
+            let base = self.get(i);
+            if base == 0 || base == 3 {
+                count += 1;
+            }
+        }
+        count
+    }
+
+    /// Count the number of G/C bases in the kmer
+    fn gc_count(&self) -> u32 {
+        let mut count = 0;
+        for i in 0 .. self.len() {
+            let base = self.get(i);
+            if base == 1 || base == 2 {
+                count += 1;
+            }
+        }
+        count
+    }
 }
 
 
