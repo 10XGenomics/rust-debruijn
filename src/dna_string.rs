@@ -234,10 +234,10 @@ impl DnaString {
         for (pos, c) in bytes.iter().enumerate() {
 
             let v = match c {
-                b'A' => 0u8,
-                b'C' => 1u8,
-                b'G' => 2u8,
-                b'T' => 3u8,
+                b'A' | b'a' => 0u8,
+                b'C' | b'c' => 1u8,
+                b'G' | b'g' => 2u8,
+                b'T' | b't' => 3u8,
                 _ => {
                     let mut hasher_clone = hasher.clone();
                     pos.hash(&mut hasher_clone);
