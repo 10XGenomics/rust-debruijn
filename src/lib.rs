@@ -44,6 +44,7 @@ pub mod filter;
 pub mod compression;
 pub mod clean_graph;
 
+#[cfg(test)]
 pub mod test;
 
 /// Convert a 2-bit representation of a base to a char

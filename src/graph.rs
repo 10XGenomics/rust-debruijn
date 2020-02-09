@@ -988,7 +988,7 @@ impl<'a, K: Kmer + 'a, D: Debug + 'a> Iterator for NodeIntoIter<'a, K, D> {
     }
 }
 
-/// Iterator over nodes in a `DeBruijnGraph`
+/// A `DebruijnGraph` node with a reference to the sequence of the node.
 #[derive(Clone)]
 pub struct NodeKmer<'a, K: Kmer + 'a, D: Debug + 'a> {
     pub node_id: usize,
@@ -997,8 +997,10 @@ pub struct NodeKmer<'a, K: Kmer + 'a, D: Debug + 'a> {
     phantom_d: PhantomData<D>,
 }
 
+/// An iterator over the kmers in a `DeBruijn graph node`
 pub struct NodeKmerIter<'a, K: Kmer + 'a, D: Debug + 'a> {
     kmer_id: usize,
+    kmer: K,
     num_kmers: usize,
     node_seq_slice: DnaStringSlice<'a>,
     phantom_k: PhantomData<K>,
@@ -1010,9 +1012,18 @@ impl<'a, K: Kmer + 'a, D: Debug + 'a> IntoIterator for NodeKmer<'a, K, D> {
     type IntoIter = NodeKmerIter<'a, K, D>;
 
     fn into_iter(self) -> Self::IntoIter {
+        let num_kmers = self.node_seq_slice.len() - K::k() + 1;
+
+        let kmer = if num_kmers > 0 {
+            self.node_seq_slice.get_kmer::<K>(0)
+        } else {
+            K::empty()
+        };
+
         NodeKmerIter {
             kmer_id: 0,
-            num_kmers: self.node_seq_slice.len() - K::k() + 1,
+            kmer,
+            num_kmers,
             node_seq_slice: self.node_seq_slice,
             phantom_k: PhantomData,
             phantom_d: PhantomData,
@@ -1029,10 +1040,16 @@ impl<'a, K: Kmer + 'a, D: Debug + 'a> Iterator for NodeKmerIter<'a, K, D> {
             None
         }
         else{
-            let kmer = self.node_seq_slice.get_kmer::<K>(self.kmer_id);
-            self.kmer_id += 1;
+            let current_kmer = self.kmer;
 
-            Some(kmer)
+            self.kmer_id += 1;
+            if self.kmer_id < self.num_kmers {
+                let next_base = self.node_seq_slice.get(self.kmer_id + K::k() - 1);
+                let new_kmer = self.kmer.extend_right(next_base);
+                self.kmer = new_kmer;
+            }
+
+            Some(current_kmer)
         }
     }
 
@@ -1044,7 +1061,17 @@ impl<'a, K: Kmer + 'a, D: Debug + 'a> Iterator for NodeKmerIter<'a, K, D> {
     /// MPHF will use this to reduce the number of kmers that 
     /// need to be produced.
     fn nth(&mut self, n: usize) -> Option<Self::Item> {
-        self.kmer_id += n;
+
+        if n <= 4 {
+            // for small skips forward, shift one base at a time
+            for _ in 0 .. n {
+                self.next();
+            }
+        } else {
+            self.kmer_id += n;
+            self.kmer = self.node_seq_slice.get_kmer::<K>(self.kmer_id);
+        }
+
         self.next()
     }
 }
