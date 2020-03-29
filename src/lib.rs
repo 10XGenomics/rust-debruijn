@@ -22,7 +22,7 @@
 //! and use 2-bit packed encoding of base-pairs into integer types, and efficient methods for
 //! reverse complement, enumerating kmers from longer sequences, and transfering data between
 //! sequences.
-//! 
+//!
 //! ## Encodings
 //! Most methods for ingesting sequence data into the library have a form named 'bytes',
 //! which expects bases encoded as the integers 0,1,2,3, and a separate form names 'ascii',
@@ -32,17 +32,17 @@
 extern crate lazy_static;
 
 use serde_derive::{Deserialize, Serialize};
-use std::hash::Hash;
 use std::fmt;
+use std::hash::Hash;
 
-pub mod kmer;
-pub mod dna_string;
-pub mod graph;
-pub mod vmer;
-pub mod msp;
-pub mod filter;
-pub mod compression;
 pub mod clean_graph;
+pub mod compression;
+pub mod dna_string;
+pub mod filter;
+pub mod graph;
+pub mod kmer;
+pub mod msp;
+pub mod vmer;
 
 #[cfg(test)]
 pub mod test;
@@ -82,7 +82,6 @@ pub fn dna_only_base_to_bits(c: u8) -> Option<u8> {
     }
 }
 
-
 /// Convert an ASCII-encoded DNA base to a 2-bit representation
 #[inline]
 pub fn is_valid_base(c: u8) -> bool {
@@ -92,7 +91,6 @@ pub fn is_valid_base(c: u8) -> bool {
         _ => false,
     }
 }
-
 
 /// Convert a 2-bit representation of a base to a char
 #[inline]
@@ -111,7 +109,6 @@ pub fn bits_to_base(c: u8) -> char {
 pub fn complement(base: u8) -> u8 {
     (!base) & 0x3u8
 }
-
 
 /// Trait for interacting with DNA sequences
 pub trait Mer: Sized + fmt::Debug {
@@ -142,7 +139,7 @@ pub trait Mer: Sized + fmt::Debug {
     /// Count the number of A/T bases in the kmer
     fn at_count(&self) -> u32 {
         let mut count = 0;
-        for i in 0 .. self.len() {
+        for i in 0..self.len() {
             let base = self.get(i);
             if base == 0 || base == 3 {
                 count += 1;
@@ -154,7 +151,7 @@ pub trait Mer: Sized + fmt::Debug {
     /// Count the number of G/C bases in the kmer
     fn gc_count(&self) -> u32 {
         let mut count = 0;
-        for i in 0 .. self.len() {
+        for i in 0..self.len() {
             let base = self.get(i);
             if base == 1 || base == 2 {
                 count += 1;
@@ -163,7 +160,6 @@ pub trait Mer: Sized + fmt::Debug {
         count
     }
 }
-
 
 /// Iterator over bases of a DNA sequence (bases will be unpacked into bytes).
 pub struct MerIter<'a, M: 'a + Mer> {
@@ -182,7 +178,6 @@ impl<'a, M: 'a + Mer> Iterator for MerIter<'a, M> {
         } else {
             None
         }
-
     }
 }
 
@@ -238,7 +233,11 @@ pub trait Kmer: Mer + Sized + Copy + PartialEq + PartialOrd + Eq + Ord + Hash {
     // Return the minimum of the kmer and it's reverse complement
     fn min_rc(&self) -> Self {
         let rc = self.rc();
-        if *self < rc { self.clone() } else { rc }
+        if *self < rc {
+            self.clone()
+        } else {
+            rc
+        }
     }
 
     /// Test if this Kmer and it's reverse complement are the same
@@ -349,12 +348,7 @@ pub trait MerImmut: Mer + Clone {
     }
 }
 
-impl<T> MerImmut for T
-where
-    T: Mer + Clone,
-{
-}
-
+impl<T> MerImmut for T where T: Mer + Clone {}
 
 /// A DNA sequence with run-time variable length, up to a statically known maximum length
 pub trait Vmer: Mer + PartialEq + Eq {
@@ -402,7 +396,6 @@ pub trait Vmer: Mer + PartialEq + Eq {
 
     /// Iterate over the kmers in the sequence
     fn iter_kmers<K: Kmer>(&self) -> KmerIter<'_, K, Self> {
-
         let kmer = if self.len() >= K::k() {
             self.first_kmer()
         } else {
@@ -435,7 +428,7 @@ pub trait Vmer: Mer + PartialEq + Eq {
     }
 }
 
-/// A newtype wrapper around a `Vec<u8>` with implementations 
+/// A newtype wrapper around a `Vec<u8>` with implementations
 // of the `Mer` and `Vmer` traits.
 #[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd)]
 pub struct DnaBytes(pub Vec<u8>);
@@ -477,7 +470,7 @@ impl Vmer for DnaBytes {
 
     /// Maximum sequence length that can be stored in this type
     fn max_len() -> usize {
-        1<<48
+        1 << 48
     }
 
     /// Efficiently extract a Kmer from the sequence
@@ -486,8 +479,7 @@ impl Vmer for DnaBytes {
     }
 }
 
-
-/// A newtype wrapper around a `&[u8]` with implementations 
+/// A newtype wrapper around a `&[u8]` with implementations
 // of the `Mer` and `Vmer` traits.
 #[derive(Debug, Eq, PartialEq, Ord, PartialOrd)]
 pub struct DnaSlice<'a>(pub &'a [u8]);
@@ -529,7 +521,7 @@ impl<'a> Vmer for DnaSlice<'a> {
 
     /// Maximum sequence length that can be stored in this type
     fn max_len() -> usize {
-        1<<48
+        1 << 48
     }
 
     /// Efficiently extract a Kmer from the sequence
@@ -537,8 +529,6 @@ impl<'a> Vmer for DnaSlice<'a> {
         K::from_bytes(&self.0[pos..pos + K::k()])
     }
 }
-
-
 
 /// Direction of motion in a DeBruijn graph
 #[derive(Copy, Clone, Debug, Serialize, Deserialize)]
@@ -558,7 +548,11 @@ impl Dir {
 
     /// Return a fresh Dir opposite direction if do_flip == True
     pub fn cond_flip(&self, do_flip: bool) -> Dir {
-        if do_flip { self.flip() } else { *self }
+        if do_flip {
+            self.flip()
+        } else {
+            *self
+        }
     }
 
     /// Pick between two alternatives, depending on the direction
@@ -569,7 +563,6 @@ impl Dir {
         }
     }
 }
-
 
 /// Store single-base extensions for a DNA Debruijn graph.
 ///
@@ -594,20 +587,26 @@ impl Exts {
     }
 
     pub fn from_single_dirs(left: Exts, right: Exts) -> Exts {
-        Exts { val: (right.val << 4) | (left.val & 0xf) }
+        Exts {
+            val: (right.val << 4) | (left.val & 0xf),
+        }
     }
 
     pub fn merge(left: Exts, right: Exts) -> Exts {
-        Exts { val: left.val & 0x0f | right.val & 0xf0 }
+        Exts {
+            val: left.val & 0x0f | right.val & 0xf0,
+        }
     }
 
     pub fn add(&self, v: Exts) -> Exts {
-        Exts { val: self.val | v.val }
+        Exts {
+            val: self.val | v.val,
+        }
     }
 
     pub fn set(&self, dir: Dir, pos: u8) -> Exts {
-        let shift = pos +
-            match dir {
+        let shift = pos
+            + match dir {
                 Dir::Right => 4,
                 Dir::Left => 0,
             };
@@ -653,11 +652,12 @@ impl Exts {
             0u8
         };
 
-        Exts { val: (r_extend << 4) | l_extend }
+        Exts {
+            val: (r_extend << 4) | l_extend,
+        }
     }
 
-    pub fn from_dna_string(src: &dna_string::DnaString,
-                           start: usize, length: usize) -> Exts {
+    pub fn from_dna_string(src: &dna_string::DnaString, start: usize, length: usize) -> Exts {
         let l_extend = if start > 0 {
             1u8 << (src.get(start - 1))
         } else {
@@ -669,7 +669,9 @@ impl Exts {
             0u8
         };
 
-        Exts { val: (r_extend << 4) | l_extend }
+        Exts {
+            val: (r_extend << 4) | l_extend,
+        }
     }
 
     pub fn num_exts_l(&self) -> u8 {
@@ -715,7 +717,9 @@ impl Exts {
     pub fn single_dir(&self, dir: Dir) -> Exts {
         match dir {
             Dir::Right => Exts { val: self.val >> 4 },
-            Dir::Left => Exts { val: self.val & 0xfu8 },
+            Dir::Left => Exts {
+                val: self.val & 0xfu8,
+            },
         }
     }
 
@@ -758,8 +762,6 @@ impl fmt::Debug for Exts {
         write!(f, "{}", s)
     }
 }
-
-
 
 /// Iterate over the `Kmer`s of a DNA sequence efficiently
 pub struct KmerIter<'a, K: Kmer, D>
@@ -806,27 +808,23 @@ impl<'a, K: Kmer, D: Mer> Iterator for KmerExtsIter<'a, K, D> {
 
     fn next(&mut self) -> Option<(K, Exts)> {
         if self.pos <= self.bases.len() {
+            let next_base = if self.pos < self.bases.len() {
+                self.bases.get(self.pos)
+            } else {
+                0u8
+            };
 
-            let next_base =
-                if self.pos < self.bases.len() {
-                    self.bases.get(self.pos)
-                } else {
-                    0u8
-                };
+            let cur_left = if self.pos == K::k() {
+                self.exts
+            } else {
+                Exts::mk_left(self.bases.get(self.pos - K::k() - 1))
+            };
 
-            let cur_left =
-                if self.pos == K::k() {
-                    self.exts
-                } else {
-                    Exts::mk_left(self.bases.get(self.pos - K::k() - 1))
-                };
-
-            let cur_right =
-                if self.pos < self.bases.len() {
-                    Exts::mk_right(next_base)
-                } else {
-                    self.exts
-                };
+            let cur_right = if self.pos < self.bases.len() {
+                Exts::mk_right(next_base)
+            } else {
+                self.exts
+            };
 
             let cur_exts = Exts::merge(cur_left, cur_right);
 

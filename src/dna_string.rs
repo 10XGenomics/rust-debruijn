@@ -25,16 +25,16 @@
 //! let first_kmer: Kmer16 = slice1.get_kmer(0);
 //! assert_eq!(first_kmer, Kmer16::from_ascii(b"CACGTATGACAGATAG"))
 
-use std::fmt;
-use std::borrow::Borrow;
 use serde_derive::{Deserialize, Serialize};
+use std::borrow::Borrow;
 use std::cmp::min;
-use std::hash::{Hash, Hasher};
 use std::collections::hash_map::DefaultHasher;
+use std::fmt;
+use std::hash::{Hash, Hasher};
 
-use crate::bits_to_base;
 use crate::base_to_bits;
 use crate::bits_to_ascii;
+use crate::bits_to_base;
 use crate::dna_only_base_to_bits;
 
 use crate::Kmer;
@@ -85,8 +85,7 @@ impl Mer for DnaString {
     }
 }
 
-impl Vmer for DnaString
-{
+impl Vmer for DnaString {
     fn new(len: usize) -> Self {
         Self::blank(len)
     }
@@ -128,7 +127,6 @@ impl Vmer for DnaString
         kmer
     }
 }
-
 
 impl DnaString {
     /// Create an empty DNA string
@@ -205,7 +203,6 @@ impl DnaString {
         dna_vector
     }
 
-
     /// Create a DnaString from an ASCII ACGT-encoded byte slice.
     /// Non ACGT positions will be converted to 'A'
     pub fn from_acgt_bytes(bytes: &[u8]) -> DnaString {
@@ -225,14 +222,12 @@ impl DnaString {
     /// Non ACGT positions will be converted to repeatable random base determined
     /// by a hash of the read name and the position within the string.
     pub fn from_acgt_bytes_hashn(bytes: &[u8], read_name: &[u8]) -> DnaString {
-
         let mut hasher = DefaultHasher::new();
         read_name.hash(&mut hasher);
-        
+
         let mut dna_string = DnaString::with_capacity(bytes.len());
 
         for (pos, c) in bytes.iter().enumerate() {
-
             let v = match c {
                 b'A' | b'a' => 0u8,
                 b'C' | b'c' => 1u8,
@@ -242,7 +237,7 @@ impl DnaString {
                     let mut hasher_clone = hasher.clone();
                     pos.hash(&mut hasher_clone);
                     (hasher_clone.finish() % 4) as u8
-                    },
+                }
             };
 
             dna_string.push(v);
@@ -417,7 +412,6 @@ impl DnaString {
     // }
 }
 
-
 impl fmt::Debug for DnaString {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let mut s = String::new();
@@ -446,7 +440,6 @@ impl<'a> Iterator for DnaStringIter<'a> {
         } else {
             None
         }
-
     }
 }
 
@@ -480,14 +473,14 @@ lazy_static! {
 /// Compute the number of base positions at which two DnaStrings differ, assuming
 /// that they have the same length.
 
-pub fn ndiffs( b1: &DnaString, b2: &DnaString ) -> usize {
-    assert_eq!( b1.len(), b2.len() );
+pub fn ndiffs(b1: &DnaString, b2: &DnaString) -> usize {
+    assert_eq!(b1.len(), b2.len());
     // The approach used here is a few times faster than traversing the bases one by one.
     let mut diffs = 0;
     let (s1, s2) = (&b1.storage, &b2.storage);
     for i in 0..s1.len() {
-        let s = ( s1[i] ^ s2[i] ).to_ne_bytes();
-        for j in 0..BLOCK_BITS/8 {
+        let s = (s1[i] ^ s2[i]).to_ne_bytes();
+        for j in 0..BLOCK_BITS / 8 {
             diffs += DIFF_COUNT[s[j] as usize] as usize;
         }
     }
@@ -504,15 +497,19 @@ pub struct DnaStringSlice<'a> {
 }
 
 impl<'a> PartialEq for DnaStringSlice<'a> {
-    fn eq( &self, other: &DnaStringSlice ) -> bool {
-        if other.length != self.length { return false; }
+    fn eq(&self, other: &DnaStringSlice) -> bool {
+        if other.length != self.length {
+            return false;
+        }
         for i in 0..self.length {
-            if self.get(i) != other.get(i) { return false }
+            if self.get(i) != other.get(i) {
+                return false;
+            }
         }
         true
     }
 }
-impl<'a> Eq for DnaStringSlice<'a> { }
+impl<'a> Eq for DnaStringSlice<'a> {}
 
 impl<'a> Mer for DnaStringSlice<'a> {
     fn len(&self) -> usize {
@@ -550,8 +547,7 @@ impl<'a> Mer for DnaStringSlice<'a> {
     }
 }
 
-impl<'a> Vmer for DnaStringSlice<'a>
-{
+impl<'a> Vmer for DnaStringSlice<'a> {
     fn new(_: usize) -> Self {
         unimplemented!()
     }
@@ -566,8 +562,6 @@ impl<'a> Vmer for DnaStringSlice<'a>
         self.dna_string.get_kmer(self.start + pos)
     }
 }
-
-
 
 impl<'a> DnaStringSlice<'a> {
     pub fn is_palindrome(&self) -> bool {
@@ -611,9 +605,12 @@ impl<'a> DnaStringSlice<'a> {
 
         be
     }
-        /// Get slice containing the interval [`start`, `end`) of `self`
+    /// Get slice containing the interval [`start`, `end`) of `self`
     pub fn slice(&self, start: usize, end: usize) -> DnaStringSlice<'_> {
-        assert!(start <= self.length, "coordinate exceeds number of elements.");
+        assert!(
+            start <= self.length,
+            "coordinate exceeds number of elements."
+        );
         assert!(end <= self.length, "coordinate exceeds number of elements.");
 
         DnaStringSlice {
@@ -623,7 +620,6 @@ impl<'a> DnaStringSlice<'a> {
             is_rc: false,
         }
     }
-
 }
 
 impl<'a> fmt::Debug for DnaStringSlice<'a> {
@@ -635,7 +631,11 @@ impl<'a> fmt::Debug for DnaStringSlice<'a> {
             }
             write!(f, "{}", s)
         } else {
-            write!(f, "start: {}, len: {}, is_rc: {}", self.start, self.length, self.is_rc)
+            write!(
+                f,
+                "start: {}, len: {}, is_rc: {}",
+                self.start, self.length, self.is_rc
+            )
         }
     }
 }
@@ -648,7 +648,6 @@ impl<'a> IntoIterator for &'a DnaStringSlice<'a> {
         self.iter()
     }
 }
-
 
 /// Container for many distinct sequences, concatenated into a single DnaString.  Each
 /// sequence is accessible by index as a DnaStringSlice.
@@ -692,7 +691,6 @@ impl<'a> PackedDnaStringSet {
         }
     }
 
-
     /// Number of sequences in the set
     pub fn len(&self) -> usize {
         self.start.len()
@@ -710,7 +708,6 @@ impl<'a> PackedDnaStringSet {
         self.length.push(length as u32);
     }
 }
-
 
 #[cfg(test)]
 mod tests {
@@ -808,7 +805,6 @@ mod tests {
         let values: Vec<u8> = suf_dna_string.iter().collect();
         assert_eq!(values, [0, 1, 1, 0]);
 
-
         // 000101000000 64+256
         let suf_dna_string = dna_string.suffix(6).to_owned();
         let values: Vec<u8> = suf_dna_string.iter().collect();
@@ -839,8 +835,8 @@ mod tests {
 
     #[test]
     fn test_kmers() {
-        let dna = "TGCATTAGAAAACTCCTTGCCTGTCAGCCCGACAGGTAGAAACTCATTAATCCACACATTGA".to_string() +
-            "CTCTATTTCAGGTAAATATGACGTCAACTCCTGCATGTTGAAGGCAGTGAGTGGCTGAAACAGCATCAAGGCGTGAAGGC";
+        let dna = "TGCATTAGAAAACTCCTTGCCTGTCAGCCCGACAGGTAGAAACTCATTAATCCACACATTGA".to_string()
+            + "CTCTATTTCAGGTAAATATGACGTCAACTCCTGCATGTTGAAGGCAGTGAGTGGCTGAAACAGCATCAAGGCGTGAAGGC";
         let dna_string = DnaString::from_dna_string(&dna);
 
         let kmers: Vec<IntKmer<u64>> = dna_string.iter_kmers().collect();
@@ -851,7 +847,7 @@ mod tests {
     fn test_ndiffs() {
         let x1 = DnaString::from_dna_string("TGCATTAGAAAACTCCTTGCCTGTCTAGAAACTCATTAATCCACACATTGA");
         let x2 = DnaString::from_dna_string("TGCATTAGTAAACTCCTTCGCTGTCTAGAAAATCATTAAGCCACACATTGA");
-        assert!( ndiffs(&x1, &x2) == 5 );
+        assert!(ndiffs(&x1, &x2) == 5);
     }
 
     #[test]

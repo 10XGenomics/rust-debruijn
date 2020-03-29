@@ -5,14 +5,14 @@
 //! simple_scan method is based on:
 //! Li, Yang. "MSPKmerCounter: a fast and memory efficient approach for k-mer counting." arXiv preprint arXiv:1505.06550 (2015).
 
-use std::cmp::min;
-use std::iter::Iterator;
-use std::ops::Range;
+use crate::DnaSlice;
+use crate::Exts;
 use crate::Kmer;
 use crate::Vmer;
-use crate::Exts;
-use crate::DnaSlice;
+use std::cmp::min;
 use std::cmp::Ordering;
+use std::iter::Iterator;
+use std::ops::Range;
 
 #[derive(Debug)]
 pub struct MspInterval {
@@ -22,9 +22,8 @@ pub struct MspInterval {
 }
 
 impl MspInterval {
-    pub fn new(bucket: u16, start: u32, len: u16)
-               -> MspInterval{
-        MspInterval{
+    pub fn new(bucket: u16, start: u32, len: u16) -> MspInterval {
+        MspInterval {
             bucket: bucket,
             start: start,
             len: len,
@@ -44,7 +43,7 @@ impl MspInterval {
     }
 
     pub fn range(&self) -> Range<usize> {
-        self.start() .. self.start() + self.len()
+        self.start()..self.start() + self.len()
     }
 
     pub fn bucket(&self) -> u16 {
@@ -65,17 +64,17 @@ pub fn simple_scan<V: Vmer, P: Kmer>(
     permutation: &[usize],
     rc: bool,
 ) -> Vec<MspInterval> {
-
     // Can't partition strings shorter than k
     assert!(seq.len() >= k);
     assert!(P::k() <= 8);
-    assert!(seq.len() < 1<<32);
+    assert!(seq.len() < 1 << 32);
 
     let score = |pi: &P| {
         if rc {
             min(
                 permutation[pi.to_u64() as usize],
-                permutation[pi.rc().to_u64() as usize])
+                permutation[pi.rc().to_u64() as usize],
+            )
         } else {
             permutation[pi.to_u64() as usize]
         }
@@ -84,18 +83,17 @@ pub fn simple_scan<V: Vmer, P: Kmer>(
     let scanner = Scanner::new(seq, score, k);
     let res = scanner.scan();
 
-    res
-    .into_iter()
-    .map(|slc| MspInterval {
-        bucket: slc.bucket() as u16,
-        start: slc.start,
-        len: slc.len,
-    })
-    .collect()
+    res.into_iter()
+        .map(|slc| MspInterval {
+            bucket: slc.bucket() as u16,
+            start: slc.start,
+            len: slc.len,
+        })
+        .collect()
 }
 
 /// Represents a sequence interval composed of
-/// successive k-mers that share a 
+/// successive k-mers that share a
 /// common minizer p-mer.
 #[derive(Debug)]
 pub struct MspIntervalP<P> {
@@ -106,12 +104,12 @@ pub struct MspIntervalP<P> {
     /// The length of the sequence interval
     pub len: u16,
     /// The position of the minimizer
-    pub minimizer_pos: u32
+    pub minimizer_pos: u32,
 }
 
 impl<P: Kmer> MspIntervalP<P> {
     /// The shard 'bucket' identifer
-    /// to put this sequence in. 
+    /// to put this sequence in.
     /// This is the reverse-complement canonicalized
     /// value of the p-mer.
     pub fn bucket(&self) -> u64 {
@@ -123,7 +121,7 @@ impl<P: Kmer> MspIntervalP<P> {
 struct MinPos<P> {
     val: usize,
     pos: usize,
-    kmer: P
+    kmer: P,
 }
 
 impl<P: Eq> Ord for MinPos<P> {
@@ -133,7 +131,7 @@ impl<P: Eq> Ord for MinPos<P> {
             return val_cmp;
         }
 
-        let pos_cmp = self.pos.cmp(&other.pos) ;
+        let pos_cmp = self.pos.cmp(&other.pos);
         match pos_cmp {
             Ordering::Equal => Ordering::Equal,
             Ordering::Less => Ordering::Greater,
@@ -146,24 +144,20 @@ impl<P: Eq> PartialOrd for MinPos<P> {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         let val_cmp = self.val.cmp(&other.val);
         if val_cmp != Ordering::Equal {
-            return Some(val_cmp)    ;
+            return Some(val_cmp);
         }
 
         let pos_cmp = self.pos.cmp(&other.pos);
-        Some(
-            match pos_cmp {
-                Ordering::Equal => Ordering::Equal,
-                Ordering::Less => Ordering::Greater,
-                Ordering::Greater => Ordering::Less,
-            }
-        )
+        Some(match pos_cmp {
+            Ordering::Equal => Ordering::Equal,
+            Ordering::Less => Ordering::Greater,
+            Ordering::Greater => Ordering::Less,
+        })
     }
 }
 
-
-
 /// Determine MSP substrings of a sequence, for given k and p.
-/// The `scan()` method Returns a vector of tuples indicating the substrings, 
+/// The `scan()` method Returns a vector of tuples indicating the substrings,
 /// and the p-mer values as a set of `MspIntervalP<P>` values. A user-supplied
 /// score function is used to rank p-mers for the purposes of finding the minimizer.
 /// A permutation is a permutation of the lexicographically-sorted set of all pmers.
@@ -173,30 +167,33 @@ pub struct Scanner<'a, V, F, P> {
     seq: &'a V,
     score: F,
     k: usize,
-    _mp: MinPos<P>
+    _mp: MinPos<P>,
 }
 
-
 impl<'a, V, F, P> Scanner<'a, V, F, P>
-where 
+where
     V: Vmer,
     P: Kmer,
-    F: Fn(&P) -> usize
+    F: Fn(&P) -> usize,
 {
-    /// Build a scanner for the `sequence`, using minimizer function `score_func`, 
+    /// Build a scanner for the `sequence`, using minimizer function `score_func`,
     /// and kmer length `k`. The p-mer length is set by the type `P`.
     pub fn new(sequence: &'a V, score_func: F, k: usize) -> Scanner<'a, V, F, P> {
         Scanner {
             seq: sequence,
             score: score_func,
             k,
-            _mp: MinPos { val: 0, pos: 0, kmer: P::empty() }
+            _mp: MinPos {
+                val: 0,
+                pos: 0,
+                kmer: P::empty(),
+            },
         }
     }
 
     fn mp(&self, pos: usize) -> MinPos<P> {
         let kmer = self.seq.get_kmer::<P>(pos);
-        let val =(self.score)(&kmer);
+        let val = (self.score)(&kmer);
         MinPos { pos, val, kmer }
     }
 
@@ -204,16 +201,13 @@ where
         let pos = mp.pos + 1;
         let kmer = mp.kmer.extend_right(self.seq.get(pos + P::k() - 1));
         let val = (self.score)(&kmer);
-        MinPos { pos, val, kmer}
+        MinPos { pos, val, kmer }
     }
 
-    pub fn scan(
-        &self,
-    ) -> Vec<MspIntervalP<P>> {
-
+    pub fn scan(&self) -> Vec<MspIntervalP<P>> {
         // Can't partition strings shorter than k
         assert!(self.seq.len() >= self.k);
-        assert!(self.seq.len() < 1<<32);
+        assert!(self.seq.len() < 1 << 32);
 
         let seq = self.seq;
         let m = seq.len();
@@ -222,7 +216,6 @@ where
         let p = P::k();
 
         let find_min = |start, stop| {
-
             let mut min_pos = self.mp(start);
             let mut current = min_pos.clone();
 
@@ -237,7 +230,7 @@ where
         let mut min_positions = Vec::with_capacity(16);
 
         let mut min_pos = find_min(0, k - p);
-        let mut end_pos = self.mp(k-p);
+        let mut end_pos = self.mp(k - p);
 
         min_positions.push((0, min_pos));
 
@@ -249,8 +242,7 @@ where
                 min_pos = find_min(i, i + k - p);
                 min_positions.push((i, min_pos));
             } else {
-
-                if end_pos.val < min_pos.val { 
+                if end_pos.val < min_pos.val {
                     min_pos = end_pos;
                     min_positions.push((i, min_pos));
                 }
@@ -268,7 +260,7 @@ where
                 minimizer: min_pos.kmer,
                 minimizer_pos: min_pos.pos as u32,
                 start: start_pos as u32,
-                len: (next_pos + k - 1 - start_pos) as u16
+                len: (next_pos + k - 1 - start_pos) as u16,
             };
             slices.push(interval);
         }
@@ -285,7 +277,6 @@ where
         slices
     }
 }
-
 
 pub fn msp_sequence<P, V>(
     k: usize,
@@ -306,19 +297,16 @@ where
         return Vec::new();
     }
 
-    let default_perm: Option<Vec<usize>> =
-        match permutation {
-            Some(_) => None,
-            None => Some( (0..1<<(2*p)).collect()),
-        };
+    let default_perm: Option<Vec<usize>> = match permutation {
+        Some(_) => None,
+        None => Some((0..1 << (2 * p)).collect()),
+    };
 
     let perm = permutation.unwrap_or_else(|| default_perm.as_ref().unwrap());
 
     let score = |pi: &P| {
         if rc {
-            min(
-                perm[pi.to_u64() as usize],
-                perm[pi.rc().to_u64() as usize])
+            min(perm[pi.to_u64() as usize], perm[pi.rc().to_u64() as usize])
         } else {
             perm[pi.to_u64() as usize]
         }
@@ -338,17 +326,15 @@ where
     msps
 }
 
-
-
 #[cfg(test)]
 mod tests {
-    use crate::test;
     use super::*;
+    use crate::dna_string::DnaString;
+    use crate::kmer::*;
+    use crate::test;
+    use crate::DnaSlice;
     use std::collections::HashSet;
     use std::iter::FromIterator;
-    use crate::kmer::*;
-    use crate::DnaSlice;
-    use crate::dna_string::DnaString;
 
     fn all_kmers<T>(k: usize, seq: &[T]) -> Vec<&[T]> {
         (0..(seq.len() - k + 1)).map(|i| &seq[i..i + k]).collect()
@@ -383,7 +369,6 @@ mod tests {
 
         println!("{:?}", ak);
 
-
         let v = vec![6u8, 5u8, 4u8, 3u8, 2u8, 1u8, 0u8];
         let s = &v[..];
         let mut ak = all_kmers(2, s);
@@ -391,12 +376,10 @@ mod tests {
         println!("{:?}", ak);
         ak.sort();
 
-
         if ak[0] < ak[1] {
             println!("sorts!")
         }
         println!("{:?}", ak);
-
     }
 
     #[test]
@@ -420,9 +403,12 @@ mod tests {
         }
     }
 
-
-    fn check_msp_slices<P, F>(k: usize, full_seq: &DnaString, slices: Vec<MspIntervalP<P>>, score: F) 
-    where
+    fn check_msp_slices<P, F>(
+        k: usize,
+        full_seq: &DnaString,
+        slices: Vec<MspIntervalP<P>>,
+        score: F,
+    ) where
         P: Kmer,
         F: Fn(&P) -> usize,
     {
@@ -434,7 +420,7 @@ mod tests {
 
         let p = P::k();
 
-        /* 
+        /*
         For debugging:
         println!("k: {}, p: {}", k, p);
         println!("seq: {:?}", full_seq);
@@ -448,7 +434,7 @@ mod tests {
             let start = s.start as usize;
             let end = s.start as usize + s.len as usize - k + 1;
 
-            for i in start .. end {
+            for i in start..end {
                 if covered[i] {
                     println!("at {}", i);
                     assert!(false, "base already covered!");
@@ -459,15 +445,14 @@ mod tests {
         }
         assert!(covered.iter().all(|x| *x), "a pmer wasn't covered");
 
-
         //2. p <= slice.len <= 2k-p
         for s in &slices {
             assert!(s.len as usize >= p);
-            assert!(s.len as usize <= 2*k - p);
+            assert!(s.len as usize <= 2 * k - p);
         }
 
         // 3. pmer exists and is the best possible within the slice
-        for s in &slices { 
+        for s in &slices {
             let slice_score = score(&s.minimizer);
 
             let start = s.start as usize;
@@ -476,8 +461,7 @@ mod tests {
             // check the correct minimizer info is reported
             assert_eq!(s.minimizer, full_seq.get_kmer(s.minimizer_pos as usize));
 
-            for i in start .. end {
-                
+            for i in start..end {
                 let pmer: P = full_seq.get_kmer(i);
                 let score = score(&pmer);
 
@@ -489,7 +473,6 @@ mod tests {
 
         // 4. No slices can be extended to the right by covering an additional pmer without violating the above constraints
         for s in &slices[0..(slices.len() - 1)] {
-
             // the next kmer beyond the end of the slice must either:
             // a. not cover the minimizer
             // b. contain a better minimizer
@@ -503,22 +486,27 @@ mod tests {
             let correct_end = next_score < score(&s.minimizer) || !next_kmer_covers_pmer;
 
             if !correct_end {
-                assert!(false, "detected a sequence slice that ended before it should have.")
+                assert!(
+                    false,
+                    "detected a sequence slice that ended before it should have."
+                )
             }
         }
     }
 
-
     fn test_new_slicer<P: Kmer>(k: usize) {
-
         let p = P::k();
-        if p >= k { return; }
+        if p >= k {
+            return;
+        }
 
-        let score = |p: &P| { p.to_u64() as usize };
+        let score = |p: &P| p.to_u64() as usize;
 
-        for i in 0..(10*k) {
-            let len = 2*i;
-            if len < k { continue; }
+        for i in 0..(10 * k) {
+            let len = 2 * i;
+            if len < k {
+                continue;
+            }
 
             let dna = test::random_dna(len);
             let dna = DnaString::from_bytes(&dna);
@@ -535,9 +523,11 @@ mod tests {
             check_msp_slices(k, &dna, slices, at_score);
         }
 
-        for i in 0..(4*k) {
+        for i in 0..(4 * k) {
             let len = i;
-            if len < k { continue; }
+            if len < k {
+                continue;
+            }
 
             let dna = DnaString::blank(i);
 
@@ -549,8 +539,7 @@ mod tests {
 
     #[test]
     fn test_msp_scanner() {
-
-        for k in 16 .. 64 {
+        for k in 16..64 {
             test_new_slicer::<Kmer5>(k);
             test_new_slicer::<Kmer8>(k);
             test_new_slicer::<Kmer10>(k);
@@ -561,7 +550,6 @@ mod tests {
         }
     }
 
-
     #[test]
     fn test_sample() {
         // for testing MSP on specific error cases
@@ -570,508 +558,26 @@ mod tests {
         // let v2 : Vec<u8> = vec![3, 0, 3, 0, 3, 2, 3, 1, 0, 0, 2, 0, 0, 1, 1, 3, 0, 2, 0, 3, 2, 3, 3, 1, 2, 0, 2, 2, 3, 2, 0, 3, 2, 1, 2, 3, 2, 1, 0, 2, 1, 0, 2, 2, 1, 0, 2, 3, 0, 3, 2, 3, 0, 2, 3, 0, 1, 0, 2, 3, 1, 3, 2, 0, 2, 2, 0, 2, 1, 2, 0, 2, 1, 0, 0, 1, 3, 0, 0, 0, 2, 2, 3, 0, 0, 3, 2, 3, 1, 2, 0, 2, 0, 3, 2, 1, 3, 2, 2, 3, 3, 1, 2, 3, 0, 3, 1, 1, 2, 2, 2, 3, 1, 1, 2, 0, 0, 3, 3, 2, 0, 3, 1, 1, 1, 1, 3, 3, 3, 0, 1, 0, 0, 3, 0, 2, 3, 1, 2, 1, 3, 2, 3, 1, 0, 2, 3, 0, 2, 2, 2, 2, 1, 2, 3, 3, 3, 2, 2, 1, 3, 1, 0, 2, 0, 1, 0, 1, 2, 2, 2, 2, 2, 3, 0, 3, 3, 1, 2, 3, 2, 0, 2, 1, 0, 3, 1, 1, 0, 2, 1, 3, 0, 1, 2, 1, 2, 1, 3, 1, 0, 3, 0, 0, 2, 2, 0, 3, 2, 3, 2, 0, 2, 1, 2, 3, 0, 1, 3, 1, 1, 2, 2, 3, 0, 3, 3, 3, 3, 0, 3, 3, 0, 0, 0, 2, 3, 3, 1, 0, 3, 1, 2, 2, 0, 3, 2, 1, 0, 2];
 
         let v1: Vec<u8> = vec![
-            3,
-            0,
-            3,
-            0,
-            1,
-            2,
-            3,
-            3,
-            0,
-            0,
-            0,
-            1,
-            1,
-            0,
-            3,
-            3,
-            1,
-            2,
-            0,
-            1,
-            1,
-            3,
-            2,
-            1,
-            1,
-            1,
-            2,
-            3,
-            3,
-            2,
-            1,
-            2,
-            2,
-            1,
-            2,
-            3,
-            2,
-            1,
-            0,
-            2,
-            1,
-            1,
-            2,
-            1,
-            0,
-            1,
-            2,
-            3,
-            0,
-            3,
-            2,
-            3,
-            0,
-            1,
-            3,
-            0,
-            1,
-            0,
-            2,
-            3,
-            3,
-            3,
-            2,
-            3,
-            2,
-            2,
-            0,
-            2,
-            1,
-            2,
-            2,
-            2,
-            0,
-            0,
-            1,
-            0,
-            1,
-            2,
-            1,
-            0,
-            3,
-            2,
-            3,
-            1,
-            0,
-            3,
-            2,
-            2,
-            2,
-            2,
-            1,
-            3,
-            0,
-            2,
-            1,
-            2,
-            1,
-            3,
-            3,
-            0,
-            1,
-            1,
-            2,
-            3,
-            0,
-            2,
-            3,
-            1,
-            3,
-            2,
-            3,
-            1,
-            1,
-            0,
-            2,
-            2,
-            1,
-            1,
-            1,
-            2,
-            0,
-            0,
-            1,
-            2,
-            1,
-            0,
-            3,
-            3,
-            3,
-            0,
-            1,
-            1,
-            0,
-            3,
-            0,
-            2,
-            2,
-            1,
-            2,
-            1,
-            3,
-            2,
-            3,
-            1,
-            0,
-            2,
-            3,
-            0,
-            2,
-            2,
-            0,
-            3,
-            3,
-            2,
-            3,
-            3,
-            0,
-            3,
-            0,
-            1,
-            1,
-            3,
-            0,
-            1,
-            0,
-            1,
-            0,
-            1,
-            2,
-            2,
-            0,
-            3,
-            3,
-            3,
-            1,
-            3,
-            1,
-            1,
-            0,
-            1,
-            2,
-            0,
-            2,
-            1,
-            0,
-            3,
-            1,
-            1,
-            1,
-            2,
-            0,
-            3,
-            0,
-            1,
-            2,
-            1,
-            1,
-            1,
-            3,
-            1,
-            2,
-            3,
-            0,
-            3,
-            2,
-            2,
-            0,
-            3,
-            2,
-            3,
-            3,
-            0,
-            2,
-            3,
-            2,
-            0,
-            0,
-            1,
-            2,
-            0,
-            3,
-            2,
-            2,
-            1,
-            2,
-            2,
-            3,
-            3,
-            3,
-            2,
-            3,
-            0,
-            3,
-            1,
-            0,
-            2,
-            3,
-            3,
-            0,
-            3,
-            1,
-            0,
-            3,
-            2,
-            1,
-            3,
-            2,
-            1,
-            1,
-            2,
+            3, 0, 3, 0, 1, 2, 3, 3, 0, 0, 0, 1, 1, 0, 3, 3, 1, 2, 0, 1, 1, 3, 2, 1, 1, 1, 2, 3, 3,
+            2, 1, 2, 2, 1, 2, 3, 2, 1, 0, 2, 1, 1, 2, 1, 0, 1, 2, 3, 0, 3, 2, 3, 0, 1, 3, 0, 1, 0,
+            2, 3, 3, 3, 2, 3, 2, 2, 0, 2, 1, 2, 2, 2, 0, 0, 1, 0, 1, 2, 1, 0, 3, 2, 3, 1, 0, 3, 2,
+            2, 2, 2, 1, 3, 0, 2, 1, 2, 1, 3, 3, 0, 1, 1, 2, 3, 0, 2, 3, 1, 3, 2, 3, 1, 1, 0, 2, 2,
+            1, 1, 1, 2, 0, 0, 1, 2, 1, 0, 3, 3, 3, 0, 1, 1, 0, 3, 0, 2, 2, 1, 2, 1, 3, 2, 3, 1, 0,
+            2, 3, 0, 2, 2, 0, 3, 3, 2, 3, 3, 0, 3, 0, 1, 1, 3, 0, 1, 0, 1, 0, 1, 2, 2, 0, 3, 3, 3,
+            1, 3, 1, 1, 0, 1, 2, 0, 2, 1, 0, 3, 1, 1, 1, 2, 0, 3, 0, 1, 2, 1, 1, 1, 3, 1, 2, 3, 0,
+            3, 2, 2, 0, 3, 2, 3, 3, 0, 2, 3, 2, 0, 0, 1, 2, 0, 3, 2, 2, 1, 2, 2, 3, 3, 3, 2, 3, 0,
+            3, 1, 0, 2, 3, 3, 0, 3, 1, 0, 3, 2, 1, 3, 2, 1, 1, 2,
         ];
         let v2: Vec<u8> = vec![
-            3,
-            0,
-            3,
-            0,
-            1,
-            3,
-            3,
-            3,
-            0,
-            0,
-            0,
-            1,
-            1,
-            0,
-            3,
-            3,
-            1,
-            2,
-            0,
-            1,
-            1,
-            3,
-            2,
-            1,
-            1,
-            1,
-            2,
-            1,
-            3,
-            2,
-            1,
-            2,
-            2,
-            1,
-            2,
-            3,
-            2,
-            1,
-            0,
-            2,
-            1,
-            1,
-            2,
-            1,
-            1,
-            1,
-            2,
-            3,
-            0,
-            3,
-            2,
-            3,
-            0,
-            1,
-            3,
-            0,
-            1,
-            0,
-            2,
-            3,
-            3,
-            3,
-            2,
-            3,
-            2,
-            2,
-            0,
-            2,
-            1,
-            2,
-            2,
-            2,
-            0,
-            0,
-            1,
-            0,
-            1,
-            2,
-            1,
-            0,
-            3,
-            2,
-            3,
-            1,
-            0,
-            3,
-            2,
-            2,
-            2,
-            2,
-            1,
-            3,
-            0,
-            2,
-            1,
-            2,
-            1,
-            3,
-            3,
-            0,
-            1,
-            1,
-            2,
-            3,
-            0,
-            2,
-            3,
-            1,
-            3,
-            2,
-            3,
-            1,
-            1,
-            0,
-            2,
-            2,
-            1,
-            1,
-            0,
-            2,
-            0,
-            0,
-            1,
-            2,
-            1,
-            0,
-            3,
-            3,
-            3,
-            0,
-            1,
-            1,
-            0,
-            3,
-            0,
-            2,
-            2,
-            1,
-            2,
-            1,
-            3,
-            2,
-            3,
-            1,
-            0,
-            2,
-            3,
-            0,
-            2,
-            2,
-            0,
-            3,
-            3,
-            2,
-            3,
-            3,
-            0,
-            3,
-            0,
-            1,
-            1,
-            3,
-            0,
-            1,
-            0,
-            1,
-            0,
-            1,
-            2,
-            2,
-            0,
-            3,
-            3,
-            3,
-            1,
-            3,
-            1,
-            1,
-            0,
-            1,
-            2,
-            0,
-            2,
-            1,
-            0,
-            3,
-            1,
-            1,
-            1,
-            2,
-            0,
-            3,
-            0,
-            1,
-            2,
-            1,
-            3,
-            1,
-            3,
-            1,
-            2,
-            3,
-            0,
-            3,
-            2,
-            2,
-            0,
-            3,
-            2,
-            3,
-            3,
-            0,
-            2,
-            3,
-            2,
-            0,
-            0,
-            1,
-            2,
-            0,
-            3,
-            2,
-            2,
-            1,
-            2,
-            2,
-            3,
-            3,
-            3,
-            2,
-            3,
-            1,
-            3,
-            1,
-            0,
-            2,
-            2,
-            3,
-            0,
-            3,
-            1,
-            0,
-            3,
-            3,
-            1,
-            3,
-            2,
-            1,
-            1,
-            2,
+            3, 0, 3, 0, 1, 3, 3, 3, 0, 0, 0, 1, 1, 0, 3, 3, 1, 2, 0, 1, 1, 3, 2, 1, 1, 1, 2, 1, 3,
+            2, 1, 2, 2, 1, 2, 3, 2, 1, 0, 2, 1, 1, 2, 1, 1, 1, 2, 3, 0, 3, 2, 3, 0, 1, 3, 0, 1, 0,
+            2, 3, 3, 3, 2, 3, 2, 2, 0, 2, 1, 2, 2, 2, 0, 0, 1, 0, 1, 2, 1, 0, 3, 2, 3, 1, 0, 3, 2,
+            2, 2, 2, 1, 3, 0, 2, 1, 2, 1, 3, 3, 0, 1, 1, 2, 3, 0, 2, 3, 1, 3, 2, 3, 1, 1, 0, 2, 2,
+            1, 1, 0, 2, 0, 0, 1, 2, 1, 0, 3, 3, 3, 0, 1, 1, 0, 3, 0, 2, 2, 1, 2, 1, 3, 2, 3, 1, 0,
+            2, 3, 0, 2, 2, 0, 3, 3, 2, 3, 3, 0, 3, 0, 1, 1, 3, 0, 1, 0, 1, 0, 1, 2, 2, 0, 3, 3, 3,
+            1, 3, 1, 1, 0, 1, 2, 0, 2, 1, 0, 3, 1, 1, 1, 2, 0, 3, 0, 1, 2, 1, 3, 1, 3, 1, 2, 3, 0,
+            3, 2, 2, 0, 3, 2, 3, 3, 0, 2, 3, 2, 0, 0, 1, 2, 0, 3, 2, 2, 1, 2, 2, 3, 3, 3, 2, 3, 1,
+            3, 1, 0, 2, 2, 3, 0, 3, 1, 0, 3, 3, 1, 3, 2, 1, 1, 2,
         ];
 
         let p = 5;
