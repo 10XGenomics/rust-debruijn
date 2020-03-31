@@ -284,7 +284,7 @@ impl<T: PrimInt + FromPrimitive + Hash + IntHelp> IntKmer<T> {
         if n_bases > 0 {
             // first pos bases
             let one = T::one();
-            ((one << (n_bases * 2)) - one)
+            (one << (n_bases * 2)) - one
         } else {
             T::zero()
         }
@@ -412,7 +412,6 @@ impl<T: PrimInt + FromPrimitive + Hash + IntHelp> fmt::Debug for IntKmer<T> {
 /// Helper trait for declaring the K value of a Kmer. Will be removed when const generics are available
 pub trait KmerSize: Ord + Hash + Copy + fmt::Debug {
     #[allow(non_snake_case)]
-    #[inline]
     fn K() -> usize;
 }
 
@@ -538,7 +537,7 @@ impl<T: PrimInt + FromPrimitive + Hash + IntHelp, KS: KmerSize> VarIntKmer<T, KS
         if n_bases > 0 {
             // first pos bases
             let one = T::one();
-            ((one << (n_bases * 2)) - one)
+            (one << (n_bases * 2)) - one
         } else {
             T::zero()
         }

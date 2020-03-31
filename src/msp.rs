@@ -502,7 +502,7 @@ mod tests {
 
         let score = |p: &P| p.to_u64() as usize;
 
-        for i in 0..(10 * k) {
+        for i in 0..(20 * k) {
             let len = 2 * i;
             if len < k {
                 continue;

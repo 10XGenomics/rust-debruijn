@@ -77,10 +77,9 @@ impl Mer for DnaString {
 
     fn rc(&self) -> DnaString {
         let mut dna_string = DnaString::new();
-        for i in (0..self.len()).rev() {
-            let v = 3 - self.get(i);
-            dna_string.push(v);
-        }
+        let rc = (0..self.len()).rev().map(|i| 3 - self.get(i));
+
+        dna_string.extend(rc);
         dna_string
     }
 }
@@ -171,10 +170,7 @@ impl DnaString {
             len: 0,
         };
 
-        for c in dna.chars() {
-            dna_string.push(base_to_bits(c as u8));
-        }
-
+        dna_string.extend(dna.chars().map(|c| base_to_bits(c as u8)));
         dna_string
     }
 
@@ -211,10 +207,8 @@ impl DnaString {
             len: 0,
         };
 
-        for b in bytes.iter() {
-            dna_string.push(base_to_bits(*b));
-        }
-
+        let b = bytes.iter().map(|c| base_to_bits(*c));
+        dna_string.extend(b);
         dna_string
     }
 
@@ -253,10 +247,7 @@ impl DnaString {
             len: 0,
         };
 
-        for b in bytes.iter() {
-            dna_string.push(*b)
-        }
-
+        dna_string.extend(bytes.iter().cloned());
         dna_string
     }
 
@@ -294,6 +285,39 @@ impl DnaString {
         }
         self.set_by_addr(block, bit, value);
         self.len += 1;
+    }
+
+    pub fn extend(&mut self, mut bytes: impl Iterator<Item = u8>) {
+        // fill the last incomplete u64 block
+        while self.len % 32 != 0 {
+            match bytes.next() {
+                Some(b) => self.push(b),
+                None => return,
+            }
+        }
+
+        let mut bytes = bytes.peekable();
+
+        // chunk the remaining items into groups of at most 32 and handle them together
+        while bytes.peek().is_some() {
+            let mut val: u64 = 0;
+            let mut offset = 62;
+            let mut n_added = 0;
+
+            for _ in 0..32 {
+                if let Some(b) = bytes.next() {
+                    assert!(b < 4);
+                    val |= (b as u64) << offset;
+                    offset -= 2;
+                    n_added += 1;
+                } else {
+                    break;
+                }
+            }
+
+            self.storage.push(val);
+            self.len += n_added;
+        }
     }
 
     /// Push 0-4 encoded bases from a byte array.
@@ -748,12 +772,33 @@ mod tests {
 
     #[test]
     fn test_from_dna_string() {
-        let dna = "ACGTACGT";
-        let dna_string = DnaString::from_dna_string(dna);
-        let values: Vec<u8> = dna_string.iter().collect();
+        dna_string_test("");
+        dna_string_test("A");
+        dna_string_test("C");
+        dna_string_test("G");
+        dna_string_test("T");
 
-        assert_eq!(dna_string.len, 8);
-        assert_eq!(values, [0, 1, 2, 3, 0, 1, 2, 3]);
+        dna_string_test("GC");
+        dna_string_test("ATA");
+
+        dna_string_test("ACGTACGT");
+        dna_string_test("ACGTAAAAAAAAAATTATATAACGT");
+        dna_string_test("AACGTAAAAAAAAAATTATATAACGT");
+    }
+
+    fn dna_string_test(dna: &str) {
+        let dna_string_a = DnaString::from_dna_string(&dna);
+        let dna_string = DnaString::from_acgt_bytes(dna.as_bytes());
+        assert_eq!(dna_string_a, dna_string);
+
+        let rc = dna_string_a.rc();
+        let rc2 = rc.rc();
+        assert_eq!(dna_string_a, rc2);
+
+        let values: Vec<u8> = dna_string.iter().collect();
+        assert_eq!(values.len(), dna.len());
+
+        assert_eq!(dna_string.len, dna.len());
 
         let dna_cp = dna_string.to_string();
         assert_eq!(dna, dna_cp);
