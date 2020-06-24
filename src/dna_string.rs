@@ -459,22 +459,11 @@ impl<'a> IntoIterator for &'a DnaString {
     }
 }
 
-// Static structure used by ndiffs, below.
-
-lazy_static! {
-    static ref DIFF_COUNT: Vec<u8> = {
-        let mut count = vec![0 as u8; 256];
-        for b in 0..256 {
-            let mut x = b as u8;
-            for _ in 0..4 {
-                if x % 4 != 0 {
-                    count[b] += 1;
-                }
-                x = x >> 2;
-            }
-        }
-        count
-    };
+fn count_diff_2_bit_packed(a: u64, b: u64) ->  usize {
+    let bit_diffs = (a ^ b);
+    let two_bit_diffs = (bit_diffs | bit_diffs >> 1) & 0x5555555555555555;
+    let total_diffs = two_bit_diffs.count_ones() as usize;
+    return total_diffs
 }
 
 /// Compute the number of base positions at which two DnaStrings differ, assuming
@@ -482,14 +471,10 @@ lazy_static! {
 
 pub fn ndiffs( b1: &DnaString, b2: &DnaString ) -> usize {
     assert_eq!( b1.len(), b2.len() );
-    // The approach used here is a few times faster than traversing the bases one by one.
     let mut diffs = 0;
     let (s1, s2) = (&b1.storage, &b2.storage);
     for i in 0..s1.len() {
-        let s = ( s1[i] ^ s2[i] ).to_ne_bytes();
-        for j in 0..BLOCK_BITS/8 {
-            diffs += DIFF_COUNT[s[j] as usize] as usize;
-        }
+        diffs += count_diff_2_bit_packed(s1[i], s2[i])
     }
     diffs
 }
