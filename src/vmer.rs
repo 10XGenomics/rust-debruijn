@@ -6,11 +6,11 @@ use std::cmp::{max, min};
 use std::fmt;
 use std::hash::Hash;
 
-use crate::Kmer;
-use crate::Vmer;
-use crate::Mer;
-use crate::kmer::{IntHelp, IntKmer};
 use crate::bits_to_base;
+use crate::kmer::{IntHelp, IntKmer};
+use crate::Kmer;
+use crate::Mer;
+use crate::Vmer;
 use serde_derive::{Deserialize, Serialize};
 
 fn block_set(kmer: u64, pos: usize, val: u8) -> u64 {
@@ -35,7 +35,6 @@ pub type Lmer3 = Lmer<[u64; 3]>;
 pub struct Lmer<A: Array> {
     storage: A,
 }
-
 
 impl<A: Array<Item = u64> + Copy + Eq + Ord + Hash> Mer for Lmer<A> {
     /// The length of the DNA string
@@ -86,7 +85,6 @@ impl<A: Array<Item = u64> + Copy + Eq + Ord + Hash> Mer for Lmer<A> {
         }
     }
 
-
     fn rc(&self) -> Self {
         let slc = self.storage.as_slice();
 
@@ -113,7 +111,6 @@ impl<A: Array<Item = u64> + Copy + Eq + Ord + Hash> Mer for Lmer<A> {
     }
 }
 
-
 impl<A: Array<Item = u64> + Copy + Eq + Ord + Hash> Vmer for Lmer<A> {
     fn max_len() -> usize {
         (A::size() * 64 - 8) / 2
@@ -129,9 +126,7 @@ impl<A: Array<Item = u64> + Copy + Eq + Ord + Hash> Vmer for Lmer<A> {
             // Write the length into the last 8 bits
             slc[A::size() - 1] = (len as u64) & 0xff;
         }
-        Lmer {
-            storage: arr,
-        }
+        Lmer { storage: arr }
     }
 
     /// Get the kmer starting at position pos

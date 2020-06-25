@@ -33,19 +33,17 @@
 //!         Kmer16::from_ascii(b"TACGTACGTACGTACG")
 //!     ]);
 
-
-use std;
-use std::hash::Hash;
-use std::fmt;
-use num::PrimInt;
 use num::FromPrimitive;
-use std::marker::PhantomData;
+use num::PrimInt;
 use serde_derive::{Deserialize, Serialize};
+use std;
+use std::fmt;
+use std::hash::Hash;
+use std::marker::PhantomData;
 
-use crate::Mer;
-use crate::Kmer;
 use crate::bits_to_base;
-
+use crate::Kmer;
+use crate::Mer;
 
 // Pre-defined kmer types
 
@@ -107,22 +105,28 @@ impl IntHelp for u128 {
     #[inline]
     fn reverse_by_twos(&self) -> u128 {
         // swap adjacent pairs
-        let mut r = ((self & 0x33333333333333333333333333333333u128) << 2) | ((self >> 2) & 0x33333333333333333333333333333333u128);
+        let mut r = ((self & 0x33333333333333333333333333333333u128) << 2)
+            | ((self >> 2) & 0x33333333333333333333333333333333u128);
 
         // swap nibbles
-        r = ((r & 0x0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0Fu128) << 4) | ((r >> 4) & 0x0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0Fu128);
+        r = ((r & 0x0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0Fu128) << 4)
+            | ((r >> 4) & 0x0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0Fu128);
 
         // swap bytes
-        r = ((r & 0x00FF00FF00FF00FF00FF00FF00FF00FFu128) << 8) | ((r >> 8) & 0x00FF00FF00FF00FF00FF00FF00FF00FFu128);
+        r = ((r & 0x00FF00FF00FF00FF00FF00FF00FF00FFu128) << 8)
+            | ((r >> 8) & 0x00FF00FF00FF00FF00FF00FF00FF00FFu128);
 
         // swap 2 bytes
-        r = ((r & 0x0000FFFF0000FFFF0000FFFF0000FFFFu128) << 16) | ((r >> 16) & 0x0000FFFF0000FFFF0000FFFF0000FFFFu128);
+        r = ((r & 0x0000FFFF0000FFFF0000FFFF0000FFFFu128) << 16)
+            | ((r >> 16) & 0x0000FFFF0000FFFF0000FFFF0000FFFFu128);
 
         // swap 4 bytes
-        r = ((r & 0x00000000FFFFFFFF00000000FFFFFFFFu128) << 32) | ((r >> 32) & 0x00000000FFFFFFFF00000000FFFFFFFFu128);
+        r = ((r & 0x00000000FFFFFFFF00000000FFFFFFFFu128) << 32)
+            | ((r >> 32) & 0x00000000FFFFFFFF00000000FFFFFFFFu128);
 
         // swap 8 bytes
-        r = ((r & 0x0000000000000000FFFFFFFFFFFFFFFFu128) << 64) | ((r >> 64) & 0x0000000000000000FFFFFFFFFFFFFFFFu128);
+        r = ((r & 0x0000000000000000FFFFFFFFFFFFFFFFu128) << 64)
+            | ((r >> 64) & 0x0000000000000000FFFFFFFFFFFFFFFFu128);
 
         r
     }
@@ -132,7 +136,6 @@ impl IntHelp for u128 {
         0x55555555555555555555555555555555u128
     }
 }
-
 
 impl IntHelp for u64 {
     #[inline]
@@ -224,7 +227,6 @@ impl IntHelp for u8 {
     }
 }
 
-
 /// A Kmer sequence with a statically know K. K will fill the underlying integer type.
 #[derive(Copy, Clone, PartialEq, PartialOrd, Eq, Ord, Hash, Serialize, Deserialize)]
 pub struct IntKmer<T: PrimInt + FromPrimitive + IntHelp> {
@@ -282,13 +284,12 @@ impl<T: PrimInt + FromPrimitive + Hash + IntHelp> IntKmer<T> {
         if n_bases > 0 {
             // first pos bases
             let one = T::one();
-            ((one << (n_bases * 2)) - one)
+            (one << (n_bases * 2)) - one
         } else {
             T::zero()
         }
     }
 }
-
 
 impl<T: PrimInt + FromPrimitive + Hash + IntHelp> Mer for IntKmer<T> {
     #[inline(always)]
@@ -374,7 +375,9 @@ impl<T: PrimInt + FromPrimitive + Hash + IntHelp> Kmer for IntKmer<T> {
     }
 
     fn from_u64(v: u64) -> IntKmer<T> {
-        IntKmer { storage: Self::t_from_u64(v) }
+        IntKmer {
+            storage: Self::t_from_u64(v),
+        }
     }
 
     fn to_u64(&self) -> u64 {
@@ -409,7 +412,6 @@ impl<T: PrimInt + FromPrimitive + Hash + IntHelp> fmt::Debug for IntKmer<T> {
 /// Helper trait for declaring the K value of a Kmer. Will be removed when const generics are available
 pub trait KmerSize: Ord + Hash + Copy + fmt::Debug {
     #[allow(non_snake_case)]
-    #[inline]
     fn K() -> usize;
 }
 
@@ -427,7 +429,6 @@ pub struct VarIntKmer<T: PrimInt + FromPrimitive + IntHelp, KS: KmerSize> {
     pub storage: T,
     pub phantom: PhantomData<KS>,
 }
-
 
 impl<T: PrimInt + FromPrimitive + Hash + IntHelp, KS: KmerSize> Kmer for VarIntKmer<T, KS> {
     fn empty() -> Self {
@@ -447,7 +448,10 @@ impl<T: PrimInt + FromPrimitive + Hash + IntHelp, KS: KmerSize> Kmer for VarIntK
     }
 
     fn from_u64(v: u64) -> Self {
-        VarIntKmer { storage: Self::t_from_u64(v), phantom: PhantomData}
+        VarIntKmer {
+            storage: Self::t_from_u64(v),
+            phantom: PhantomData,
+        }
     }
 
     /// Shift the base v into the left end of the kmer
@@ -472,7 +476,6 @@ impl<T: PrimInt + FromPrimitive + Hash + IntHelp, KS: KmerSize> Kmer for VarIntK
     }
 }
 
-
 impl<T: PrimInt + FromPrimitive + Hash + IntHelp, KS: KmerSize> VarIntKmer<T, KS> {
     #[inline(always)]
     fn msk() -> T {
@@ -486,7 +489,6 @@ impl<T: PrimInt + FromPrimitive + Hash + IntHelp, KS: KmerSize> VarIntKmer<T, KS
     fn t_from_byte(v: u8) -> T {
         T::from_u8(v).unwrap()
     }
-
 
     fn t_from_u64(v: u64) -> T {
         T::from_u64(v).unwrap()
@@ -535,16 +537,14 @@ impl<T: PrimInt + FromPrimitive + Hash + IntHelp, KS: KmerSize> VarIntKmer<T, KS
         if n_bases > 0 {
             // first pos bases
             let one = T::one();
-            ((one << (n_bases * 2)) - one)
+            (one << (n_bases * 2)) - one
         } else {
             T::zero()
         }
     }
 }
 
-
 impl<T: PrimInt + FromPrimitive + Hash + IntHelp, KS: KmerSize> Mer for VarIntKmer<T, KS> {
-
     #[inline(always)]
     fn len(&self) -> usize {
         Self::_k()
@@ -674,7 +674,6 @@ impl KmerSize for K31 {
     }
 }
 
-
 /// Marker trait for generating K=30 Kmers
 #[derive(Debug, Hash, Copy, Clone, Ord, PartialOrd, Eq, PartialEq)]
 pub struct K30;
@@ -718,7 +717,6 @@ impl KmerSize for K15 {
         15
     }
 }
-
 
 /// Marker trait for generating K=14 Kmers
 #[derive(Debug, Hash, Copy, Clone, Ord, PartialOrd, Eq, PartialEq)]
@@ -805,20 +803,17 @@ impl KmerSize for K2 {
     }
 }
 
-
-
 #[cfg(test)]
 mod tests {
     use super::*;
-    use rand::{self, Rng, RngCore};
     use crate::vmer::Lmer;
+    use rand::{self, Rng, RngCore};
 
-    use crate::Vmer;
     use crate::MerImmut;
+    use crate::Vmer;
 
     // Generate random kmers & test the methods for manipulating them
     fn check_kmer<T: Kmer>() {
-
         #[allow(non_snake_case)]
         let K = T::k();
 
@@ -876,7 +871,7 @@ mod tests {
         if T::k() <= 32 {
             // Convert to and from u64.
             let u64_1 = km.to_u64();
-            let km2   = T::from_u64(u64_1);
+            let km2 = T::from_u64(u64_1);
             let u64_2 = km2.to_u64();
             assert_eq!(km, km2);
             assert_eq!(u64_1, u64_2);
@@ -885,7 +880,7 @@ mod tests {
         // check AT / GC counter
         let mut at_count = 0;
         let mut gc_count = 0;
-        for i in 0 .. km.len() {
+        for i in 0..km.len() {
             let base = km.get(i);
             if base == 0 || base == 3 {
                 at_count += 1;
@@ -899,21 +894,18 @@ mod tests {
     }
 
     fn check_vmer<V: Vmer + MerImmut, T: Kmer>() {
-
         let vm = random_vmer::<V, T>();
         let l = vm.len();
 
         let rc = vm.rc();
 
         for i in 0..l {
-
             if vm.get(i) != (3 - rc.get(l - 1 - i)) {
                 println!("km: {:?}, rc: {:?}", vm, rc);
             }
 
             assert!(vm.get(i) == (3 - rc.get(l - 1 - i)))
         }
-
 
         let double_rc = rc.rc();
         assert!(vm == double_rc);
@@ -929,7 +921,6 @@ mod tests {
             copy_vmer = copy_vmer.set(i, vm.get(i));
         }
         assert!(vm == copy_vmer);
-
 
         let kmers: Vec<T> = vm.iter_kmers().collect();
         assert_eq!(kmers.len(), vm.len() - T::k() + 1);

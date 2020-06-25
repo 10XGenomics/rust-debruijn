@@ -2,13 +2,13 @@
 
 //! Generate random genomes (with lots of re-used sustrings), reassemble them, and check sanity
 
+use crate::complement;
 use crate::Kmer;
 use crate::Vmer;
-use crate::complement;
 
-use std::cmp::{min, max};
-use rand::{self, Rng, RngCore};
 use rand::distributions::{Distribution, Gamma, Range};
+use rand::{self, Rng, RngCore};
+use std::cmp::{max, min};
 
 /// Generate a uniformly random base
 pub fn random_base() -> u8 {
@@ -31,7 +31,7 @@ pub fn random_dna(len: usize) -> Vec<u8> {
 /// Randomly mutate each base with probability `p`
 pub fn edit_dna<R: Rng>(seq: &mut Vec<u8>, p: f64, r: &mut R) {
     for b in seq.iter_mut() {
-        if r.gen_range(0.0,1.0) < p {
+        if r.gen_range(0.0, 1.0) < p {
             *b = random_base();
         }
     }
@@ -68,7 +68,6 @@ pub fn simple_random_contigs() -> Vec<Vec<u8>> {
     let p3 = random_dna(30);
     let p4 = random_dna(40);
 
-
     // Simulate contigs
     let mut c1 = Vec::new();
     c1.extend(p1);
@@ -79,7 +78,6 @@ pub fn simple_random_contigs() -> Vec<Vec<u8>> {
     c2.extend(p2);
     c2.extend(pc);
     c2.extend(p4);
-
 
     let mut c3 = Vec::new();
     c3.extend(random_dna(30));
@@ -112,7 +110,6 @@ pub fn random_contigs() -> Vec<Vec<u8>> {
 
     let length_dist = Gamma::new(1.5, 200.0);
 
-
     let mut chunks: Vec<Vec<u8>> = Vec::new();
     for _ in 0..nchunks {
         let len = max(10, length_dist.sample(&mut rng) as usize);
@@ -141,25 +138,25 @@ pub fn random_contigs() -> Vec<Vec<u8>> {
 #[cfg(test)]
 mod tests {
 
-    use crate::{Kmer, Dir, Exts};
     use crate::clean_graph::CleanGraph;
-    use std::collections::{HashSet, HashMap};
-    use crate::graph::{BaseGraph};
-    use crate::compression::{SimpleCompress, compress_kmers_with_hash, compress_graph};
-    use std::iter::FromIterator;
+    use crate::compression::{compress_graph, compress_kmers_with_hash, SimpleCompress};
+    use crate::graph::BaseGraph;
+    use crate::DnaBytes;
+    use crate::{Dir, Exts, Kmer};
     use boomphf::hashmap::BoomHashMap2;
     use boomphf::Mphf;
-    use crate::DnaBytes;
+    use std::collections::{HashMap, HashSet};
+    use std::iter::FromIterator;
 
-    use std::ops::Sub;
-    use crate::msp;
-    use crate::kmer::{IntKmer, VarIntKmer, K31};
-    use crate::kmer::Kmer6;
     use crate::dna_string::DnaString;
     use crate::filter;
+    use crate::kmer::Kmer6;
+    use crate::kmer::{IntKmer, VarIntKmer, K31};
+    use crate::msp;
+    use std::ops::Sub;
 
-    use pretty_assertions::assert_eq;
     use super::*;
+    use pretty_assertions::assert_eq;
 
     #[test]
     fn simple_kmer_compress() {
@@ -173,11 +170,15 @@ mod tests {
         reassemble_sharded::<IntKmer<u64>, DnaString>(contigs, false);
     }
 
-
     #[test]
     fn degen_seq_asm() {
         let ctg = "AAAAATAAAATAAAATAAAATAAAATAAAATAAAATAAAATAAAA";
-        let seq: Vec<u8> = ctg.as_bytes().iter().cloned().map(crate::base_to_bits).collect();
+        let seq: Vec<u8> = ctg
+            .as_bytes()
+            .iter()
+            .cloned()
+            .map(crate::base_to_bits)
+            .collect();
 
         reassemble_contigs::<VarIntKmer<u64, K31>, DnaString>(vec![seq.clone(), seq], false);
     }
@@ -185,12 +186,15 @@ mod tests {
     #[test]
     fn degen_seq_asm_sharded() {
         let ctg = "AAAAATAAAATAAAATAAAATAAAATAAAATAAAATAAAATAAAA";
-        let seq: Vec<u8> = ctg.as_bytes().iter().cloned().map(crate::base_to_bits).collect();
+        let seq: Vec<u8> = ctg
+            .as_bytes()
+            .iter()
+            .cloned()
+            .map(crate::base_to_bits)
+            .collect();
 
         reassemble_sharded::<VarIntKmer<u64, K31>, DnaString>(vec![seq.clone(), seq], false);
     }
-
-
 
     #[test]
     fn complex_kmer_compress() {
@@ -214,14 +218,13 @@ mod tests {
         simplify_from_kmers::<IntKmer<u64>>(contigs, false);
     }
 
-     #[test]
+    #[test]
     fn complex_path_compress_k31() {
         for _ in 0..100 {
             let contigs = random_contigs();
             simplify_from_kmers::<VarIntKmer<u64, K31>>(contigs, false);
         }
     }
-
 
     #[test]
     fn complex_path_compress() {
@@ -232,14 +235,20 @@ mod tests {
     }
 
     fn simplify_from_kmers<K: Kmer + Send + Sync>(mut contigs: Vec<Vec<u8>>, stranded: bool) {
-
-        let seqs : Vec<(DnaBytes, Exts, ())> = contigs
+        let seqs: Vec<(DnaBytes, Exts, ())> = contigs
             .drain(..)
             .map(|x| (DnaBytes(x), Exts::empty(), ()))
             .collect();
-        let (valid_kmers, _): (BoomHashMap2<K, Exts, u16>, _) = filter::filter_kmers(&seqs, &Box::new(filter::CountFilter::new(1)), stranded, false, 4);
+        let (valid_kmers, _): (BoomHashMap2<K, Exts, u16>, _) = filter::filter_kmers(
+            &seqs,
+            &Box::new(filter::CountFilter::new(1)),
+            stranded,
+            false,
+            4,
+        );
 
-        let spec = SimpleCompress::new(|d1: u16, d2: &u16| ( (d1 as u32 + *d2 as u32) % 65535 ) as u16 );
+        let spec =
+            SimpleCompress::new(|d1: u16, d2: &u16| ((d1 as u32 + *d2 as u32) % 65535) as u16);
         let from_kmers = compress_kmers_with_hash(stranded, &spec, &valid_kmers).finish();
         let is_cmp = from_kmers.is_compressed(&spec);
         if is_cmp.is_some() {
@@ -311,7 +320,8 @@ mod tests {
         let mut seqs: Vec<(V, Exts, u8)> = Vec::new();
         let permutation: Vec<usize> = (0..1 << (2 * p)).collect();
         for c in contigs.iter() {
-            let msps = msp::msp_sequence::<Kmer6, V>(K::k(), c.as_slice(), Some(&permutation), true);
+            let msps =
+                msp::msp_sequence::<Kmer6, V>(K::k(), c.as_slice(), Some(&permutation), true);
             seqs.extend(msps.clone().into_iter().map(|(_, e, v)| (v, e, 0u8)));
             seqs.extend(msps.into_iter().map(|(_, e, v)| (v, e, 1u8)));
         }
@@ -334,7 +344,13 @@ mod tests {
         assert!(kmer_set == msp_kmers);
 
         // Check the correctness of the process_kmer_shard kmer filtering function
-        let (valid_kmers, _): (BoomHashMap2<K, Exts, u16>, _) = filter::filter_kmers(&seqs, &Box::new(filter::CountFilter::new(2)), stranded, false, 4);
+        let (valid_kmers, _): (BoomHashMap2<K, Exts, u16>, _) = filter::filter_kmers(
+            &seqs,
+            &Box::new(filter::CountFilter::new(2)),
+            stranded,
+            false,
+            4,
+        );
         let mut process_kmer_set: HashSet<K> = HashSet::new();
         for k in valid_kmers.iter().map(|x| x.0) {
             process_kmer_set.insert(k.clone());
@@ -402,7 +418,10 @@ mod tests {
 
     // Take some input contig, which likely form a complicated graph,
     // and the msp / shard_asm / main_asm loop
-    fn reassemble_sharded<K: Kmer + Copy + Sync + Send, V: Vmer + Clone>(contigs: Vec<Vec<u8>>, stranded: bool) {
+    fn reassemble_sharded<K: Kmer + Copy + Sync + Send, V: Vmer + Clone>(
+        contigs: Vec<Vec<u8>>,
+        stranded: bool,
+    ) {
         let ctg_lens: Vec<_> = contigs.iter().map(|c| c.len()).collect();
         println!("Reassembling contig sizes: {:?}", ctg_lens);
 
@@ -431,7 +450,13 @@ mod tests {
         // Do a subassembly in each shard
         for seqs in shards.values() {
             // Check the correctness of the process_kmer_shard kmer filtering function
-            let (valid_kmers, _): (BoomHashMap2<K, Exts, u16>, _) = filter::filter_kmers(&seqs, &Box::new(filter::CountFilter::new(2)), stranded, false, 4);
+            let (valid_kmers, _): (BoomHashMap2<K, Exts, u16>, _) = filter::filter_kmers(
+                &seqs,
+                &Box::new(filter::CountFilter::new(2)),
+                stranded,
+                false,
+                4,
+            );
 
             // Generate compress DBG for this shard
             let spec = SimpleCompress::new(|d1: u16, d2: &u16| d1.saturating_add(*d2));
@@ -442,12 +467,11 @@ mod tests {
             //graph.finish().print();
         }
 
-
         // Shove the subassemblies into a partially compress base graph
         let combined_graph = BaseGraph::combine(shard_asms.into_iter()).finish();
-        let cmp = SimpleCompress::new(|a: u16, b: &u16| { max(a, *b) });
+        let cmp = SimpleCompress::new(|a: u16, b: &u16| max(a, *b));
         let dbg_graph = compress_graph(false, &cmp, combined_graph, None);
-        
+
         // Switch on for debugging
         //dbg_graph.print();
         //dbg_graph.write_gfa(&mut std::io::stdout().lock());
@@ -491,7 +515,6 @@ mod tests {
     // Take some input contig, which likely form a complicated graph,
     // and test the kmer, bsp, sedge and edge construction machinery
     fn test_tip_cleaning<K: Kmer + Sync + Send>(contigs: Vec<Vec<u8>>, stranded: bool) {
-
         let mut clean_seqs = Vec::new();
         let mut all_seqs = Vec::new();
 
@@ -515,17 +538,27 @@ mod tests {
             all_seqs.push((DnaBytes(err_ctg.clone()), Exts::empty(), ()));
         }
 
-
         // Assemble w/o tips
-        let (valid_kmers_clean, _): (BoomHashMap2<K, Exts, u16>, _) = filter::filter_kmers(&clean_seqs, &Box::new(filter::CountFilter::new(2)), stranded, false, 4);
+        let (valid_kmers_clean, _): (BoomHashMap2<K, Exts, u16>, _) = filter::filter_kmers(
+            &clean_seqs,
+            &Box::new(filter::CountFilter::new(2)),
+            stranded,
+            false,
+            4,
+        );
         let spec = SimpleCompress::new(|d1: u16, d2: &u16| d1 + d2);
         let graph = compress_kmers_with_hash(stranded, &spec, &valid_kmers_clean);
         let graph1 = graph.finish();
         graph1.print();
 
         // Assemble w/ tips
-        let (valid_kmers_errs, _): (BoomHashMap2<K, Exts, u16> ,_)=
-            filter::filter_kmers(&all_seqs, &Box::new(filter::CountFilter::new(2)), stranded, false, 4);
+        let (valid_kmers_errs, _): (BoomHashMap2<K, Exts, u16>, _) = filter::filter_kmers(
+            &all_seqs,
+            &Box::new(filter::CountFilter::new(2)),
+            stranded,
+            false,
+            4,
+        );
         let spec = SimpleCompress::new(|d1: u16, d2: &u16| d1 + d2);
         let graph = compress_kmers_with_hash(stranded, &spec, &valid_kmers_errs);
         let graph2 = graph.finish();

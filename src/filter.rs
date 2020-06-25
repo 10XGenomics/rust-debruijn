@@ -1,23 +1,25 @@
 // Copyright 2017 10x Genomics
 
 //! Methods for converting sequences into kmers, filtering observed kmers before De Bruijn graph construction, and summarizing 'color' annotations.
+use std::fmt::Debug;
+use std::marker::PhantomData;
 use std::mem;
 use std::ops::Deref;
-use std::marker::PhantomData;
-use std::fmt::Debug;
 
+use boomphf::hashmap::BoomHashMap2;
 use itertools::Itertools;
 use log::debug;
-use boomphf::hashmap::BoomHashMap2;
 
 use crate::Dir;
-use crate::Kmer;
 use crate::Exts;
+use crate::Kmer;
 use crate::Vmer;
 
-
 fn bucket<K: Kmer>(kmer: K) -> usize {
-    (kmer.get(0) as usize) << 6 | (kmer.get(1) as usize) << 4 | (kmer.get(2) as usize) << 2 | (kmer.get(3) as usize)
+    (kmer.get(0) as usize) << 6
+        | (kmer.get(1) as usize) << 4
+        | (kmer.get(2) as usize) << 2
+        | (kmer.get(3) as usize)
 }
 
 /// Implement this trait to control how multiple observations of a kmer
@@ -43,7 +45,9 @@ impl CountFilter {
     /// Construct a `CountFilter` KmerSummarizer only accepts kmers that are observed
     /// at least `min_kmer_obs` times.
     pub fn new(min_kmer_obs: usize) -> CountFilter {
-        CountFilter { min_kmer_obs: min_kmer_obs }
+        CountFilter {
+            min_kmer_obs: min_kmer_obs,
+        }
     }
 }
 
@@ -78,7 +82,6 @@ impl<D> CountFilterSet<D> {
         }
     }
 }
-
 
 impl<D: Ord> KmerSummarizer<D, Vec<D>> for CountFilterSet<D> {
     fn summarize<K, F: Iterator<Item = (K, Exts, D)>>(&self, items: F) -> (bool, Exts, Vec<D>) {
@@ -137,13 +140,14 @@ impl<D: Ord> KmerSummarizer<D, Vec<D>> for CountFilterSet<D> {
 #[inline(never)]
 pub fn filter_kmers<K: Kmer, V: Vmer, D1: Clone, DS, S: KmerSummarizer<D1, DS>>(
     seqs: &[(V, Exts, D1)],
-    summarizer: &dyn Deref<Target=S>,
+    summarizer: &dyn Deref<Target = S>,
     stranded: bool,
     report_all_kmers: bool,
     memory_size: usize,
-)  -> ( BoomHashMap2<K, Exts, DS>, Vec<K> )
-where DS: Debug{
-
+) -> (BoomHashMap2<K, Exts, DS>, Vec<K>)
+where
+    DS: Debug,
+{
     let rc_norm = !stranded;
 
     let mut all_kmers = Vec::new();
@@ -152,7 +156,8 @@ where DS: Debug{
     let mut valid_data = Vec::new();
 
     // Estimate memory consumed by Kmer vectors, and set iteration count appropriately
-    let input_kmers: usize = seqs.iter()
+    let input_kmers: usize = seqs
+        .iter()
         .map(|&(ref vmer, _, _)| vmer.len().saturating_sub(K::k() - 1))
         .sum();
     let kmer_mem = input_kmers * mem::size_of::<(K, D1)>();
@@ -203,14 +208,14 @@ where DS: Debug{
             }
         }
 
-       
         for mut kmer_vec in kmer_buckets {
-
             kmer_vec.sort_by_key(|elt| elt.0);
 
             for (kmer, kmer_obs_iter) in &kmer_vec.into_iter().group_by(|elt| elt.0) {
                 let (is_valid, exts, summary_data) = summarizer.summarize(kmer_obs_iter);
-                if report_all_kmers { all_kmers.push(kmer); }
+                if report_all_kmers {
+                    all_kmers.push(kmer);
+                }
                 if is_valid {
                     valid_kmers.push(kmer);
                     valid_exts.push(exts);
@@ -225,7 +230,10 @@ where DS: Debug{
         valid_kmers.len(),
         all_kmers.len(),
     );
-    (BoomHashMap2::new(valid_kmers, valid_exts, valid_data), all_kmers)
+    (
+        BoomHashMap2::new(valid_kmers, valid_exts, valid_data),
+        all_kmers,
+    )
 }
 
 /// Remove extensions in valid_kmers that point to censored kmers. A censored kmer
@@ -238,7 +246,6 @@ pub fn remove_censored_exts_sharded<K: Kmer, D>(
     valid_kmers: &mut Vec<(K, (Exts, D))>,
     all_kmers: &Vec<K>,
 ) {
-
     for idx in 0..valid_kmers.len() {
         let mut new_exts = Exts::empty();
         let kmer = valid_kmers[idx].0;
@@ -255,14 +262,13 @@ pub fn remove_censored_exts_sharded<K: Kmer, D>(
                         _ext_kmer.min_rc()
                     };
 
-                    let censored =
-                        if valid_kmers.binary_search_by_key(&ext_kmer, |d| d.0).is_ok() {
-                            // ext_kmer is valid. not censored
-                            false
-                        } else {
-                            // ext_kmer is not valid. if it was in this shard, then we censor it
-                            all_kmers.binary_search(&ext_kmer).is_ok()
-                        };
+                    let censored = if valid_kmers.binary_search_by_key(&ext_kmer, |d| d.0).is_ok() {
+                        // ext_kmer is valid. not censored
+                        false
+                    } else {
+                        // ext_kmer is not valid. if it was in this shard, then we censor it
+                        all_kmers.binary_search(&ext_kmer).is_ok()
+                    };
 
                     if !censored {
                         new_exts = new_exts.set(*dir, i);
@@ -278,7 +284,6 @@ pub fn remove_censored_exts_sharded<K: Kmer, D>(
 /// Remove extensions in valid_kmers that point to censored kmers. Use this method in a non-partitioned
 /// context when valid_kmers includes _all_ kmers that will ultimately be included in the graph.
 pub fn remove_censored_exts<K: Kmer, D>(stranded: bool, valid_kmers: &mut Vec<(K, (Exts, D))>) {
-
     for idx in 0..valid_kmers.len() {
         let mut new_exts = Exts::empty();
         let kmer = valid_kmers[idx].0;
