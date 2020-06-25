@@ -1,65 +1,5 @@
 use std::arch::x86_64::*;
 
-fn get(v: __m256i) -> i64 {
-    unsafe { _mm256_extract_epi64(v, 0) }
-}
-
-fn extract_byte(v: __m256i, idx: usize) -> u8 {
-    let idx = idx as i8;
-
-    let res = unsafe {
-        match idx {
-            0 => _mm256_extract_epi8(v, 0),
-            1 => _mm256_extract_epi8(v, 1),
-            2 => _mm256_extract_epi8(v, 2),
-            3 => _mm256_extract_epi8(v, 3),
-            4 => _mm256_extract_epi8(v, 4),
-            5 => _mm256_extract_epi8(v, 5),
-            6 => _mm256_extract_epi8(v, 6),
-            7 => _mm256_extract_epi8(v, 7),
-            8 => _mm256_extract_epi8(v, 8),
-            9 => _mm256_extract_epi8(v, 9),
-            10 => _mm256_extract_epi8(v, 10),
-            11 => _mm256_extract_epi8(v, 11),
-            12 => _mm256_extract_epi8(v, 12),
-            13 => _mm256_extract_epi8(v, 13),
-            14 => _mm256_extract_epi8(v, 14),
-            15 => _mm256_extract_epi8(v, 15),
-            16 => _mm256_extract_epi8(v, 16),
-            17 => _mm256_extract_epi8(v, 17),
-            18 => _mm256_extract_epi8(v, 18),
-            19 => _mm256_extract_epi8(v, 19),
-            20 => _mm256_extract_epi8(v, 20),
-            21 => _mm256_extract_epi8(v, 21),
-            22 => _mm256_extract_epi8(v, 22),
-            23 => _mm256_extract_epi8(v, 23),
-            24 => _mm256_extract_epi8(v, 24),
-            25 => _mm256_extract_epi8(v, 25),
-            26 => _mm256_extract_epi8(v, 26),
-            27 => _mm256_extract_epi8(v, 27),
-            28 => _mm256_extract_epi8(v, 28),
-            29 => _mm256_extract_epi8(v, 29),
-            30 => _mm256_extract_epi8(v, 30),
-            31 => _mm256_extract_epi8(v, 31),
-            _ => panic!("bad index"),
-        }
-    };
-
-    res as u8
-}
-
-fn print64b(v: __m256i) -> String {
-    unsafe {
-        format!(
-            "{:#b} {:#b} {:#b} {:#b}",
-            _mm256_extract_epi64(v, 0),
-            _mm256_extract_epi64(v, 1),
-            _mm256_extract_epi64(v, 2),
-            _mm256_extract_epi64(v, 3)
-        )
-    }
-}
-
 /// pack the lowest 2 bits of each byte of a 32 byte slice into a u64
 /// all bytes must be have values in the range 0..3 incorrect results will be returned.
 /// The first byte in the m256 will become the highest 2bits in the output, consistent
@@ -269,6 +209,66 @@ mod test {
                 }
                 assert_eq!(simd_valid, true_valid);
             }
+        }
+    }
+
+    fn _get(v: __m256i) -> i64 {
+        unsafe { _mm256_extract_epi64(v, 0) }
+    }
+
+    fn extract_byte(v: __m256i, idx: usize) -> u8 {
+        let idx = idx as i8;
+
+        let res = unsafe {
+            match idx {
+                0 => _mm256_extract_epi8(v, 0),
+                1 => _mm256_extract_epi8(v, 1),
+                2 => _mm256_extract_epi8(v, 2),
+                3 => _mm256_extract_epi8(v, 3),
+                4 => _mm256_extract_epi8(v, 4),
+                5 => _mm256_extract_epi8(v, 5),
+                6 => _mm256_extract_epi8(v, 6),
+                7 => _mm256_extract_epi8(v, 7),
+                8 => _mm256_extract_epi8(v, 8),
+                9 => _mm256_extract_epi8(v, 9),
+                10 => _mm256_extract_epi8(v, 10),
+                11 => _mm256_extract_epi8(v, 11),
+                12 => _mm256_extract_epi8(v, 12),
+                13 => _mm256_extract_epi8(v, 13),
+                14 => _mm256_extract_epi8(v, 14),
+                15 => _mm256_extract_epi8(v, 15),
+                16 => _mm256_extract_epi8(v, 16),
+                17 => _mm256_extract_epi8(v, 17),
+                18 => _mm256_extract_epi8(v, 18),
+                19 => _mm256_extract_epi8(v, 19),
+                20 => _mm256_extract_epi8(v, 20),
+                21 => _mm256_extract_epi8(v, 21),
+                22 => _mm256_extract_epi8(v, 22),
+                23 => _mm256_extract_epi8(v, 23),
+                24 => _mm256_extract_epi8(v, 24),
+                25 => _mm256_extract_epi8(v, 25),
+                26 => _mm256_extract_epi8(v, 26),
+                27 => _mm256_extract_epi8(v, 27),
+                28 => _mm256_extract_epi8(v, 28),
+                29 => _mm256_extract_epi8(v, 29),
+                30 => _mm256_extract_epi8(v, 30),
+                31 => _mm256_extract_epi8(v, 31),
+                _ => panic!("bad index"),
+            }
+        };
+
+        res as u8
+    }
+
+    fn _print64b(v: __m256i) -> String {
+        unsafe {
+            format!(
+                "{:#b} {:#b} {:#b} {:#b}",
+                _mm256_extract_epi64(v, 0),
+                _mm256_extract_epi64(v, 1),
+                _mm256_extract_epi64(v, 2),
+                _mm256_extract_epi64(v, 3)
+            )
         }
     }
 }

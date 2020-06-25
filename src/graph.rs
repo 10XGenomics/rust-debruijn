@@ -716,46 +716,6 @@ impl<K: Kmer, D: Debug> DebruijnGraph<K, D> {
         }
     }
 
-    pub fn to_supernova_bv(&self, w: &mut dyn Write) -> Result<(), Error> {
-        use byteorder::{LittleEndian, WriteBytesExt};
-
-        w.write(b"BINWRITE")?; // magic number
-
-        let num_nodes = self.len();
-        w.write_u64::<LittleEndian>(num_nodes as u64)?;
-
-        let mut byte_buf = Vec::new();
-
-        debug!("writing a graph of {} nodes", num_nodes);
-
-        for i in 0..num_nodes {
-            let node = self.get_node(i);
-            let l = node.len();
-            w.write_u32::<LittleEndian>(l as u32)?;
-
-            let seq = node.sequence();
-
-            let mut v = 0 as u8;
-            byte_buf.clear();
-            for j in 0..(l as usize) {
-                let offset = (j % 4) * 2;
-                v = v | ((seq.get(j)) << offset);
-
-                if j % 4 == 3 {
-                    byte_buf.push(v);
-                    v = 0;
-                }
-            }
-
-            if l % 4 > 0 {
-                byte_buf.push(v)
-            }
-            w.write(&byte_buf)?;
-        }
-
-        Ok(())
-    }
-
     pub fn max_path_beam<F, F2>(&self, beam: usize, score: F, _solid_path: F2) -> Vec<(usize, Dir)>
     where
         F: Fn(&D) -> f32,
