@@ -1,8 +1,3 @@
-//#[cfg(test)]
-//#[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
-//#[target_feature(enable = "avx2")]
-//mod avx2 {
-
 use std::arch::x86_64::*;
 
 fn get(v: __m256i) -> i64 {
