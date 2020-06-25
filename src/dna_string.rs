@@ -402,6 +402,11 @@ impl DnaString {
         dna_string
     }
 
+    /// Compute Hamming distance between this DnaString and another DnaString. The two strings must have the same length.
+    pub fn hamming_distance(&self, other: &DnaString) -> usize {
+        ndiffs(self, other)
+    }
+
     // pub fn complement(&self) -> DnaString {
     //    assert!(self.width == 2, "Complement only supported for 2bit encodings.");
     //    let values: Vec<u32> = Vec::with_capacity(self.len());
@@ -452,8 +457,9 @@ impl<'a> IntoIterator for &'a DnaString {
     }
 }
 
+/// count Hamming distance between 2 2-bit DNA packed u64s
 fn count_diff_2_bit_packed(a: u64, b: u64) -> usize {
-    let bit_diffs = (a ^ b);
+    let bit_diffs = a ^ b;
     let two_bit_diffs = (bit_diffs | bit_diffs >> 1) & 0x5555555555555555;
     let total_diffs = two_bit_diffs.count_ones() as usize;
     return total_diffs;
@@ -461,7 +467,6 @@ fn count_diff_2_bit_packed(a: u64, b: u64) -> usize {
 
 /// Compute the number of base positions at which two DnaStrings differ, assuming
 /// that they have the same length.
-
 pub fn ndiffs(b1: &DnaString, b2: &DnaString) -> usize {
     assert_eq!(b1.len(), b2.len());
     let mut diffs = 0;
@@ -833,6 +838,18 @@ mod tests {
         let x1 = DnaString::from_dna_string("TGCATTAGAAAACTCCTTGCCTGTCTAGAAACTCATTAATCCACACATTGA");
         let x2 = DnaString::from_dna_string("TGCATTAGTAAACTCCTTCGCTGTCTAGAAAATCATTAAGCCACACATTGA");
         assert!(ndiffs(&x1, &x2) == 5);
+
+        let x1 = DnaString::from_dna_string("TGCATT");
+        let x2 = DnaString::from_dna_string("TGCATT");
+        assert!(ndiffs(&x1, &x2) == 0);
+
+        let x1 = DnaString::from_dna_string("");
+        let x2 = DnaString::from_dna_string("");
+        assert!(ndiffs(&x1, &x2) == 0);
+
+        let x1 = DnaString::from_dna_string("TGCATTAGAAAACTCCTTGCCTGTCTAGAAACTCATTAATCCACACATTGATGCATTAGAAAACTCCTTGCCTGTCTAGAAACTCATTAATCCACACATTGATGCATTAGAAAACTCCTTGCCTGTCTAGAAACTCATTAATCCACACATTGA");
+        let x2 = DnaString::from_dna_string("TGCATTAGTAAACTCCTTCGCTGTCTAGAAAATCATTAAGCCACACATTGATGCATTAGTAAACTCCTTCGCTGTCTAGAAAATCATTAAGCCACACATTGATGCATTAGTAAACTCCTTCGCTGTCTAGAAAATCATTAAGCCACACATTGA");
+        assert!(ndiffs(&x1, &x2) == 15);
     }
 
     #[test]
