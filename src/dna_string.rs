@@ -60,6 +60,7 @@ impl Mer for DnaString {
     }
 
     /// Get the value at position `i`.
+    #[inline(always)]
     fn get(&self, i: usize) -> u8 {
         let (block, bit) = self.addr(i);
         self.get_by_addr(block, bit)
@@ -202,10 +203,27 @@ impl DnaString {
     /// Create a DnaString from an ASCII ACGT-encoded byte slice.
     /// Non ACGT positions will be converted to 'A'
     pub fn from_acgt_bytes(bytes: &[u8]) -> DnaString {
-        let mut dna_string = DnaString {
-            storage: Vec::new(),
-            len: 0,
-        };
+        let mut dna_string = DnaString::with_capacity(bytes.len());
+
+        // Accelerated avx2 mode. Should run on most machines made since 2013.
+        #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
+        {
+            if is_x86_feature_detected!("avx2") {
+                for chunk in bytes.chunks(32) {
+                    if chunk.len() == 32 {
+                        let (conv_chunk, _) = unsafe { crate::bitops_avx2::convert_bases(chunk) };
+                        let packed = unsafe { crate::bitops_avx2::pack_32_bases(conv_chunk) };
+                        dna_string.storage.push(packed);
+                    } else {
+                        let b = chunk.iter().map(|c| base_to_bits(*c));
+                        dna_string.extend(b);
+                    }
+                }
+
+                dna_string.len = bytes.len();
+                return dna_string;
+            }
+        }
 
         let b = bytes.iter().map(|c| base_to_bits(*c));
         dna_string.extend(b);
@@ -536,6 +554,7 @@ impl<'a> PartialEq for DnaStringSlice<'a> {
 impl<'a> Eq for DnaStringSlice<'a> {}
 
 impl<'a> Mer for DnaStringSlice<'a> {
+    #[inline(always)]
     fn len(&self) -> usize {
         self.length
     }

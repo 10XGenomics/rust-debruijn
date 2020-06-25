@@ -44,6 +44,9 @@ pub mod kmer;
 pub mod msp;
 pub mod vmer;
 
+#[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
+mod bitops_avx2;
+
 #[cfg(test)]
 pub mod test;
 
@@ -776,6 +779,7 @@ where
 impl<'a, K: Kmer, D: Mer> Iterator for KmerIter<'a, K, D> {
     type Item = K;
 
+    #[inline]
     fn next(&mut self) -> Option<K> {
         if self.pos <= self.bases.len() {
             let retval = self.kmer;
