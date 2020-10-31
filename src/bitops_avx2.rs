@@ -6,68 +6,38 @@ use std::arch::x86_64::*;
 /// with the lexicographic sorting convention in this crate.
 #[target_feature(enable = "avx2")]
 pub(crate) unsafe fn pack_32_bases(bases: __m256i) -> u64 {
-    // mulitplier to move the bottom two bits from 4 bytes together
-    // using a single 32bit multiplication.
-    let pack_const: i32 = (1 << 6) + (1 << (4 + 8)) + (1 << (2 + 16)) + (1 << 24);
-    let pack_const_256 = _mm256_set1_epi32(pack_const as i32);
+    // bases = d c b a
 
-    // extract 4th byte of each 64-bit chunk. this is the byte in the
-    // packing multiplication that contains the 2-bit values all together.
-    let byte_sel_half = _mm_set_epi8(
-        0 + 3,
-        0 + 3,
-        8 + 3,
-        8 + 3,
-        16 + 3,
-        16 + 3,
-        24 + 3,
-        24 + 3,
-        0 + 3,
-        0 + 3,
-        8 + 3,
-        8 + 3,
-        16 + 3,
-        16 + 3,
-        24 + 3,
-        24 + 3,
-    );
-    let byte_sel = _mm256_set_m128i(byte_sel_half, byte_sel_half);
-
-    // extract bits from the lower 32bit of each 64.
-    let pack_low = _mm256_mul_epu32(bases, pack_const_256);
-
-    // move the top 32 down to the bottom in each 64.
-    let bases_shuf = _mm256_shuffle_epi32(bases, 0b11110101);
-
-    // extract bits from the upper 32bit of each 64.
-    let pack_high = _mm256_mul_epu32(bases_shuf, pack_const_256);
-
-    let compacted_low = _mm256_shuffle_epi8(pack_low, byte_sel);
-    let compacted_high = _mm256_shuffle_epi8(pack_high, byte_sel);
-
-    // blend low and high bytes back together
-    let blend_mask = _mm256_set_epi8(
-        -1, 0, -1, 0, -1, 0, -1, 0, -1, 0, -1, 0, -1, 0, -1, 0, -1, 0, -1, 0, -1, 0, -1, 0, -1, 0,
-        -1, 0, -1, 0, -1, 0,
-    );
-    let compacted = _mm256_blendv_epi8(compacted_high, compacted_low, blend_mask);
-
-    // bring the 2 32-bit chunks together
-    let joined = _mm256_permutevar8x32_epi32(compacted, _mm256_setr_epi32(4, 0, 7, 7, 7, 7, 7, 7));
-
-    // reverse the byte in groups of 2 bits
-    let rev1 = _mm256_or_si256(
-        _mm256_slli_epi16(_mm256_and_si256(joined, packed_u16(0x3333)), 2),
-        _mm256_and_si256(_mm256_srli_epi16(joined, 2), packed_u16(0x3333)),
+    let reverse_mask = _mm256_set_epi8(
+        0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15,
+        0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15
     );
 
-    let rev2 = _mm256_or_si256(
-        _mm256_slli_epi16(_mm256_and_si256(rev1, packed_u16(0x0F0F)), 4),
-        _mm256_and_si256(_mm256_srli_epi16(rev1, 4), packed_u16(0x0F0F)),
-    );
+    // step 1: reverse all bytes within lanes
+    // reversed = c d a b
+    let reversed = _mm256_shuffle_epi8(bases, reverse_mask);
 
-    let packed64 = _mm256_extract_epi64(rev2, 0);
-    packed64 as u64
+    // step 2: use a lane crossing permute to reverse lanes and
+    // swap the middle two 64-bit chunks
+    // permuted = a c b d
+    let permuted = _mm256_permute4x64_epi64(reversed, 0b01_11_00_10);
+
+    // step 3: interleave the bytes that contain the first and second bits
+    let first_bits = _mm256_slli_epi16(permuted, 7);
+    let second_bits = _mm256_slli_epi16(permuted, 6);
+
+    // i(x) = interleave first and second bits of each byte of x
+    // lo_half = i(c) i(d)
+    let lo_half = _mm256_unpacklo_epi8(first_bits, second_bits);
+
+    // hi_half = i(a) i(b)
+    let hi_half = _mm256_unpackhi_epi8(first_bits, second_bits);
+
+    // step 4: extract bits using movemask (zero extend)
+    let packed_lo = (_mm256_movemask_epi8(lo_half) as u32) as u64;
+    let packed_hi = (_mm256_movemask_epi8(hi_half) as u32) as u64;
+
+    (packed_hi << 32) | packed_lo
 }
 
 #[inline]
@@ -76,13 +46,7 @@ unsafe fn packed_byte(byte: u8) -> __m256i {
     _mm256_set1_epi8(byte as i8)
 }
 
-#[inline]
-#[target_feature(enable = "avx2")]
-unsafe fn packed_u16(v: u16) -> __m256i {
-    _mm256_set1_epi16(v as i16)
-}
-
-/// Covert a slice of 32 ACGT bytes into a __m256i using 0-4 encoding.
+/// Convert a slice of 32 ACGT bytes into a __m256i using 0-4 encoding.
 /// Second element in tuple will be false if any of the bases are not in [aAcCgGtT].
 /// Bases not in [aAcCgGtT] will be converted to A / 0.
 #[target_feature(enable = "avx2")]
