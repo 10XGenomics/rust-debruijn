@@ -9,8 +9,8 @@ pub(crate) unsafe fn pack_32_bases(bases: __m256i) -> u64 {
     // bases = d c b a
 
     let reverse_mask = _mm256_set_epi8(
-        0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15,
-        0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15
+        0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11,
+        12, 13, 14, 15,
     );
 
     // step 1: reverse all bytes within lanes
