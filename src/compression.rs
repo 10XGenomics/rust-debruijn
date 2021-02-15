@@ -64,7 +64,7 @@ where
     }
 }
 
-// Extending trait CompressionSpec for compression
+/// Extending trait CompressionSpec for compression
 pub struct ScmapCompress<D> {
     d: PhantomData<D>,
 }

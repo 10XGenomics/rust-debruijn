@@ -193,8 +193,8 @@ pub trait Kmer: Mer + Sized + Copy + PartialEq + PartialOrd + Eq + Ord + Hash {
     /// E.g. 'AAAA' -> 0, 'AAAT' -> 1, etc. This will panic if K > 32.
     fn to_u64(&self) -> u64;
 
-    // Construct a kmer from the given lexicographic rank of the kmer.
-    // If K > 32, the leads bases will be A's.
+    /// Construct a kmer from the given lexicographic rank of the kmer.
+    /// If K > 32, the leads bases will be A's.
     fn from_u64(value: u64) -> Self;
 
     /// Add the base `v` to the left side of the sequence, and remove the rightmost base
@@ -230,7 +230,7 @@ pub trait Kmer: Mer + Sized + Copy + PartialEq + PartialOrd + Eq + Ord + Hash {
         }
     }
 
-    // Return the minimum of the kmer and it's reverse complement
+    /// Return the minimum of the kmer and it's reverse complement
     fn min_rc(&self) -> Self {
         let rc = self.rc();
         if *self < rc {
@@ -429,7 +429,7 @@ pub trait Vmer: Mer + PartialEq + Eq {
 }
 
 /// A newtype wrapper around a `Vec<u8>` with implementations
-// of the `Mer` and `Vmer` traits.
+/// of the `Mer` and `Vmer` traits.
 #[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd)]
 pub struct DnaBytes(pub Vec<u8>);
 
@@ -480,7 +480,7 @@ impl Vmer for DnaBytes {
 }
 
 /// A newtype wrapper around a `&[u8]` with implementations
-// of the `Mer` and `Vmer` traits.
+/// of the `Mer` and `Vmer` traits.
 #[derive(Debug, Eq, PartialEq, Ord, PartialOrd)]
 pub struct DnaSlice<'a>(pub &'a [u8]);
 
