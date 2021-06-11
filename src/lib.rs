@@ -39,6 +39,7 @@ pub mod filter;
 pub mod graph;
 pub mod kmer;
 pub mod msp;
+pub mod neighbors;
 pub mod vmer;
 
 #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
@@ -196,6 +197,9 @@ pub trait Kmer: Mer + Sized + Copy + PartialEq + PartialOrd + Eq + Ord + Hash {
     /// Construct a kmer from the given lexicographic rank of the kmer.
     /// If K > 32, the leads bases will be A's.
     fn from_u64(value: u64) -> Self;
+
+    // Compute Hamming distance between self and other
+    fn hamming_dist(&self, other: Self) -> u32;
 
     /// Add the base `v` to the left side of the sequence, and remove the rightmost base
     fn extend_left(&self, v: u8) -> Self;

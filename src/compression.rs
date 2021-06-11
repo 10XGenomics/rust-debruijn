@@ -133,7 +133,7 @@ where
                     println!("end kmer: {:?}", end_kmer);
                     println!("No kmer: {:?}", next_kmer);
                     println!("rc: {:?}", next_kmer.min_rc());
-                    panic!(format!("No kmer: {:?}", next_kmer))
+                    panic!("No kmer: {:?}", next_kmer)
                 }
             };
 

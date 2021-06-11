@@ -11,8 +11,7 @@ use rand::{self, Rng, RngCore};
 use std::cmp::{max, min};
 
 /// Generate a uniformly random base
-pub fn random_base() -> u8 {
-    let mut r = rand::thread_rng();
+pub fn random_base(r: &mut impl Rng) -> u8 {
     (r.next_u64() % 4) as u8
 }
 
@@ -32,7 +31,7 @@ pub fn random_dna(len: usize) -> Vec<u8> {
 pub fn edit_dna<R: Rng>(seq: &mut Vec<u8>, p: f64, r: &mut R) {
     for b in seq.iter_mut() {
         if r.gen_range(0.0, 1.0) < p {
-            *b = random_base();
+            *b = random_base(r);
         }
     }
 }

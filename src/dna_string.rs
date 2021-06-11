@@ -48,6 +48,27 @@ const WIDTH: usize = 2;
 const MASK: u64 = 0x3;
 
 /// A container for sequence of DNA bases.
+/// ```
+/// use debruijn::dna_string::DnaString;
+/// use debruijn::kmer::Kmer8;
+/// use debruijn::{Mer, Vmer};
+///
+/// let dna_string = DnaString::from_dna_string("ATCGTACGTACGTAGTC");
+///
+/// // Iterate over 8-mers
+/// for k in dna_string.iter_kmers::<Kmer8>() {
+///     println!("{:?}", k);
+/// }
+///
+/// // Get a base, encoded as a byte in 0-3 range
+/// assert_eq!(dna_string.get(0), 0);
+/// assert_eq!(dna_string.get(1), 3);
+///
+/// // Make a read-only 'slice' of a DnaString
+/// let slc = dna_string.slice(1, 10);
+///
+///  assert_eq!(slc.iter_kmers::<Kmer8>().next(), dna_string.iter_kmers::<Kmer8>().skip(1).next());
+/// ```
 #[derive(Ord, PartialOrd, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct DnaString {
     storage: Vec<u64>,
@@ -500,10 +521,11 @@ impl<'a> IntoIterator for &'a DnaString {
 }
 
 /// count Hamming distance between 2 2-bit DNA packed u64s
-fn count_diff_2_bit_packed(a: u64, b: u64) -> usize {
+#[inline]
+fn count_diff_2_bit_packed(a: u64, b: u64) -> u32 {
     let bit_diffs = a ^ b;
     let two_bit_diffs = (bit_diffs | bit_diffs >> 1) & 0x5555555555555555;
-    let total_diffs = two_bit_diffs.count_ones() as usize;
+    let total_diffs = two_bit_diffs.count_ones();
     return total_diffs;
 }
 
@@ -516,7 +538,7 @@ pub fn ndiffs(b1: &DnaString, b2: &DnaString) -> usize {
     for i in 0..s1.len() {
         diffs += count_diff_2_bit_packed(s1[i], s2[i])
     }
-    diffs
+    diffs as usize
 }
 
 /// An immutable slice into a DnaString
@@ -592,7 +614,12 @@ impl<'a> Vmer for DnaStringSlice<'a> {
     /// Get the kmer starting at position pos
     fn get_kmer<K: Kmer>(&self, pos: usize) -> K {
         debug_assert!(pos + K::k() <= self.length);
-        self.dna_string.get_kmer(self.start + pos)
+        if !self.is_rc {
+            self.dna_string.get_kmer(self.start + pos)
+        } else {
+            let k = self.dna_string.get_kmer(self.start + self.length - 1 - pos);
+            K::rc(&k)
+        }
     }
 }
 
@@ -650,8 +677,34 @@ impl<'a> DnaStringSlice<'a> {
             dna_string: self.dna_string,
             start: self.start + start,
             length: end - start,
-            is_rc: false,
+            is_rc: self.is_rc,
         }
+    }
+
+    /// Compute the Hamming distance between this DNA string and another
+    pub fn hamming_dist(&self, other: &DnaStringSlice) -> u32 {
+        use crate::kmer::Kmer32;
+        assert_eq!(self.len(), other.len());
+
+        let mut ndiffs = 0;
+
+        let whole_blocks = self.len() >> 5;
+
+        // iterate over the whole K=32 blocks
+        for block in (0..whole_blocks).step_by(32) {
+            let b1: Kmer32 = self.get_kmer(block);
+            let b2: Kmer32 = self.get_kmer(block);
+            ndiffs += count_diff_2_bit_packed(b1.to_u64(), b2.to_u64());
+        }
+
+        // iterate over trailing bases
+        for pos in (whole_blocks >> 5)..self.len() {
+            if self.get(pos) != other.get(pos) {
+                ndiffs += 1;
+            }
+        }
+
+        ndiffs
     }
 }
 
@@ -746,6 +799,74 @@ impl<'a> PackedDnaStringSet {
 mod tests {
     use super::*;
     use crate::kmer::IntKmer;
+    use crate::test;
+    use rand::{self, Rng};
+
+    fn hamming_dist_slow(s1: &DnaStringSlice, s2: &DnaStringSlice) -> u32 {
+        assert_eq!(s1.len(), s2.len());
+
+        let mut ndiff = 0;
+        for pos in 0..s1.len() {
+            if s1.get(pos) != s2.get(pos) {
+                ndiff += 1;
+            }
+        }
+
+        ndiff
+    }
+
+    /// Randomly mutate each base with probability `p`
+    pub fn edit_dna_string(string: &mut DnaString, p: f64, r: &mut impl Rng) {
+        for pos in 0..string.len() {
+            if r.gen_range(0.0, 1.0) < p {
+                let base = test::random_base(r);
+                string.set_mut(pos, base)
+            }
+        }
+    }
+
+    fn random_dna_string(len: usize) -> DnaString {
+        let bytes = test::random_dna(len);
+        DnaString::from_bytes(&bytes)
+    }
+
+    fn random_dna_string_pair(len: usize) -> (DnaString, DnaString) {
+        let s1 = random_dna_string(len);
+        let mut s2 = s1.clone();
+
+        if rand::thread_rng().gen_bool(0.1) {
+            s2 = s2.rc();
+        }
+
+        edit_dna_string(&mut s2, 0.1, &mut rand::thread_rng());
+        (s1, s2)
+    }
+
+    fn random_slice(len: usize) -> (usize, usize) {
+        if len == 0 {
+            return (0, 0);
+        }
+        let mut r = rand::thread_rng();
+        let a = (rand::RngCore::next_u64(&mut r) as usize) % len;
+        let b = (rand::RngCore::next_u64(&mut r) as usize) % len;
+        (std::cmp::min(a, b), std::cmp::max(a, b))
+    }
+
+    #[test]
+    fn test_slice_hamming_dist() {
+        for len in 0..1000 {
+            for _ in 0..5 {
+                let (s1, s2) = random_dna_string_pair(len);
+                let (start, end) = random_slice(len);
+                let slc1 = s1.slice(start, end);
+                let slc2 = s2.slice(start, end);
+
+                let validation_dist = hamming_dist_slow(&slc1, &slc2);
+                let test_dist = slc1.hamming_dist(&slc2);
+                assert_eq!(validation_dist, test_dist);
+            }
+        }
+    }
 
     #[test]
     fn test_dna_string() {

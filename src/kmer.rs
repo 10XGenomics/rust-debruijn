@@ -396,6 +396,13 @@ impl<T: PrimInt + FromPrimitive + Hash + IntHelp> Kmer for IntKmer<T> {
         kmer.set_mut(Self::k() - 1, v);
         kmer
     }
+
+    /// Hamming distance between this kmer and another kmer
+    fn hamming_dist(&self, other: Self) -> u32 {
+        let bit_diffs = self.storage ^ other.storage;
+        let two_bit_diffs = (bit_diffs | bit_diffs >> 1) & IntHelp::lower_of_two();
+        two_bit_diffs.count_ones()
+    }
 }
 
 impl<T: PrimInt + FromPrimitive + Hash + IntHelp> fmt::Debug for IntKmer<T> {
@@ -473,6 +480,12 @@ impl<T: PrimInt + FromPrimitive + Hash + IntHelp, KS: KmerSize> Kmer for VarIntK
         };
         kmer.set_mut(Self::k() - 1, v);
         kmer
+    }
+
+    fn hamming_dist(&self, other: Self) -> u32 {
+        let bit_diffs = self.storage ^ other.storage;
+        let two_bit_diffs = (bit_diffs | bit_diffs >> 1) & IntHelp::lower_of_two();
+        two_bit_diffs.count_ones()
     }
 }
 
@@ -812,6 +825,18 @@ mod tests {
     use crate::MerImmut;
     use crate::Vmer;
 
+    fn check_hd<T: Kmer>(k1: T, k2: T) {
+        let mut n = 0;
+        for i in 0..T::k() {
+            if k1.get(i) != k2.get(i) {
+                n += 1;
+            }
+        }
+
+        assert_eq!(k1.hamming_dist(k2), n);
+        assert_eq!(k2.hamming_dist(k1), n);
+    }
+
     // Generate random kmers & test the methods for manipulating them
     fn check_kmer<T: Kmer>() {
         #[allow(non_snake_case)]
@@ -819,6 +844,10 @@ mod tests {
 
         // Random kmer
         let km = random_kmer::<T>();
+
+        // check HD calc
+        let km2 = random_kmer::<T>();
+        check_hd(km, km2);
 
         // Reverse complementing
         let rc = km.rc();
