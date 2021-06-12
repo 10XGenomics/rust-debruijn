@@ -617,7 +617,7 @@ impl<'a> Vmer for DnaStringSlice<'a> {
         if !self.is_rc {
             self.dna_string.get_kmer(self.start + pos)
         } else {
-            let k = self.dna_string.get_kmer(self.start + self.length - 1 - pos);
+            let k = self.dna_string.get_kmer(self.start + self.length - K::k() - pos);
             K::rc(&k)
         }
     }
@@ -672,12 +672,26 @@ impl<'a> DnaStringSlice<'a> {
             "coordinate exceeds number of elements."
         );
         assert!(end <= self.length, "coordinate exceeds number of elements.");
+        assert!(end >= start, "invalid interval");
 
-        DnaStringSlice {
-            dna_string: self.dna_string,
-            start: self.start + start,
-            length: end - start,
-            is_rc: self.is_rc,
+        if !self.is_rc {
+            DnaStringSlice {
+                dna_string: self.dna_string,
+                start: self.start + start,
+                length: end - start,
+                is_rc: self.is_rc,
+            }
+        } else {
+            // remap coords for RC
+            let new_start = self.start + self.length - end;
+            let new_length = end - start;
+
+            DnaStringSlice {
+                dna_string: self.dna_string,
+                start: new_start,
+                length: new_length,
+                is_rc: self.is_rc,
+            }
         }
     }
 
@@ -801,6 +815,7 @@ mod tests {
     use crate::kmer::IntKmer;
     use crate::test;
     use rand::{self, Rng};
+    use crate::kmer::Kmer4;
 
     fn hamming_dist_slow(s1: &DnaStringSlice, s2: &DnaStringSlice) -> u32 {
         assert_eq!(s1.len(), s2.len());
@@ -850,6 +865,29 @@ mod tests {
         let a = (rand::RngCore::next_u64(&mut r) as usize) % len;
         let b = (rand::RngCore::next_u64(&mut r) as usize) % len;
         (std::cmp::min(a, b), std::cmp::max(a, b))
+    }
+
+    #[test]
+    fn dnastringslice_get_kmer() {
+        let seq = DnaString::from_dna_string("ACGGTAC");
+        let seqrc = DnaString::from_dna_string("GTACCGT");
+        let rcslice = seq.slice(0, 7).rc();
+        let slice = seqrc.slice(0, 7);
+        for i in 0..=3 {
+            // The kmer in a slice should be the kmer of the sequencing represented
+            // by that slice, regardless of whether the backing DnaString is RC or not.
+            assert_eq!(slice.get_kmer::<Kmer4>(i), rcslice.get_kmer::<Kmer4>(i));
+        }
+    }
+    #[test]
+    fn dnastringslice_slice() {
+        let seq = DnaString::from_dna_string("ACGGTAC");
+        let seqrc = DnaString::from_dna_string("GTACCGT");
+        let rcslice = seq.slice(0, 7).rc();
+        let slice = seqrc.slice(0, 7);
+        // The fact that a slice is backed by a DnaStringSlice that is
+        // the rc of the slice sequence shouldn't matter.
+        assert_eq!(rcslice.slice(1, 4), slice.slice(1, 4));
     }
 
     #[test]
