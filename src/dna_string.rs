@@ -617,7 +617,9 @@ impl<'a> Vmer for DnaStringSlice<'a> {
         if !self.is_rc {
             self.dna_string.get_kmer(self.start + pos)
         } else {
-            let k = self.dna_string.get_kmer(self.start + self.length - K::k() - pos);
+            let k = self
+                .dna_string
+                .get_kmer(self.start + self.length - K::k() - pos);
             K::rc(&k)
         }
     }
@@ -813,9 +815,9 @@ impl<'a> PackedDnaStringSet {
 mod tests {
     use super::*;
     use crate::kmer::IntKmer;
+    use crate::kmer::Kmer4;
     use crate::test;
     use rand::{self, Rng};
-    use crate::kmer::Kmer4;
 
     fn hamming_dist_slow(s1: &DnaStringSlice, s2: &DnaStringSlice) -> u32 {
         assert_eq!(s1.len(), s2.len());
