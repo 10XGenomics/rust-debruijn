@@ -1,6 +1,6 @@
 [package]
 name = "debruijn"
-version = "0.3.2"
+version = "0.3.4"
 authors = ["Patrick Marks <patrick@10xgenomics.com>"]
 license = "MIT"
 edition = '2018'
