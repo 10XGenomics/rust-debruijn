@@ -33,8 +33,8 @@
 //!         Kmer16::from_ascii(b"TACGTACGTACGTACG")
 //!     ]);
 
-use num::FromPrimitive;
-use num::PrimInt;
+use num_traits::FromPrimitive;
+use num_traits::PrimInt;
 use serde_derive::{Deserialize, Serialize};
 use std;
 use std::fmt;
