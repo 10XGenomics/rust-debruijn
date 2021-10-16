@@ -415,7 +415,6 @@ impl<T: PrimInt + FromPrimitive + Hash + IntHelp> fmt::Debug for IntKmer<T> {
     }
 }
 
-
 /// Helper trait for declaring the K value of a Kmer. Will be removed when const generics are available
 pub trait KmerSize: Ord + Hash + Copy + fmt::Debug {
     #[allow(non_snake_case)]
@@ -438,9 +437,7 @@ pub struct VarIntKmer<T: PrimInt + FromPrimitive + IntHelp, const KS: usize> {
 
 impl<T: PrimInt + FromPrimitive + Hash + IntHelp, const KS: usize> Kmer for VarIntKmer<T, KS> {
     fn empty() -> Self {
-        VarIntKmer {
-            storage: T::zero(),
-        }
+        VarIntKmer { storage: T::zero() }
     }
 
     #[inline]
@@ -461,18 +458,14 @@ impl<T: PrimInt + FromPrimitive + Hash + IntHelp, const KS: usize> Kmer for VarI
     /// Shift the base v into the left end of the kmer
     fn extend_left(&self, v: u8) -> Self {
         let new = self.storage >> 2;
-        let mut kmer = VarIntKmer {
-            storage: new,
-        };
+        let mut kmer = VarIntKmer { storage: new };
         kmer.set_mut(0, v);
         kmer
     }
 
     fn extend_right(&self, v: u8) -> Self {
         let new = self.storage << 2 & !Self::top_mask(0);
-        let mut kmer = VarIntKmer {
-            storage: new,
-        };
+        let mut kmer = VarIntKmer { storage: new };
         kmer.set_mut(Self::k() - 1, v);
         kmer
     }
@@ -609,9 +602,7 @@ impl<T: PrimInt + FromPrimitive + Hash + IntHelp, const KS: usize> Mer for VarIn
             new = new >> up_shift;
         }
 
-        VarIntKmer {
-            storage: new,
-        }
+        VarIntKmer { storage: new }
     }
 
     fn at_count(&self) -> u32 {
@@ -630,8 +621,10 @@ impl<T: PrimInt + FromPrimitive + Hash + IntHelp, const KS: usize> Mer for VarIn
         mask_lower.count_ones()
     }
 }
- 
-impl<T: PrimInt + FromPrimitive + Hash + IntHelp, const KS: usize> fmt::Debug for VarIntKmer<T, KS> {
+
+impl<T: PrimInt + FromPrimitive + Hash + IntHelp, const KS: usize> fmt::Debug
+    for VarIntKmer<T, KS>
+{
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let mut s = String::new();
         for pos in 0..Self::k() {
@@ -641,8 +634,6 @@ impl<T: PrimInt + FromPrimitive + Hash + IntHelp, const KS: usize> fmt::Debug fo
         write!(f, "{}", s)
     }
 }
-
-
 
 #[cfg(test)]
 mod tests {
