@@ -150,7 +150,7 @@ mod tests {
     use crate::dna_string::DnaString;
     use crate::filter;
     use crate::kmer::Kmer6;
-    use crate::kmer::{IntKmer, VarIntKmer, K31};
+    use crate::kmer::{IntKmer, VarIntKmer};
     use crate::msp;
     use std::ops::Sub;
 
@@ -179,7 +179,7 @@ mod tests {
             .map(crate::base_to_bits)
             .collect();
 
-        reassemble_contigs::<VarIntKmer<u64, K31>, DnaString>(vec![seq.clone(), seq], false);
+        reassemble_contigs::<VarIntKmer<u64, 31>, DnaString>(vec![seq.clone(), seq], false);
     }
 
     #[test]
@@ -192,7 +192,7 @@ mod tests {
             .map(crate::base_to_bits)
             .collect();
 
-        reassemble_sharded::<VarIntKmer<u64, K31>, DnaString>(vec![seq.clone(), seq], false);
+        reassemble_sharded::<VarIntKmer<u64, 31>, DnaString>(vec![seq.clone(), seq], false);
     }
 
     #[test]
@@ -221,7 +221,7 @@ mod tests {
     fn complex_path_compress_k31() {
         for _ in 0..100 {
             let contigs = random_contigs();
-            simplify_from_kmers::<VarIntKmer<u64, K31>>(contigs, false);
+            simplify_from_kmers::<VarIntKmer<u64, 31>>(contigs, false);
         }
     }
 
