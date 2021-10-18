@@ -32,6 +32,7 @@ use serde_derive::{Deserialize, Serialize};
 use std::fmt;
 use std::hash::Hash;
 
+pub mod array_kmer;
 pub mod clean_graph;
 pub mod compression;
 pub mod dna_string;

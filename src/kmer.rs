@@ -636,8 +636,10 @@ impl<T: PrimInt + FromPrimitive + Hash + IntHelp, const KS: usize> fmt::Debug
 }
 
 #[cfg(test)]
-mod tests {
+pub(crate) mod tests {
     use super::*;
+    use crate::dna_string;
+    use crate::dna_string::DnaString;
     use crate::vmer::Lmer;
     use rand::{self, Rng, RngCore};
 
@@ -657,7 +659,7 @@ mod tests {
     }
 
     // Generate random kmers & test the methods for manipulating them
-    fn check_kmer<T: Kmer>() {
+    pub fn check_kmer<T: Kmer>() {
         #[allow(non_snake_case)]
         let K = T::k();
 
@@ -671,7 +673,7 @@ mod tests {
         // Reverse complementing
         let rc = km.rc();
         let double_rc = rc.rc();
-        assert!(km == double_rc);
+        assert_eq!(km, double_rc);
 
         for i in 0..K {
             assert!(km.get(i) == (3 - rc.get(K - 1 - i)))
@@ -821,6 +823,33 @@ mod tests {
         (r.next_u64() % 4) as u8
     }
 
+    pub fn kmer_test_suite<K: Kmer>() {
+        for _ in 0..10000 {
+            check_kmer::<K>();
+        }
+
+        for len in [100, 101, 200, 201, 1000, 1001] {
+            let dna_string = dna_string::tests::random_dna_string(len);
+
+            let kmers: Vec<K> = dna_string.iter_kmers().collect();
+            dna_string_test::<K>(&kmers, &dna_string);
+        }
+    }
+
+    pub fn dna_string_test<K: Kmer>(kmers: &Vec<K>, dna_string: &DnaString) {
+        let string = dna_string.to_string();
+        for i in 0..(string.len() - K::k() + 1) {
+            assert_eq!(kmers[i].to_string(), &string[i..(i + K::k())]);
+        }
+
+        let last_kmer: K = dna_string.last_kmer();
+        assert_eq!(last_kmer.to_string(), &string[(string.len() - K::k())..]);
+
+        for (idx, &k) in kmers.iter().enumerate() {
+            assert_eq!(k, dna_string.get_kmer(idx));
+        }
+    }
+
     #[test]
     fn test_lmer_3_kmer_64() {
         for _ in 0..10000 {
@@ -872,106 +901,76 @@ mod tests {
 
     #[test]
     fn test_kmer_64() {
-        for _ in 0..10000 {
-            check_kmer::<IntKmer<u128>>();
-        }
+        kmer_test_suite::<IntKmer<u128>>();
     }
 
     #[test]
     fn test_kmer_48() {
-        for _ in 0..10000 {
-            check_kmer::<VarIntKmer<u128, 48>>();
-        }
+        kmer_test_suite::<VarIntKmer<u128, 48>>();
     }
 
     #[test]
     fn test_kmer_32() {
-        for _ in 0..10000 {
-            check_kmer::<IntKmer<u64>>();
-        }
+        kmer_test_suite::<IntKmer<u64>>();
     }
 
     #[test]
     fn test_kmer_31() {
-        for _ in 0..10000 {
-            check_kmer::<VarIntKmer<u64, 31>>();
-        }
+        kmer_test_suite::<VarIntKmer<u64, 31>>();
     }
 
     #[test]
     fn test_kmer_24() {
-        for _ in 0..10000 {
-            check_kmer::<VarIntKmer<u64, 24>>();
-        }
+        kmer_test_suite::<VarIntKmer<u64, 24>>();
     }
 
     #[test]
     fn test_kmer_20() {
-        for _ in 0..10000 {
-            check_kmer::<VarIntKmer<u64, 20>>();
-        }
+        kmer_test_suite::<VarIntKmer<u64, 20>>();
     }
 
     #[test]
     fn test_kmer_16() {
-        for _ in 0..10000 {
-            check_kmer::<IntKmer<u32>>();
-        }
+        kmer_test_suite::<IntKmer<u32>>();
     }
 
     #[test]
     fn test_kmer_15() {
-        for _ in 0..10000 {
-            check_kmer::<VarIntKmer<u32, 15>>();
-        }
+        kmer_test_suite::<VarIntKmer<u32, 15>>();
     }
 
     #[test]
     fn test_kmer_14() {
-        for _ in 0..10000 {
-            check_kmer::<VarIntKmer<u32, 14>>();
-        }
+        kmer_test_suite::<VarIntKmer<u32, 14>>();
     }
 
     #[test]
     fn test_kmer_12() {
-        for _ in 0..10000 {
-            check_kmer::<VarIntKmer<u32, 12>>();
-        }
+        kmer_test_suite::<VarIntKmer<u32, 12>>();
     }
 
     #[test]
     fn test_kmer_10() {
-        for _ in 0..10000 {
-            check_kmer::<VarIntKmer<u32, 10>>();
-        }
+        kmer_test_suite::<VarIntKmer<u32, 10>>();
     }
 
     #[test]
     fn test_kmer_8() {
-        for _ in 0..10000 {
-            check_kmer::<IntKmer<u16>>();
-        }
+        kmer_test_suite::<IntKmer<u16>>();
     }
 
     #[test]
     fn test_kmer_6() {
-        for _ in 0..10000 {
-            check_kmer::<Kmer6>();
-        }
+        kmer_test_suite::<Kmer6>();
     }
 
     #[test]
     fn test_kmer_5() {
-        for _ in 0..10000 {
-            check_kmer::<Kmer5>();
-        }
+        kmer_test_suite::<Kmer5>();
     }
 
     #[test]
     fn test_kmer_4() {
-        for _ in 0..10000 {
-            check_kmer::<Kmer4>();
-        }
+        kmer_test_suite::<Kmer4>();
     }
 }
