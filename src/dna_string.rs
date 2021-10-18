@@ -812,7 +812,7 @@ impl<'a> PackedDnaStringSet {
 }
 
 #[cfg(test)]
-mod tests {
+pub(crate) mod tests {
     use super::*;
     use crate::kmer::IntKmer;
     use crate::kmer::Kmer4;
@@ -842,7 +842,7 @@ mod tests {
         }
     }
 
-    fn random_dna_string(len: usize) -> DnaString {
+    pub fn random_dna_string(len: usize) -> DnaString {
         let bytes = test::random_dna(len);
         DnaString::from_bytes(&bytes)
     }
@@ -1086,7 +1086,7 @@ mod tests {
         assert_eq!(kmers, vec![]);
     }
 
-    fn kmer_test<K: Kmer>(kmers: &Vec<K>, dna: &String, dna_string: &DnaString) {
+    pub fn kmer_test<K: Kmer>(kmers: &Vec<K>, dna: &String, dna_string: &DnaString) {
         for i in 0..(dna.len() - K::k() + 1) {
             assert_eq!(kmers[i].to_string(), &dna[i..(i + K::k())]);
         }
