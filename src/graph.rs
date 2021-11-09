@@ -606,10 +606,8 @@ impl<K: Kmer, D: Debug> DebruijnGraph<K, D> {
     pub fn write_gfa(&self, wtr: &mut impl Write) -> Result<(), Error> {
         writeln!(wtr, "H\tVN:Z:debruijn-rs")?;
 
-        // Hack to generate a None value with the right type.
-        let dummy_func = |_n: &Node<'_, K, D>| "".to_string();
-        let mut dummy_opt = Some(&dummy_func);
-        let _ = dummy_opt.take();
+        type DummyFn<K, D> = fn(&Node<'_, K, D>) -> String;
+        let dummy_opt: Option<&DummyFn<K, D>> = None;
 
         for i in 0..self.len() {
             let n = self.get_node(i);

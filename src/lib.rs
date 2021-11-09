@@ -277,7 +277,7 @@ pub trait Kmer: Mer + Sized + Copy + PartialEq + PartialOrd + Eq + Ord + Hash {
 
     /// Return String containing Kmer sequence
     fn to_string(&self) -> String {
-        let mut s = String::new();
+        let mut s = String::with_capacity(self.len());
         for pos in 0..self.len() {
             s.push(bits_to_base(self.get(pos)))
         }
@@ -286,22 +286,19 @@ pub trait Kmer: Mer + Sized + Copy + PartialEq + PartialOrd + Eq + Ord + Hash {
 
     /// Generate vector of all kmers contained in `str` encoded as 0-4.
     fn kmers_from_bytes(str: &[u8]) -> Vec<Self> {
-        let mut r = Vec::new();
-
         if str.len() < Self::k() {
-            return r;
+            return Vec::default();
         }
-
         let mut k0 = Self::empty();
-
         for i in 0..Self::k() {
             k0.set_mut(i, str[i]);
         }
 
+        let mut r = Vec::with_capacity(str.len() - Self::k() + 1);
         r.push(k0);
 
-        for i in Self::k()..str.len() {
-            k0 = k0.extend_right(str[i]);
+        for v in str.iter().skip(Self::k()) {
+            k0 = k0.extend_right(*v);
             r.push(k0);
         }
 
@@ -310,22 +307,19 @@ pub trait Kmer: Mer + Sized + Copy + PartialEq + PartialOrd + Eq + Ord + Hash {
 
     /// Generate vector of all kmers contained in `str`, encoded as ASCII ACGT.
     fn kmers_from_ascii(str: &[u8]) -> Vec<Self> {
-        let mut r = Vec::new();
-
         if str.len() < Self::k() {
-            return r;
+            return Vec::default();
         }
-
         let mut k0 = Self::empty();
-
         for i in 0..Self::k() {
             k0.set_mut(i, base_to_bits(str[i]));
         }
 
+        let mut r = Vec::with_capacity(str.len() - Self::k() + 1);
         r.push(k0);
 
-        for i in Self::k()..str.len() {
-            k0 = k0.extend_right(base_to_bits(str[i]));
+        for v in str.iter().skip(Self::k()) {
+            k0 = k0.extend_right(base_to_bits(*v));
             r.push(k0);
         }
 

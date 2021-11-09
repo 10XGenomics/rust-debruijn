@@ -288,29 +288,14 @@ impl DnaString {
         dna_string
     }
 
-    /// Convert sequence to a String
-    pub fn to_string(&self) -> String {
-        let mut dna: String = String::new();
-        for v in self.iter() {
-            dna.push(bits_to_base(v));
-        }
-        dna
-    }
-
     /// Convert sequence to a Vector of 0-4 encoded bytes
     pub fn to_bytes(&self) -> Vec<u8> {
-        let mut bytes = Vec::new();
-        bytes.extend(self.iter());
-        bytes
+        self.iter().collect()
     }
 
     /// Convert sequence to a Vector of ascii-encoded bytes
     pub fn to_ascii_vec(&self) -> Vec<u8> {
-        let mut res = Vec::new();
-        for v in self.iter() {
-            res.push(bits_to_ascii(v));
-        }
-        res
+        self.iter().map(bits_to_ascii).collect()
     }
 
     /// Append a 0-4 encoded base.
@@ -478,6 +463,15 @@ impl DnaString {
     // }
 }
 
+impl fmt::Display for DnaString {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        for v in self.iter() {
+            f.write_fmt(format_args!("{}", bits_to_base(v)))?;
+        }
+        Ok(())
+    }
+}
+
 impl fmt::Debug for DnaString {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let mut s = String::new();
@@ -638,7 +632,7 @@ impl<'a> DnaStringSlice<'a> {
     }
 
     pub fn bytes(&self) -> Vec<u8> {
-        let mut v = Vec::new();
+        let mut v = Vec::with_capacity(self.length);
         for pos in 0..self.length {
             v.push(self.get(pos));
         }
@@ -646,7 +640,7 @@ impl<'a> DnaStringSlice<'a> {
     }
 
     pub fn ascii(&self) -> Vec<u8> {
-        let mut v = Vec::new();
+        let mut v = Vec::with_capacity(self.length);
         for pos in 0..self.length {
             v.push(bits_to_ascii(self.get(pos)));
         }
@@ -654,15 +648,11 @@ impl<'a> DnaStringSlice<'a> {
     }
 
     pub fn to_dna_string(&self) -> String {
-        let mut dna: String = String::new();
+        let mut dna: String = String::with_capacity(self.length);
         for pos in 0..self.length {
             dna.push(bits_to_base(self.get(pos)));
         }
         dna
-    }
-
-    pub fn to_string(&self) -> String {
-        String::from_utf8(self.ascii()).unwrap()
     }
 
     pub fn to_owned(&self) -> DnaString {
@@ -728,6 +718,15 @@ impl<'a> DnaStringSlice<'a> {
         }
 
         ndiffs
+    }
+}
+
+impl<'a> fmt::Display for DnaStringSlice<'a> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        for pos in 0..self.length {
+            f.write_fmt(format_args!("{}", bits_to_base(self.get(pos))))?;
+        }
+        Ok(())
     }
 }
 
@@ -1066,40 +1065,42 @@ mod tests {
 
     #[test]
     fn test_kmers() {
-        let dna = "TGCATTAGAAAACTCCTTGCCTGTCAGCCCGACAGGTAGAAACTCATTAATCCACACATTGA".to_string()
-            + "CTCTATTTCAGGTAAATATGACGTCAACTCCTGCATGTTGAAGGCAGTGAGTGGCTGAAACAGCATCAAGGCGTGAAGGC";
-        let dna_string = DnaString::from_dna_string(&dna);
+        const DNA: &str = "TGCATTAGAAAACTCCTTGCCTGTCAGCCCGACAGGTAGAAACTCATTAATCCACACATTGA\
+            CTCTATTTCAGGTAAATATGACGTCAACTCCTGCATGTTGAAGGCAGTGAGTGGCTGAAACAGCATCAAGGCGTGAAGGC";
+        let dna_string = DnaString::from_dna_string(DNA);
 
         let kmers: Vec<IntKmer<u64>> = dna_string.iter_kmers().collect();
-        kmer_test::<IntKmer<u64>>(&kmers, &dna, &dna_string);
+        kmer_test::<IntKmer<u64>>(&kmers, DNA, &dna_string);
     }
 
     #[test]
     fn test_ndiffs() {
         let x1 = DnaString::from_dna_string("TGCATTAGAAAACTCCTTGCCTGTCTAGAAACTCATTAATCCACACATTGA");
         let x2 = DnaString::from_dna_string("TGCATTAGTAAACTCCTTCGCTGTCTAGAAAATCATTAAGCCACACATTGA");
-        assert!(ndiffs(&x1, &x2) == 5);
+        assert_eq!(ndiffs(&x1, &x2), 5);
 
         let x1 = DnaString::from_dna_string("TGCATT");
         let x2 = DnaString::from_dna_string("TGCATT");
-        assert!(ndiffs(&x1, &x2) == 0);
+        assert_eq!(ndiffs(&x1, &x2), 0);
 
         let x1 = DnaString::from_dna_string("");
         let x2 = DnaString::from_dna_string("");
-        assert!(ndiffs(&x1, &x2) == 0);
+        assert_eq!(ndiffs(&x1, &x2), 0);
 
-        let x1 = DnaString::from_dna_string("TGCATTAGAAAACTCCTTGCCTGTCTAGAAACTCATTAATCCACACATTGATGCATTAGAAAACTCCTTGCCTGTCTAGAAACTCATTAATCCACACATTGATGCATTAGAAAACTCCTTGCCTGTCTAGAAACTCATTAATCCACACATTGA");
-        let x2 = DnaString::from_dna_string("TGCATTAGTAAACTCCTTCGCTGTCTAGAAAATCATTAAGCCACACATTGATGCATTAGTAAACTCCTTCGCTGTCTAGAAAATCATTAAGCCACACATTGATGCATTAGTAAACTCCTTCGCTGTCTAGAAAATCATTAAGCCACACATTGA");
-        assert!(ndiffs(&x1, &x2) == 15);
+        let x1 = DnaString::from_dna_string("TGCATTAGAAAACTCCTTGCCTGTCTAGAAACTCATTAATCCACACATTGA\
+            TGCATTAGAAAACTCCTTGCCTGTCTAGAAACTCATTAATCCACACATTGATGCATTAGAAAACTCCTTGCCTGTCTAGAAACTCATTAATCCACACATTGA");
+        let x2 = DnaString::from_dna_string("TGCATTAGTAAACTCCTTCGCTGTCTAGAAAATCATTAAGCCACACATTGA\
+            TGCATTAGTAAACTCCTTCGCTGTCTAGAAAATCATTAAGCCACACATTGATGCATTAGTAAACTCCTTCGCTGTCTAGAAAATCATTAAGCCACACATTGA");
+        assert_eq!(ndiffs(&x1, &x2), 15);
     }
 
     #[test]
     fn test_kmers_too_short() {
-        let dna = "TGCATTAGAA".to_string();
-        let dna_string = DnaString::from_dna_string(&dna);
+        const DNA: &str = "TGCATTAGAA";
+        let dna_string = DnaString::from_dna_string(DNA);
 
         let kmers: Vec<IntKmer<u64>> = dna_string.iter_kmers().collect();
-        assert_eq!(kmers, vec![]);
+        assert_eq!(kmers, Vec::default());
     }
 
     fn kmer_test<K: Kmer>(kmers: &[K], dna: &str, dna_string: &DnaString) {
