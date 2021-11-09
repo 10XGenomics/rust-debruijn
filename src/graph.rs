@@ -385,7 +385,7 @@ impl<K: Kmer, D: Debug> DebruijnGraph<K, D> {
         F2: Fn(&D) -> bool,
     {
         if self.is_empty() {
-            return vec![];
+            return Vec::default();
         }
 
         let mut best_node = 0;
@@ -715,7 +715,7 @@ impl<K: Kmer, D: Debug> DebruijnGraph<K, D> {
         F2: Fn(&D) -> bool,
     {
         if self.is_empty() {
-            return vec![];
+            return Vec::default();
         }
 
         let mut states = Vec::new();
