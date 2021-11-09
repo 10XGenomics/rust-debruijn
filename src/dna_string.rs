@@ -466,7 +466,7 @@ impl DnaString {
 impl fmt::Display for DnaString {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         for v in self.iter() {
-            f.write_fmt(format_args!("{}", bits_to_base(v)))?;
+            write!(f, "{}", bits_to_base(v))?;
         }
         Ok(())
     }
@@ -724,7 +724,7 @@ impl<'a> DnaStringSlice<'a> {
 impl<'a> fmt::Display for DnaStringSlice<'a> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         for pos in 0..self.length {
-            f.write_fmt(format_args!("{}", bits_to_base(self.get(pos))))?;
+            write!(f, "{}", bits_to_base(self.get(pos)))?;
         }
         Ok(())
     }
