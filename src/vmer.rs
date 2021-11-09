@@ -43,7 +43,7 @@ impl<A: Array<Item = u64> + Copy + Eq + Ord + Hash> Mer for Lmer<A> {
     }
 
     fn is_empty(&self) -> bool {
-        return self.len() == 0
+        self.len() == 0
     }
 
     /// Get the base at position pos
