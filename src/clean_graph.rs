@@ -35,7 +35,9 @@ where
         }
 
         if ((exts.num_exts_l() == 0 && exts.num_exts_r() <= 1)
-            || (exts.num_exts_r() == 0 && exts.num_exts_l() <= 1)) && (self.tip_predicate)(&node) {
+            || (exts.num_exts_r() == 0 && exts.num_exts_l() <= 1))
+            && (self.tip_predicate)(&node)
+        {
             return Some(id);
         }
 

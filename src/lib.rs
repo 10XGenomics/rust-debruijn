@@ -86,11 +86,7 @@ pub fn dna_only_base_to_bits(c: u8) -> Option<u8> {
 /// Convert an ASCII-encoded DNA base to a 2-bit representation
 #[inline]
 pub fn is_valid_base(c: u8) -> bool {
-    match c {
-        b'A' | b'C' | b'G' | b'T' => true,
-        b'a' | b'c' | b'g' | b't' => true,
-        _ => false,
-    }
+    matches!(c, b'A' | b'C' | b'G' | b'T' | b'a' | b'c' | b'g' | b't')
 }
 
 /// Convert a 2-bit representation of a base to a char
@@ -116,6 +112,9 @@ pub trait Mer: Sized + fmt::Debug {
     /// Length of DNA sequence
     fn len(&self) -> usize;
 
+    /// True if the sequence is empty.
+    fn is_empty(&self) -> bool;
+
     /// Get 2-bit encoded base at position `pos`
     fn get(&self, pos: usize) -> u8;
 
@@ -130,7 +129,7 @@ pub trait Mer: Sized + fmt::Debug {
     fn rc(&self) -> Self;
 
     /// Iterate over the bases in the sequence
-    fn iter<'a>(&'a self) -> MerIter<'a, Self> {
+    fn iter(&self) -> MerIter<Self> {
         MerIter {
             sequence: self,
             i: 0,
@@ -218,10 +217,7 @@ pub trait Kmer: Mer + Sized + Copy + PartialEq + PartialOrd + Eq + Ord + Hash {
     /// Generate all the extension of this sequence given by `exts` in direction `Dir`
     fn get_extensions(&self, exts: Exts, dir: Dir) -> Vec<Self> {
         let ext_bases = exts.get(dir);
-        ext_bases
-            .iter()
-            .map(|b| self.extend(*b, dir))
-            .collect()
+        ext_bases.iter().map(|b| self.extend(*b, dir)).collect()
     }
 
     /// Return the minimum of the kmer and it's reverse complement, and a flag indicating if sequence was flipped
@@ -442,6 +438,10 @@ impl Mer for DnaBytes {
         self.0.len()
     }
 
+    fn is_empty(&self) -> bool {
+        self.0.is_empty()
+    }
+
     fn get(&self, pos: usize) -> u8 {
         self.0[pos]
     }
@@ -491,6 +491,10 @@ pub struct DnaSlice<'a>(pub &'a [u8]);
 impl<'a> Mer for DnaSlice<'a> {
     fn len(&self) -> usize {
         self.0.len()
+    }
+
+    fn is_empty(&self) -> bool {
+        self.0.is_empty()
     }
 
     fn get(&self, pos: usize) -> u8 {
@@ -562,8 +566,8 @@ impl Dir {
     /// Pick between two alternatives, depending on the direction
     pub fn pick<T>(&self, if_left: T, if_right: T) -> T {
         match self {
-            &Dir::Left => if_left,
-            &Dir::Right => if_right,
+            Dir::Left => if_left,
+            Dir::Right => if_right,
         }
     }
 }
@@ -688,7 +692,7 @@ impl Exts {
 
     pub fn num_ext_dir(&self, dir: Dir) -> u8 {
         let e = self.dir_bits(dir);
-        ((e & 1u8) >> 0) + ((e & 2u8) >> 1) + ((e & 4u8) >> 2) + ((e & 8u8) >> 3)
+        (e & 1u8) + ((e & 2u8) >> 1) + ((e & 4u8) >> 2) + ((e & 8u8) >> 3)
     }
 
     pub fn mk_left(base: u8) -> Exts {

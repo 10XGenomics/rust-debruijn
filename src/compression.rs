@@ -75,6 +75,12 @@ impl<D> ScmapCompress<D> {
     }
 }
 
+impl<D> Default for ScmapCompress<D> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl<D: PartialEq> CompressionSpec<D> for ScmapCompress<D>
 where
     D: Debug,
@@ -294,13 +300,10 @@ where
             available_nodes.insert(i);
         }
 
-        match censor_nodes {
-            Some(c) => {
-                for censor in c {
-                    available_nodes.remove(censor);
-                }
+        if let Some(c) = censor_nodes {
+            for censor in c {
+                available_nodes.remove(censor);
             }
-            None => (),
         }
 
         old_graph.fix_exts(Some(&available_nodes));
@@ -368,8 +371,7 @@ impl<'a, 'b, K: Kmer, D: Clone + Debug, S: CompressionSpec<D>> CompressFromHash<
     }
 
     fn get_kmer_id(&self, kmer: &K) -> Option<usize> {
-        self.index
-            .get_key_id(kmer).and_then(|v| Some(v as usize))
+        self.index.get_key_id(kmer).map(|v| v as usize)
     }
 
     /// Attempt to extend kmer v in direction dir. Return:
@@ -596,11 +598,11 @@ pub fn compress_kmers_with_hash<K: Kmer, D: Clone + Debug, S: CompressionSpec<D>
 pub fn compress_kmers<K: Kmer, D: Clone + Debug, S: CompressionSpec<D>>(
     stranded: bool,
     spec: &S,
-    kmer_exts: &Vec<(K, (Exts, D))>,
+    kmer_exts: &[(K, (Exts, D))],
 ) -> BaseGraph<K, D> {
-    let mut keys = vec![];
-    let mut exts = vec![];
-    let mut data = vec![];
+    let mut keys = Vec::with_capacity(kmer_exts.len());
+    let mut exts = Vec::with_capacity(kmer_exts.len());
+    let mut data = Vec::with_capacity(kmer_exts.len());
 
     for (k, (e, d)) in kmer_exts {
         keys.push(*k);

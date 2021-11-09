@@ -42,6 +42,10 @@ impl<A: Array<Item = u64> + Copy + Eq + Ord + Hash> Mer for Lmer<A> {
         (self.storage.as_slice()[A::size() - 1] & 0xff) as usize
     }
 
+    fn is_empty(&self) -> bool {
+        return self.len() == 0
+    }
+
     /// Get the base at position pos
     fn get(&self, pos: usize) -> u8 {
         let block = pos / 32;

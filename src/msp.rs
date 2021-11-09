@@ -23,11 +23,7 @@ pub struct MspInterval {
 
 impl MspInterval {
     pub fn new(bucket: u16, start: u32, len: u16) -> MspInterval {
-        MspInterval {
-            bucket,
-            start,
-            len,
-        }
+        MspInterval { bucket, start, len }
     }
 
     pub fn start(&self) -> usize {
@@ -36,6 +32,10 @@ impl MspInterval {
 
     pub fn len(&self) -> usize {
         self.len as usize
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.len == 0
     }
 
     pub fn end(&self) -> usize {
@@ -434,10 +434,7 @@ mod tests {
             let end = s.start as usize + s.len as usize - k + 1;
 
             for i in start..end {
-                if covered[i] {
-                    println!("at {}", i);
-                    assert!(false, "base already covered!");
-                }
+                assert!(!covered[i], "at {}\nbase already covered!", i);
 
                 covered[i] = true;
             }
@@ -464,9 +461,7 @@ mod tests {
                 let pmer: P = full_seq.get_kmer(i);
                 let score = score(&pmer);
 
-                if score < slice_score {
-                    assert!(false, "found better pmer within slice")
-                }
+                assert!(score >= slice_score, "found better pmer within slice")
             }
         }
 
@@ -484,12 +479,10 @@ mod tests {
 
             let correct_end = next_score < score(&s.minimizer) || !next_kmer_covers_pmer;
 
-            if !correct_end {
-                assert!(
-                    false,
-                    "detected a sequence slice that ended before it should have."
-                )
-            }
+            assert!(
+                correct_end,
+                "detected a sequence slice that ended before it should have."
+            )
         }
     }
 
@@ -583,9 +576,9 @@ mod tests {
         let permutation: Vec<usize> = (0..(1 << (2 * p))).collect();
 
         #[allow(deprecated)]
-        let s1 = super::simple_scan::<_, Kmer5>(35, &DnaSlice(&mut &v1), &permutation, true);
+        let s1 = super::simple_scan::<_, Kmer5>(35, &DnaSlice(&v1), &permutation, true);
         #[allow(deprecated)]
-        let s2 = super::simple_scan::<_, Kmer5>(35, &DnaSlice(&mut &v2), &permutation, true);
+        let s2 = super::simple_scan::<_, Kmer5>(35, &DnaSlice(&v2), &permutation, true);
 
         println!("{:?}", s1);
         println!("{:?}", s2);

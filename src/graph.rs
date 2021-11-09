@@ -64,6 +64,10 @@ impl<K, D> BaseGraph<K, D> {
         self.sequences.len()
     }
 
+    pub fn is_empty(&self) -> bool {
+        self.sequences.is_empty()
+    }
+
     pub fn combine<I: Iterator<Item = BaseGraph<K, D>>>(graphs: I) -> Self {
         let mut sequences = PackedDnaStringSet::new();
         let mut exts = Vec::new();
@@ -97,7 +101,7 @@ impl<K, D> BaseGraph<K, D> {
 }
 
 impl<K: Kmer, D> BaseGraph<K, D> {
-    pub fn add<'b, R: Borrow<u8>, S: IntoIterator<Item = R>>(
+    pub fn add<R: Borrow<u8>, S: IntoIterator<Item = R>>(
         &mut self,
         sequence: S,
         exts: Exts,
@@ -181,8 +185,12 @@ impl<K: Kmer, D: Debug> DebruijnGraph<K, D> {
         self.base.len()
     }
 
+    pub fn is_empty(&self) -> bool {
+        self.base.is_empty()
+    }
+
     /// Get a node given it's `node_id`
-    pub fn get_node<'a>(&'a self, node_id: usize) -> Node<'a, K, D> {
+    pub fn get_node(&self, node_id: usize) -> Node<K, D> {
         Node {
             node_id,
             graph: self,
@@ -190,7 +198,7 @@ impl<K: Kmer, D: Debug> DebruijnGraph<K, D> {
     }
 
     /// Get a node given it's `node_id`
-    pub fn get_node_kmer<'a>(&'a self, node_id: usize) -> NodeKmer<'a, K, D> {
+    pub fn get_node_kmer(&self, node_id: usize) -> NodeKmer<K, D> {
         let node = self.get_node(node_id);
         let node_seq = node.sequence();
 
@@ -203,7 +211,7 @@ impl<K: Kmer, D: Debug> DebruijnGraph<K, D> {
     }
 
     /// Return an iterator over all nodes in the graph
-    pub fn iter_nodes<'a>(&'a self) -> NodeIter<'a, K, D> {
+    pub fn iter_nodes(&self) -> NodeIter<K, D> {
         NodeIter {
             graph: self,
             node_id: 0,
@@ -221,12 +229,11 @@ impl<K: Kmer, D: Debug> DebruijnGraph<K, D> {
         for i in 0..4 {
             if exts.has_ext(dir, i) {
                 let link = self.find_link(kmer.extend(i, dir), dir); //.expect("missing link");
-                match link {
-                    Some(l) => edges.push(l),
-                    // This edge doesn't exist within this shard, so ignore it.
-                    // NOTE: this should be allowed in a 'complete' DBG
-                    None => (),
+                if let Some(l) = link {
+                    edges.push(l);
                 }
+                // Otherwise, this edge doesn't exist within this shard, so ignore it.
+                // NOTE: this should be allowed in a 'complete' DBG
             }
         }
 
@@ -256,29 +263,25 @@ impl<K: Kmer, D: Debug> DebruijnGraph<K, D> {
 
         match dir {
             Dir::Left => {
-                match self.search_kmer(kmer, Dir::Right) {
-                    Some(idx) => return Some((idx, Dir::Right, false)),
-                    _ => (),
+                if let Some(idx) = self.search_kmer(kmer, Dir::Right) {
+                    return Some((idx, Dir::Right, false));
                 }
 
                 if !self.base.stranded {
-                    match self.search_kmer(rc, Dir::Left) {
-                        Some(idx) => return Some((idx, Dir::Left, true)),
-                        _ => (),
+                    if let Some(idx) = self.search_kmer(rc, Dir::Left) {
+                        return Some((idx, Dir::Left, true));
                     }
                 }
             }
 
             Dir::Right => {
-                match self.search_kmer(kmer, Dir::Left) {
-                    Some(idx) => return Some((idx, Dir::Left, false)),
-                    _ => (),
+                if let Some(idx) = self.search_kmer(kmer, Dir::Left) {
+                    return Some((idx, Dir::Left, false));
                 }
 
                 if !self.base.stranded {
-                    match self.search_kmer(rc, Dir::Right) {
-                        Some(idx) => return Some((idx, Dir::Right, true)),
-                        _ => (),
+                    if let Some(idx) = self.search_kmer(rc, Dir::Right) {
+                        return Some((idx, Dir::Right, true));
                     }
                 }
             }
@@ -381,7 +384,7 @@ impl<K: Kmer, D: Debug> DebruijnGraph<K, D> {
         F: Fn(&D) -> f32,
         F2: Fn(&D) -> bool,
     {
-        if self.len() == 0 {
+        if self.is_empty() {
             return vec![];
         }
 
@@ -713,7 +716,7 @@ impl<K: Kmer, D: Debug> DebruijnGraph<K, D> {
         F: Fn(&D) -> f32,
         F2: Fn(&D) -> bool,
     {
-        if self.len() == 0 {
+        if self.is_empty() {
             return vec![];
         }
 
@@ -1014,6 +1017,10 @@ impl<'a, K: Kmer, D: Debug> Node<'a, K, D> {
     /// Length of the sequence of this node
     pub fn len(&self) -> usize {
         self.graph.base.sequences.get(self.node_id).len()
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.graph.base.sequences.get(self.node_id).is_empty()
     }
 
     /// Sequence of the node

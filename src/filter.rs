@@ -45,9 +45,7 @@ impl CountFilter {
     /// Construct a `CountFilter` KmerSummarizer only accepts kmers that are observed
     /// at least `min_kmer_obs` times.
     pub fn new(min_kmer_obs: usize) -> CountFilter {
-        CountFilter {
-            min_kmer_obs,
-        }
+        CountFilter { min_kmer_obs }
     }
 }
 
@@ -244,7 +242,7 @@ where
 pub fn remove_censored_exts_sharded<K: Kmer, D>(
     stranded: bool,
     valid_kmers: &mut Vec<(K, (Exts, D))>,
-    all_kmers: &Vec<K>,
+    all_kmers: &[K],
 ) {
     for idx in 0..valid_kmers.len() {
         let mut new_exts = Exts::empty();
