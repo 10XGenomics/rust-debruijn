@@ -52,11 +52,11 @@ pub mod test;
 #[inline]
 pub fn bits_to_ascii(c: u8) -> u8 {
     match c {
-        0u8 => 'A' as u8,
-        1u8 => 'C' as u8,
-        2u8 => 'G' as u8,
-        3u8 => 'T' as u8,
-        _ => 'X' as u8,
+        0u8 => b'A',
+        1u8 => b'C',
+        2u8 => b'G',
+        3u8 => b'T',
+        _ => b'X',
     }
 }
 
@@ -86,11 +86,7 @@ pub fn dna_only_base_to_bits(c: u8) -> Option<u8> {
 /// Convert an ASCII-encoded DNA base to a 2-bit representation
 #[inline]
 pub fn is_valid_base(c: u8) -> bool {
-    match c {
-        b'A' | b'C' | b'G' | b'T' => true,
-        b'a' | b'c' | b'g' | b't' => true,
-        _ => false,
-    }
+    matches!(c, b'A' | b'C' | b'G' | b'T' | b'a' | b'c' | b'g' | b't')
 }
 
 /// Convert a 2-bit representation of a base to a char
@@ -116,6 +112,9 @@ pub trait Mer: Sized + fmt::Debug {
     /// Length of DNA sequence
     fn len(&self) -> usize;
 
+    /// True if the sequence is empty.
+    fn is_empty(&self) -> bool;
+
     /// Get 2-bit encoded base at position `pos`
     fn get(&self, pos: usize) -> u8;
 
@@ -130,7 +129,7 @@ pub trait Mer: Sized + fmt::Debug {
     fn rc(&self) -> Self;
 
     /// Iterate over the bases in the sequence
-    fn iter<'a>(&'a self) -> MerIter<'a, Self> {
+    fn iter(&self) -> MerIter<Self> {
         MerIter {
             sequence: self,
             i: 0,
@@ -218,17 +217,14 @@ pub trait Kmer: Mer + Sized + Copy + PartialEq + PartialOrd + Eq + Ord + Hash {
     /// Generate all the extension of this sequence given by `exts` in direction `Dir`
     fn get_extensions(&self, exts: Exts, dir: Dir) -> Vec<Self> {
         let ext_bases = exts.get(dir);
-        ext_bases
-            .iter()
-            .map(|b| self.extend(b.clone(), dir))
-            .collect()
+        ext_bases.iter().map(|b| self.extend(*b, dir)).collect()
     }
 
     /// Return the minimum of the kmer and it's reverse complement, and a flag indicating if sequence was flipped
     fn min_rc_flip(&self) -> (Self, bool) {
         let rc = self.rc();
         if *self < rc {
-            (self.clone(), false)
+            (*self, false)
         } else {
             (rc, true)
         }
@@ -238,7 +234,7 @@ pub trait Kmer: Mer + Sized + Copy + PartialEq + PartialOrd + Eq + Ord + Hash {
     fn min_rc(&self) -> Self {
         let rc = self.rc();
         if *self < rc {
-            self.clone()
+            *self
         } else {
             rc
         }
@@ -257,8 +253,8 @@ pub trait Kmer: Mer + Sized + Copy + PartialEq + PartialOrd + Eq + Ord + Hash {
 
         let mut k0 = Self::empty();
 
-        for i in 0..Self::k() {
-            k0.set_mut(i, bytes[i])
+        for (i, b) in bytes.iter().take(Self::k()).enumerate() {
+            k0.set_mut(i, *b)
         }
 
         k0
@@ -272,8 +268,8 @@ pub trait Kmer: Mer + Sized + Copy + PartialEq + PartialOrd + Eq + Ord + Hash {
 
         let mut k0 = Self::empty();
 
-        for i in 0..Self::k() {
-            k0.set_mut(i, base_to_bits(bytes[i]))
+        for (i, b) in bytes.iter().take(Self::k()).enumerate() {
+            k0.set_mut(i, base_to_bits(*b))
         }
 
         k0
@@ -281,7 +277,7 @@ pub trait Kmer: Mer + Sized + Copy + PartialEq + PartialOrd + Eq + Ord + Hash {
 
     /// Return String containing Kmer sequence
     fn to_string(&self) -> String {
-        let mut s = String::new();
+        let mut s = String::with_capacity(self.len());
         for pos in 0..self.len() {
             s.push(bits_to_base(self.get(pos)))
         }
@@ -290,23 +286,20 @@ pub trait Kmer: Mer + Sized + Copy + PartialEq + PartialOrd + Eq + Ord + Hash {
 
     /// Generate vector of all kmers contained in `str` encoded as 0-4.
     fn kmers_from_bytes(str: &[u8]) -> Vec<Self> {
-        let mut r = Vec::new();
-
         if str.len() < Self::k() {
-            return r;
+            return Vec::default();
         }
-
         let mut k0 = Self::empty();
-
-        for i in 0..Self::k() {
-            k0.set_mut(i, str[i]);
+        for (i, v) in str.iter().take(Self::k()).enumerate() {
+            k0.set_mut(i, *v);
         }
 
-        r.push(k0.clone());
+        let mut r = Vec::with_capacity(str.len() - Self::k() + 1);
+        r.push(k0);
 
-        for i in Self::k()..str.len() {
-            k0 = k0.extend_right(str[i]);
-            r.push(k0.clone());
+        for v in str.iter().skip(Self::k()) {
+            k0 = k0.extend_right(*v);
+            r.push(k0);
         }
 
         r
@@ -314,23 +307,20 @@ pub trait Kmer: Mer + Sized + Copy + PartialEq + PartialOrd + Eq + Ord + Hash {
 
     /// Generate vector of all kmers contained in `str`, encoded as ASCII ACGT.
     fn kmers_from_ascii(str: &[u8]) -> Vec<Self> {
-        let mut r = Vec::new();
-
         if str.len() < Self::k() {
-            return r;
+            return Vec::default();
         }
-
         let mut k0 = Self::empty();
-
-        for i in 0..Self::k() {
-            k0.set_mut(i, base_to_bits(str[i]));
+        for (i, b) in str.iter().take(Self::k()).enumerate() {
+            k0.set_mut(i, base_to_bits(*b));
         }
 
-        r.push(k0.clone());
+        let mut r = Vec::with_capacity(str.len() - Self::k() + 1);
+        r.push(k0);
 
-        for i in Self::k()..str.len() {
-            k0 = k0.extend_right(base_to_bits(str[i]));
-            r.push(k0.clone());
+        for v in str.iter().skip(Self::k()) {
+            k0 = k0.extend_right(base_to_bits(*v));
+            r.push(k0);
         }
 
         r
@@ -365,8 +355,8 @@ pub trait Vmer: Mer + PartialEq + Eq {
     /// Create a Vmer from a sequence of bytes
     fn from_slice(seq: &[u8]) -> Self {
         let mut vmer = Self::new(seq.len());
-        for i in 0..seq.len() {
-            vmer.set_mut(i, seq[i]);
+        for (i, v) in seq.iter().enumerate() {
+            vmer.set_mut(i, *v);
         }
 
         vmer
@@ -409,7 +399,7 @@ pub trait Vmer: Mer + PartialEq + Eq {
 
         KmerIter {
             bases: self,
-            kmer: kmer,
+            kmer,
             pos: K::k(),
         }
     }
@@ -426,7 +416,7 @@ pub trait Vmer: Mer + PartialEq + Eq {
         KmerExtsIter {
             bases: self,
             exts: seq_exts,
-            kmer: kmer,
+            kmer,
             pos: K::k(),
         }
     }
@@ -440,6 +430,10 @@ pub struct DnaBytes(pub Vec<u8>);
 impl Mer for DnaBytes {
     fn len(&self) -> usize {
         self.0.len()
+    }
+
+    fn is_empty(&self) -> bool {
+        self.0.is_empty()
     }
 
     fn get(&self, pos: usize) -> u8 {
@@ -491,6 +485,10 @@ pub struct DnaSlice<'a>(pub &'a [u8]);
 impl<'a> Mer for DnaSlice<'a> {
     fn len(&self) -> usize {
         self.0.len()
+    }
+
+    fn is_empty(&self) -> bool {
+        self.0.is_empty()
     }
 
     fn get(&self, pos: usize) -> u8 {
@@ -562,8 +560,8 @@ impl Dir {
     /// Pick between two alternatives, depending on the direction
     pub fn pick<T>(&self, if_left: T, if_right: T) -> T {
         match self {
-            &Dir::Left => if_left,
-            &Dir::Right => if_right,
+            Dir::Left => if_left,
+            Dir::Right => if_right,
         }
     }
 }
@@ -583,7 +581,7 @@ pub struct Exts {
 
 impl Exts {
     pub fn new(val: u8) -> Self {
-        Exts { val: val }
+        Exts { val }
     }
 
     pub fn empty() -> Exts {
@@ -688,7 +686,7 @@ impl Exts {
 
     pub fn num_ext_dir(&self, dir: Dir) -> u8 {
         let e = self.dir_bits(dir);
-        ((e & 1u8) >> 0) + ((e & 2u8) >> 1) + ((e & 4u8) >> 2) + ((e & 8u8) >> 3)
+        (e & 1u8) + ((e & 2u8) >> 1) + ((e & 4u8) >> 2) + ((e & 8u8) >> 3)
     }
 
     pub fn mk_left(base: u8) -> Exts {
@@ -789,7 +787,7 @@ impl<'a, K: Kmer, D: Mer> Iterator for KmerIter<'a, K, D> {
                 self.kmer = self.kmer.extend_right(self.bases.get(self.pos));
             }
 
-            self.pos = self.pos + 1;
+            self.pos += 1;
             Some(retval)
         } else {
             None
@@ -835,7 +833,7 @@ impl<'a, K: Kmer, D: Mer> Iterator for KmerExtsIter<'a, K, D> {
 
             let retval = self.kmer;
             self.kmer = self.kmer.extend_right(next_base);
-            self.pos = self.pos + 1;
+            self.pos += 1;
             Some((retval, cur_exts))
         } else {
             None

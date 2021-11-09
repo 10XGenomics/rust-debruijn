@@ -1,3 +1,4 @@
+#[allow(clippy::wildcard_imports)]
 use std::arch::x86_64::*;
 
 /// pack the lowest 2 bits of each byte of a 32 byte slice into a u64
@@ -147,7 +148,7 @@ mod test {
         let acgt8 = b"AAAAAAAACCCCCCCCGGGGGGGGTTTTTTTT";
         let acgt4 = b"AAAACCCCGGGGTTTTAAAACCCCGGGGTTTT";
 
-        for dna_ascii in vec![cc, gg, tt, at, aatt, acgt, acgt4, acgt8] {
+        for dna_ascii in [cc, gg, tt, at, aatt, acgt, acgt4, acgt8] {
             //let dna_bytes = test::random_dna(32);
             //let dna_ascii: Vec<_> = dna_bytes.iter().map(|bits| bits_to_ascii(*bits)).collect();
             let dna_bytes: Vec<_> = dna_ascii.iter().map(|base| base_to_bits(*base)).collect();
@@ -161,9 +162,9 @@ mod test {
 
             assert!(valid);
 
-            for i in 0..32 {
+            for (i, b) in dna_bytes.iter().take(32).enumerate() {
                 let v = extract_byte(simd_bytes, i);
-                assert_eq!(v, dna_bytes[i]);
+                assert_eq!(v, *b);
             }
         }
     }
@@ -184,9 +185,9 @@ mod test {
             assert_eq!(dna_str, &kmer.to_string());
             assert!(valid);
 
-            for i in 0..32 {
+            for (i, b) in dna_bytes.iter().take(32).enumerate() {
                 let v = extract_byte(simd_bytes, i);
-                assert_eq!(v, dna_bytes[i]);
+                assert_eq!(v, *b);
             }
         }
     }

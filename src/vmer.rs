@@ -42,6 +42,10 @@ impl<A: Array<Item = u64> + Copy + Eq + Ord + Hash> Mer for Lmer<A> {
         (self.storage.as_slice()[A::size() - 1] & 0xff) as usize
     }
 
+    fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
+
     /// Get the base at position pos
     fn get(&self, pos: usize) -> u8 {
         let block = pos / 32;
@@ -66,7 +70,7 @@ impl<A: Array<Item = u64> + Copy + Eq + Ord + Hash> Mer for Lmer<A> {
         let mut bottom_mask =
             IntKmer::<u64>::bottom_mask(max(0, 32usize.saturating_sub(block_pos + n_bases)));
         if b0 == A::size() - 1 {
-            bottom_mask = bottom_mask | 0xFF
+            bottom_mask |= 0xFF
         }
         let mask = top_mask | bottom_mask;
 
@@ -98,7 +102,7 @@ impl<A: Array<Item = u64> + Copy + Eq + Ord + Hash> Mer for Lmer<A> {
             let mut v = slc[block];
             // Mask the length field packed into the last block
             if block == A::size() - 1 {
-                v = v & !0xFF
+                v &= !0xFF
             }
 
             let v_rc = !v.reverse_by_twos() << (64 - n_bases * 2);

@@ -45,9 +45,7 @@ impl CountFilter {
     /// Construct a `CountFilter` KmerSummarizer only accepts kmers that are observed
     /// at least `min_kmer_obs` times.
     pub fn new(min_kmer_obs: usize) -> CountFilter {
-        CountFilter {
-            min_kmer_obs: min_kmer_obs,
-        }
+        CountFilter { min_kmer_obs }
     }
 }
 
@@ -77,7 +75,7 @@ impl<D> CountFilterSet<D> {
     /// at least `min_kmer_obs` times.
     pub fn new(min_kmer_obs: usize) -> CountFilterSet<D> {
         CountFilterSet {
-            min_kmer_obs: min_kmer_obs,
+            min_kmer_obs,
             phantom: PhantomData,
         }
     }
@@ -161,7 +159,7 @@ where
         .map(|&(ref vmer, _, _)| vmer.len().saturating_sub(K::k() - 1))
         .sum();
     let kmer_mem = input_kmers * mem::size_of::<(K, D1)>();
-    let max_mem = memory_size * (10 as usize).pow(9);
+    let max_mem = memory_size * 10_usize.pow(9);
     let slices = kmer_mem / max_mem + 1;
     let sz = 256 / slices + 1;
 
@@ -244,7 +242,7 @@ where
 pub fn remove_censored_exts_sharded<K: Kmer, D>(
     stranded: bool,
     valid_kmers: &mut Vec<(K, (Exts, D))>,
-    all_kmers: &Vec<K>,
+    all_kmers: &[K],
 ) {
     for idx in 0..valid_kmers.len() {
         let mut new_exts = Exts::empty();
