@@ -299,13 +299,13 @@ mod tests {
     // Take some input contig, which likely form a complicated graph,
     // and test the kmer, bsp, sedge and edge construction machinery
     fn reassemble_contigs<K: Kmer + Copy, V: Vmer + Clone>(contigs: Vec<Vec<u8>>, stranded: bool) {
-        let ctg_lens: Vec<_> = contigs.iter().map(|c| c.len()).collect();
+        let ctg_lens: Vec<_> = contigs.iter().map(std::vec::Vec::len).collect();
         println!("Reassembling contig sizes: {:?}", ctg_lens);
 
         // kmer vector
         let mut kmers = Vec::new();
         for c in contigs.iter() {
-            let mut _kmers = K::kmers_from_bytes(&c);
+            let mut _kmers = K::kmers_from_bytes(c);
             kmers.extend(_kmers.iter().map(|k| k.min_rc()));
         }
 
@@ -352,7 +352,7 @@ mod tests {
         );
         let mut process_kmer_set: HashSet<K> = HashSet::new();
         for k in valid_kmers.iter().map(|x| x.0) {
-            process_kmer_set.insert(k.clone());
+            process_kmer_set.insert(*k);
         }
         assert_eq!(process_kmer_set, kmer_set);
 
@@ -421,13 +421,13 @@ mod tests {
         contigs: Vec<Vec<u8>>,
         stranded: bool,
     ) {
-        let ctg_lens: Vec<_> = contigs.iter().map(|c| c.len()).collect();
+        let ctg_lens: Vec<_> = contigs.iter().map(std::vec::Vec::len).collect();
         println!("Reassembling contig sizes: {:?}", ctg_lens);
 
         // kmer vector
         let mut kmer_set = HashSet::new();
         for c in contigs.iter() {
-            let mut _kmers = K::kmers_from_bytes(&c);
+            let mut _kmers = K::kmers_from_bytes(c);
             kmer_set.extend(_kmers.iter().map(|k| k.min_rc()));
         }
 
@@ -438,7 +438,7 @@ mod tests {
             let msps = msp::msp_sequence::<Kmer6, V>(K::k(), ctg.as_slice(), None, true);
 
             for (shard, exts, seq) in msps {
-                let shard_vec = shards.entry(shard).or_insert_with(|| Vec::new());
+                let shard_vec = shards.entry(shard).or_insert_with(Vec::new);
                 shard_vec.push((seq.clone(), exts, 0u8));
                 shard_vec.push((seq, exts, 1u8));
             }
@@ -450,7 +450,7 @@ mod tests {
         for seqs in shards.values() {
             // Check the correctness of the process_kmer_shard kmer filtering function
             let (valid_kmers, _): (BoomHashMap2<K, Exts, u16>, _) = filter::filter_kmers(
-                &seqs,
+                seqs,
                 &Box::new(filter::CountFilter::new(2)),
                 stranded,
                 false,

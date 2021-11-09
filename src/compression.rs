@@ -45,7 +45,7 @@ pub struct SimpleCompress<D, F> {
 impl<D, F> SimpleCompress<D, F> {
     pub fn new(func: F) -> SimpleCompress<D, F> {
         SimpleCompress {
-            func: func,
+            func,
             d: PhantomData,
         }
     }
@@ -87,11 +87,7 @@ where
     }
 
     fn join_test(&self, d1: &D, d2: &D) -> bool {
-        if d1 == d2 {
-            true
-        } else {
-            false
-        }
+        d1 == d2
     }
 }
 
@@ -311,9 +307,9 @@ where
 
         let mut comp = CompressFromGraph {
             spec: compression,
-            stranded: stranded,
+            stranded,
             graph: &old_graph,
-            available_nodes: available_nodes,
+            available_nodes,
             d: PhantomData,
         };
 
@@ -373,8 +369,7 @@ impl<'a, 'b, K: Kmer, D: Clone + Debug, S: CompressionSpec<D>> CompressFromHash<
 
     fn get_kmer_id(&self, kmer: &K) -> Option<usize> {
         self.index
-            .get_key_id(kmer)
-            .map_or(None, |v| Some(v as usize))
+            .get_key_id(kmer).and_then(|v| Some(v as usize))
     }
 
     /// Attempt to extend kmer v in direction dir. Return:
@@ -509,7 +504,7 @@ impl<'a, 'b, K: Kmer, D: Clone + Debug, S: CompressionSpec<D>> CompressFromHash<
             edge_seq.push_front(kmer.get(0));
 
             // Reduce the data object
-            let (_, ref kmer_data) = self.get_kmer_data(&next_kmer);
+            let (_, kmer_data) = self.get_kmer_data(&next_kmer);
             node_data = self.spec.reduce(node_data, kmer_data)
         }
 
@@ -530,7 +525,7 @@ impl<'a, 'b, K: Kmer, D: Clone + Debug, S: CompressionSpec<D>> CompressFromHash<
 
             edge_seq.push_back(kmer.get(K::k() - 1));
 
-            let (_, ref kmer_data) = self.get_kmer_data(&next_kmer);
+            let (_, kmer_data) = self.get_kmer_data(&next_kmer);
             node_data = self.spec.reduce(node_data, kmer_data)
         }
 
@@ -557,12 +552,12 @@ impl<'a, 'b, K: Kmer, D: Clone + Debug, S: CompressionSpec<D>> CompressFromHash<
         }
 
         let mut comp = CompressFromHash {
-            stranded: stranded,
-            spec: spec,
+            stranded,
+            spec,
             k: PhantomData,
             d: PhantomData,
-            available_kmers: available_kmers,
-            index: index,
+            available_kmers,
+            index,
         };
 
         // Path-compressed De Bruijn graph will be created here
@@ -608,9 +603,9 @@ pub fn compress_kmers<K: Kmer, D: Clone + Debug, S: CompressionSpec<D>>(
     let mut data = vec![];
 
     for (k, (e, d)) in kmer_exts {
-        keys.push(k.clone());
+        keys.push(*k);
         data.push(d.clone());
-        exts.push(e.clone());
+        exts.push(*e);
     }
 
     let index = BoomHashMap2::new(keys, exts, data);

@@ -52,11 +52,11 @@ pub mod test;
 #[inline]
 pub fn bits_to_ascii(c: u8) -> u8 {
     match c {
-        0u8 => 'A' as u8,
-        1u8 => 'C' as u8,
-        2u8 => 'G' as u8,
-        3u8 => 'T' as u8,
-        _ => 'X' as u8,
+        0u8 => b'A',
+        1u8 => b'C',
+        2u8 => b'G',
+        3u8 => b'T',
+        _ => b'X',
     }
 }
 
@@ -220,7 +220,7 @@ pub trait Kmer: Mer + Sized + Copy + PartialEq + PartialOrd + Eq + Ord + Hash {
         let ext_bases = exts.get(dir);
         ext_bases
             .iter()
-            .map(|b| self.extend(b.clone(), dir))
+            .map(|b| self.extend(*b, dir))
             .collect()
     }
 
@@ -228,7 +228,7 @@ pub trait Kmer: Mer + Sized + Copy + PartialEq + PartialOrd + Eq + Ord + Hash {
     fn min_rc_flip(&self) -> (Self, bool) {
         let rc = self.rc();
         if *self < rc {
-            (self.clone(), false)
+            (*self, false)
         } else {
             (rc, true)
         }
@@ -238,7 +238,7 @@ pub trait Kmer: Mer + Sized + Copy + PartialEq + PartialOrd + Eq + Ord + Hash {
     fn min_rc(&self) -> Self {
         let rc = self.rc();
         if *self < rc {
-            self.clone()
+            *self
         } else {
             rc
         }
@@ -302,11 +302,11 @@ pub trait Kmer: Mer + Sized + Copy + PartialEq + PartialOrd + Eq + Ord + Hash {
             k0.set_mut(i, str[i]);
         }
 
-        r.push(k0.clone());
+        r.push(k0);
 
         for i in Self::k()..str.len() {
             k0 = k0.extend_right(str[i]);
-            r.push(k0.clone());
+            r.push(k0);
         }
 
         r
@@ -326,11 +326,11 @@ pub trait Kmer: Mer + Sized + Copy + PartialEq + PartialOrd + Eq + Ord + Hash {
             k0.set_mut(i, base_to_bits(str[i]));
         }
 
-        r.push(k0.clone());
+        r.push(k0);
 
         for i in Self::k()..str.len() {
             k0 = k0.extend_right(base_to_bits(str[i]));
-            r.push(k0.clone());
+            r.push(k0);
         }
 
         r
@@ -409,7 +409,7 @@ pub trait Vmer: Mer + PartialEq + Eq {
 
         KmerIter {
             bases: self,
-            kmer: kmer,
+            kmer,
             pos: K::k(),
         }
     }
@@ -426,7 +426,7 @@ pub trait Vmer: Mer + PartialEq + Eq {
         KmerExtsIter {
             bases: self,
             exts: seq_exts,
-            kmer: kmer,
+            kmer,
             pos: K::k(),
         }
     }
@@ -583,7 +583,7 @@ pub struct Exts {
 
 impl Exts {
     pub fn new(val: u8) -> Self {
-        Exts { val: val }
+        Exts { val }
     }
 
     pub fn empty() -> Exts {
@@ -789,7 +789,7 @@ impl<'a, K: Kmer, D: Mer> Iterator for KmerIter<'a, K, D> {
                 self.kmer = self.kmer.extend_right(self.bases.get(self.pos));
             }
 
-            self.pos = self.pos + 1;
+            self.pos += 1;
             Some(retval)
         } else {
             None
@@ -835,7 +835,7 @@ impl<'a, K: Kmer, D: Mer> Iterator for KmerExtsIter<'a, K, D> {
 
             let retval = self.kmer;
             self.kmer = self.kmer.extend_right(next_base);
-            self.pos = self.pos + 1;
+            self.pos += 1;
             Some((retval, cur_exts))
         } else {
             None

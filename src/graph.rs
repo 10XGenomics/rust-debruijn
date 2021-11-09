@@ -184,7 +184,7 @@ impl<K: Kmer, D: Debug> DebruijnGraph<K, D> {
     /// Get a node given it's `node_id`
     pub fn get_node<'a>(&'a self, node_id: usize) -> Node<'a, K, D> {
         Node {
-            node_id: node_id,
+            node_id,
             graph: self,
         }
     }
@@ -195,7 +195,7 @@ impl<K: Kmer, D: Debug> DebruijnGraph<K, D> {
         let node_seq = node.sequence();
 
         NodeKmer {
-            node_id: node_id,
+            node_id,
             node_seq_slice: node_seq,
             phantom_d: PhantomData,
             phantom_k: PhantomData,
@@ -236,14 +236,8 @@ impl<K: Kmer, D: Debug> DebruijnGraph<K, D> {
     /// Seach for the kmer `kmer`, appearing at the given `side` of a node sequence.
     fn search_kmer(&self, kmer: K, side: Dir) -> Option<usize> {
         match side {
-            Dir::Left => match self.left_order.get(&kmer) {
-                Some(pos) => Some(*pos as usize),
-                _ => None,
-            },
-            Dir::Right => match self.right_order.get(&kmer) {
-                Some(pos) => Some(*pos as usize),
-                _ => None,
-            },
+            Dir::Left => self.left_order.get(&kmer).map(|pos| *pos as usize),
+            Dir::Right => self.right_order.get(&kmer).map(|pos| *pos as usize),
         }
     }
 
@@ -290,7 +284,7 @@ impl<K: Kmer, D: Debug> DebruijnGraph<K, D> {
             }
         }
 
-        return None;
+        None
     }
 
     /// Check whether the graph is fully compressed. Return `None` if it's compressed,
@@ -300,8 +294,8 @@ impl<K: Kmer, D: Debug> DebruijnGraph<K, D> {
         for i in 0..self.len() {
             let n = self.get_node(i);
 
-            for dir in vec![Dir::Left, Dir::Right] {
-                let dir_edges = n.edges(dir);
+            for dir in &[Dir::Left, Dir::Right] {
+                let dir_edges = n.edges(*dir);
                 if dir_edges.len() == 1 {
                     let (next_id, return_dir, _) = dir_edges[0];
                     let next = self.get_node(next_id);
@@ -352,7 +346,7 @@ impl<K: Kmer, D: Debug> DebruijnGraph<K, D> {
         let r_kmer: K = node.sequence().last_kmer();
 
         let check_node = |id| match valid_nodes {
-            Some(ref bs) => bs.contains(id),
+            Some(bs) => bs.contains(id),
             None => true,
         };
 
@@ -405,12 +399,12 @@ impl<K: Kmer, D: Debug> DebruijnGraph<K, D> {
 
         let oscore = |state| match state {
             None => 0.0,
-            Some((id, _)) => score(&self.get_node(id).data()),
+            Some((id, _)) => score(self.get_node(id).data()),
         };
 
         let osolid_path = |state| match state {
             None => false,
-            Some((id, _)) => solid_path(&self.get_node(id).data()),
+            Some((id, _)) => solid_path(self.get_node(id).data()),
         };
 
         // Now expand in each direction, greedily taking the best path. Stop if we hit a node we've
@@ -571,9 +565,8 @@ impl<K: Kmer, D: Debug> DebruijnGraph<K, D> {
                 };
                 writeln!(
                     w,
-                    "L\t{}\t{}\t{}\t{}\t{}M",
+                    "L\t{}\t-\t{}\t{}\t{}M",
                     node.node_id,
-                    "-",
                     target,
                     to_dir,
                     K::k() - 1
@@ -589,9 +582,8 @@ impl<K: Kmer, D: Debug> DebruijnGraph<K, D> {
                 };
                 writeln!(
                     w,
-                    "L\t{}\t{}\t{}\t{}\t{}M",
+                    "L\t{}\t+\t{}\t{}\t{}M",
                     node.node_id,
-                    "+",
                     target,
                     to_dir,
                     K::k() - 1
@@ -652,9 +644,9 @@ impl<K: Kmer, D: Debug> DebruijnGraph<K, D> {
             let node = self.get_node(i);
             node.to_json(&fmt_func, writer);
             if i == self.len() - 1 {
-                write!(writer, "\n").unwrap();
+                writeln!(writer).unwrap();
             } else {
-                write!(writer, ",\n").unwrap();
+                writeln!(writer, ",").unwrap();
             }
         }
         writeln!(writer, "],").unwrap();
@@ -665,9 +657,9 @@ impl<K: Kmer, D: Debug> DebruijnGraph<K, D> {
             match node.edges_to_json(writer) {
                 true => {
                     if i == self.len() - 1 {
-                        write!(writer, "\n").unwrap();
+                        writeln!(writer).unwrap();
                     } else {
-                        write!(writer, ",\n").unwrap();
+                        writeln!(writer, ",").unwrap();
                     }
                 }
                 _ => continue,
@@ -681,11 +673,11 @@ impl<K: Kmer, D: Debug> DebruijnGraph<K, D> {
                     writeln!(writer, ",").expect("io error");
                     write!(writer, "\"{}\": ", k).expect("io error");
                     serde_json::to_writer(&mut writer, v).expect("io error");
-                    writeln!(writer, "").expect("io error");
+                    writeln!(writer).expect("io error");
                 }
             }
             _ => {
-                writeln!(writer, "").expect("io error");
+                writeln!(writer).expect("io error");
             }
         }
 
@@ -693,7 +685,7 @@ impl<K: Kmer, D: Debug> DebruijnGraph<K, D> {
     }
 
     /// Write the graph to JSON
-    pub fn to_json<W: Write, F: Fn(&D) -> Value, RF: Fn(&mut W) -> ()>(
+    pub fn to_json<W: Write, F: Fn(&D) -> Value, RF: Fn(&mut W)>(
         &self,
         fmt_func: F,
         writer: &mut W,
@@ -757,13 +749,13 @@ impl<K: Kmer, D: Debug> DebruijnGraph<K, D> {
         }
 
         // No end nodes -- just start on the first node
-        if states.len() == 0 {
+        if states.is_empty() {
             // Make a start
             let node = self.get_node(0);
             let mut path = SmallVec8::new();
             path.push((0, Dir::Left));
             states.push(State {
-                path: path,
+                path,
                 status: Status::Active,
                 score: score(node.data()),
             });
@@ -826,7 +818,7 @@ impl<K: Kmer, D: Debug> DebruijnGraph<K, D> {
 
             let status = if cycle {
                 Status::Cycle
-            } else if next_node.edges(incoming_dir.flip()).len() == 0 {
+            } else if next_node.edges(incoming_dir.flip()).is_empty() {
                 Status::End
             } else {
                 Status::Active
@@ -838,7 +830,7 @@ impl<K: Kmer, D: Debug> DebruijnGraph<K, D> {
             let next_state = State {
                 path: new_path,
                 score: new_score,
-                status: status,
+                status,
             };
 
             new_states.push(next_state);
@@ -913,7 +905,7 @@ impl<'a, K: Kmer + 'a, D: Debug + 'a> Iterator for NodeIntoIter<'a, K, D> {
 
             self.node_id += 1;
             Some(NodeKmer {
-                node_id: node_id,
+                node_id,
                 node_seq_slice: node_seq,
                 phantom_d: PhantomData,
                 phantom_k: PhantomData,
@@ -988,7 +980,7 @@ impl<'a, K: Kmer + 'a, D: Debug + 'a> Iterator for NodeKmerIter<'a, K, D> {
     }
 
     fn size_hint(&self) -> (usize, Option<usize>) {
-        return (self.num_kmers, Some(self.num_kmers));
+        (self.num_kmers, Some(self.num_kmers))
     }
 
     /// Provide a 'fast-forward' capability for this iterator

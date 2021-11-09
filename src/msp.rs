@@ -24,9 +24,9 @@ pub struct MspInterval {
 impl MspInterval {
     pub fn new(bucket: u16, start: u32, len: u16) -> MspInterval {
         MspInterval {
-            bucket: bucket,
-            start: start,
-            len: len,
+            bucket,
+            start,
+            len,
         }
     }
 
@@ -217,7 +217,7 @@ where
 
         let find_min = |start, stop| {
             let mut min_pos = self.mp(start);
-            let mut current = min_pos.clone();
+            let mut current = min_pos;
 
             while current.pos < stop {
                 current = self.incr(&current);
@@ -241,11 +241,9 @@ where
             if i > min_pos.pos {
                 min_pos = find_min(i, i + k - p);
                 min_positions.push((i, min_pos));
-            } else {
-                if end_pos.val < min_pos.val {
-                    min_pos = end_pos;
-                    min_positions.push((i, min_pos));
-                }
+            } else if end_pos.val < min_pos.val {
+                min_pos = end_pos;
+                min_positions.push((i, min_pos));
             }
         }
 
@@ -330,7 +328,7 @@ where
 mod tests {
     use super::*;
     use crate::dna_string::DnaString;
-    use crate::kmer::*;
+    use crate::kmer::{Kmer10, Kmer12, Kmer14, Kmer15, Kmer16, Kmer5, Kmer8};
     use crate::test;
     use crate::DnaSlice;
     use std::collections::HashSet;
@@ -385,12 +383,13 @@ mod tests {
     #[test]
     fn test_slice() {
         let p = 8;
-        let permutation: Vec<usize> = (0..(1 << 2 * p)).collect();
+        let permutation: Vec<usize> = (0..(1 << (2 * p))).collect();
 
         for _ in 0..100 {
             let k = 50usize;
             let dna = test::random_dna(150);
             println!("{:?}", dna);
+            #[allow(deprecated)]
             let slices = super::simple_scan::<_, Kmer8>(k, &DnaSlice(&dna), &permutation, true);
             println!(
                 "Made {} slices from dna of length {:?}",
@@ -581,9 +580,11 @@ mod tests {
         ];
 
         let p = 5;
-        let permutation: Vec<usize> = (0..(1 << 2 * p)).collect();
+        let permutation: Vec<usize> = (0..(1 << (2 * p))).collect();
 
+        #[allow(deprecated)]
         let s1 = super::simple_scan::<_, Kmer5>(35, &DnaSlice(&mut &v1), &permutation, true);
+        #[allow(deprecated)]
         let s2 = super::simple_scan::<_, Kmer5>(35, &DnaSlice(&mut &v2), &permutation, true);
 
         println!("{:?}", s1);

@@ -34,12 +34,9 @@ where
             return None;
         }
 
-        if (exts.num_exts_l() == 0 && exts.num_exts_r() <= 1)
-            || (exts.num_exts_r() == 0 && exts.num_exts_l() <= 1)
-        {
-            if (self.tip_predicate)(&node) {
-                return Some(id);
-            }
+        if ((exts.num_exts_l() == 0 && exts.num_exts_r() <= 1)
+            || (exts.num_exts_r() == 0 && exts.num_exts_l() <= 1)) && (self.tip_predicate)(&node) {
+            return Some(id);
         }
 
         None
@@ -48,7 +45,7 @@ where
     pub fn find_bad_nodes(&self, graph: &DebruijnGraph<K, D>) -> Vec<usize> {
         (0..graph.len())
             .map(|i| self.test_tip(graph, i))
-            .filter_map(|x| x)
+            .flatten()
             .collect()
     }
 }

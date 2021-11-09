@@ -253,8 +253,8 @@ impl<T: PrimInt + FromPrimitive + Hash + IntHelp> IntKmer<T> {
     #[inline]
     fn addr(&self, pos: usize) -> usize {
         let top_base = Self::k() - 1;
-        let bitpos = (top_base - pos) * 2;
-        bitpos
+        
+        (top_base - pos) * 2
     }
 
     #[inline(always)]
@@ -386,7 +386,7 @@ impl<T: PrimInt + FromPrimitive + Hash + IntHelp> Kmer for IntKmer<T> {
 
     /// Shift the base v into the left end of the kmer
     fn extend_left(&self, v: u8) -> Self {
-        let new = self.storage >> 2 | (Self::t_from_byte(v) << (Self::k() - 1) * 2);
+        let new = self.storage >> 2 | (Self::t_from_byte(v) << ((Self::k() - 1) * 2));
         IntKmer { storage: new }
     }
 
@@ -510,8 +510,8 @@ impl<T: PrimInt + FromPrimitive + Hash + IntHelp, KS: KmerSize> VarIntKmer<T, KS
     #[inline(always)]
     fn addr(&self, pos: usize) -> usize {
         let top_base = Self::k() - 1;
-        let bitpos = (top_base - pos) * 2;
-        bitpos
+        
+        (top_base - pos) * 2
     }
 
     // K of this kmer

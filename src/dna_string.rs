@@ -165,22 +165,22 @@ impl DnaString {
 
     /// Create a new instance with a given capacity.
     pub fn with_capacity(n: usize) -> Self {
-        let blocks = (n * WIDTH >> 6) + (if n * WIDTH & 0x3F > 0 { 1 } else { 0 });
+        let blocks = ((n * WIDTH) >> 6) + (if (n * WIDTH) & 0x3F > 0 { 1 } else { 0 });
         let storage = Vec::with_capacity(blocks);
 
         DnaString {
-            storage: storage,
+            storage,
             len: 0,
         }
     }
 
     /// Create a DnaString of length n initialized to all A's
     pub fn blank(n: usize) -> Self {
-        let blocks = (n * WIDTH >> 6) + (if n * WIDTH & 0x3F > 0 { 1 } else { 0 });
+        let blocks = ((n * WIDTH) >> 6) + (if (n * WIDTH) & 0x3F > 0 { 1 } else { 0 });
         let storage = vec![0; blocks];
 
         DnaString {
-            storage: storage,
+            storage,
             len: n,
         }
     }
@@ -207,14 +207,14 @@ impl DnaString {
                     dna_string.push(bit);
                 }
                 None => {
-                    if dna_string.len() > 0 {
+                    if !dna_string.is_empty() {
                         dna_vector.push(dna_string);
                         dna_string = DnaString::new();
                     }
                 }
             }
         }
-        if dna_string.len() > 0 {
+        if !dna_string.is_empty() {
             dna_vector.push(dna_string);
         }
 
@@ -449,7 +449,7 @@ impl DnaString {
 
         DnaStringSlice {
             dna_string: self,
-            start: start,
+            start,
             length: end - start,
             is_rc: false,
         }
@@ -526,7 +526,7 @@ fn count_diff_2_bit_packed(a: u64, b: u64) -> u32 {
     let bit_diffs = a ^ b;
     let two_bit_diffs = (bit_diffs | bit_diffs >> 1) & 0x5555555555555555;
     let total_diffs = two_bit_diffs.count_ones();
-    return total_diffs;
+    total_diffs
 }
 
 /// Compute the number of base positions at which two DnaStrings differ, assuming
@@ -804,7 +804,7 @@ impl<'a> PackedDnaStringSet {
 
         let mut length = 0;
         for b in sequence {
-            self.sequence.push(b.borrow().clone());
+            self.sequence.push(*b.borrow());
             length += 1;
         }
         self.length.push(length as u32);
@@ -957,7 +957,7 @@ mod tests {
     }
 
     fn dna_string_test(dna: &str) {
-        let dna_string_a = DnaString::from_dna_string(&dna);
+        let dna_string_a = DnaString::from_dna_string(dna);
         let dna_string = DnaString::from_acgt_bytes(dna.as_bytes());
         assert_eq!(dna_string_a, dna_string);
 
@@ -965,8 +965,8 @@ mod tests {
         let rc2 = rc.rc();
         assert_eq!(dna_string_a, rc2);
 
-        let values: Vec<u8> = dna_string.iter().collect();
-        assert_eq!(values.len(), dna.len());
+        
+        assert_eq!(dna_string.iter().count(), dna.len());
 
         assert_eq!(dna_string.len, dna.len());
 
