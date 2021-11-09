@@ -7,7 +7,7 @@ use log::{debug, trace};
 use serde_derive::{Deserialize, Serialize};
 use smallvec::SmallVec;
 use std::borrow::Borrow;
-use std::cmp::min;
+
 use std::collections::HashSet;
 use std::collections::VecDeque;
 use std::f32;
@@ -784,8 +784,8 @@ impl<K: Kmer, D: Debug> DebruijnGraph<K, D> {
             states = new_states;
         }
 
-        for i in 0..min(5, states.len()) {
-            trace!("i:{}  -- {:?}", i, states[i]);
+        for (i, state) in states.iter().take(5).enumerate() {
+            trace!("i:{}  -- {:?}", i, state);
         }
 
         // convert back to using usize for node_id

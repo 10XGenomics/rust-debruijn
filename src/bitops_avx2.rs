@@ -162,9 +162,9 @@ mod test {
 
             assert!(valid);
 
-            for i in 0..32 {
+            for (i, b) in dna_bytes.iter().take(32).enumerate() {
                 let v = extract_byte(simd_bytes, i);
-                assert_eq!(v, dna_bytes[i]);
+                assert_eq!(v, *b);
             }
         }
     }
@@ -185,9 +185,9 @@ mod test {
             assert_eq!(dna_str, &kmer.to_string());
             assert!(valid);
 
-            for i in 0..32 {
+            for (i, b) in dna_bytes.iter().take(32).enumerate() {
                 let v = extract_byte(simd_bytes, i);
-                assert_eq!(v, dna_bytes[i]);
+                assert_eq!(v, *b);
             }
         }
     }

@@ -85,8 +85,8 @@ pub fn simple_random_contigs() -> Vec<Vec<u8>> {
     let palindrome1 = random_dna(33);
     let mut palindrome2 = palindrome1.clone();
     palindrome2.reverse();
-    for i in 0..palindrome2.len() {
-        palindrome2[i] = complement(palindrome2[i]);
+    for v in &mut palindrome2 {
+        *v = complement(*v);
     }
 
     c3.extend(palindrome1);
@@ -109,7 +109,7 @@ pub fn random_contigs() -> Vec<Vec<u8>> {
 
     let length_dist = Gamma::new(1.5, 200.0);
 
-    let mut chunks: Vec<Vec<u8>> = Vec::new();
+    let mut chunks: Vec<Vec<u8>> = Vec::with_capacity(nchunks as usize);
     for _ in 0..nchunks {
         let len = max(10, length_dist.sample(&mut rng) as usize);
         let seq = random_dna(len);
@@ -119,7 +119,7 @@ pub fn random_contigs() -> Vec<Vec<u8>> {
     // Now make a bunch of chromosomes by pasting together chunks
     let nchrom = max(4, gamma_dist.sample(&mut rng) as u32);
 
-    let mut chroms = Vec::new();
+    let mut chroms = Vec::with_capacity(nchrom as usize);
     for _ in 0..nchrom {
         let chrom_chunks = max(4, gamma_dist.sample(&mut rng) as u32);
 

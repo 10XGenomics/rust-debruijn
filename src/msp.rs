@@ -433,10 +433,10 @@ mod tests {
             let start = s.start as usize;
             let end = s.start as usize + s.len as usize - k + 1;
 
-            for i in start..end {
-                assert!(!covered[i], "at {}\nbase already covered!", i);
+            for (i, c) in covered.iter_mut().take(end).skip(start).enumerate() {
+                assert!(!*c, "at {}\nbase already covered!", i);
 
-                covered[i] = true;
+                *c = true;
             }
         }
         assert!(covered.iter().all(|x| *x), "a pmer wasn't covered");

@@ -253,8 +253,8 @@ pub trait Kmer: Mer + Sized + Copy + PartialEq + PartialOrd + Eq + Ord + Hash {
 
         let mut k0 = Self::empty();
 
-        for i in 0..Self::k() {
-            k0.set_mut(i, bytes[i])
+        for (i, b) in bytes.iter().take(Self::k()).enumerate() {
+            k0.set_mut(i, *b)
         }
 
         k0
@@ -268,8 +268,8 @@ pub trait Kmer: Mer + Sized + Copy + PartialEq + PartialOrd + Eq + Ord + Hash {
 
         let mut k0 = Self::empty();
 
-        for i in 0..Self::k() {
-            k0.set_mut(i, base_to_bits(bytes[i]))
+        for (i, b) in bytes.iter().take(Self::k()).enumerate() {
+            k0.set_mut(i, base_to_bits(*b))
         }
 
         k0
@@ -290,8 +290,8 @@ pub trait Kmer: Mer + Sized + Copy + PartialEq + PartialOrd + Eq + Ord + Hash {
             return Vec::default();
         }
         let mut k0 = Self::empty();
-        for i in 0..Self::k() {
-            k0.set_mut(i, str[i]);
+        for (i, v) in str.iter().take(Self::k()).enumerate() {
+            k0.set_mut(i, *v);
         }
 
         let mut r = Vec::with_capacity(str.len() - Self::k() + 1);
@@ -311,8 +311,8 @@ pub trait Kmer: Mer + Sized + Copy + PartialEq + PartialOrd + Eq + Ord + Hash {
             return Vec::default();
         }
         let mut k0 = Self::empty();
-        for i in 0..Self::k() {
-            k0.set_mut(i, base_to_bits(str[i]));
+        for (i, b) in str.iter().take(Self::k()).enumerate() {
+            k0.set_mut(i, base_to_bits(*b));
         }
 
         let mut r = Vec::with_capacity(str.len() - Self::k() + 1);
@@ -355,8 +355,8 @@ pub trait Vmer: Mer + PartialEq + Eq {
     /// Create a Vmer from a sequence of bytes
     fn from_slice(seq: &[u8]) -> Self {
         let mut vmer = Self::new(seq.len());
-        for i in 0..seq.len() {
-            vmer.set_mut(i, seq[i]);
+        for (i, v) in seq.iter().enumerate() {
+            vmer.set_mut(i, *v);
         }
 
         vmer
