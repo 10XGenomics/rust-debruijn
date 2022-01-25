@@ -613,3 +613,52 @@ pub fn compress_kmers<K: Kmer, D: Clone + Debug, S: CompressionSpec<D>>(
     let index = BoomHashMap2::new(keys, exts, data);
     CompressFromHash::<K, D, S>::compress_kmers(stranded, spec, &index)
 }
+
+/// Build graph from a set of kmers with unknown extensions by finding the extensions on the fly.
+#[inline(never)]
+pub fn compress_kmers_no_exts<K: Kmer, D: Clone + Debug, S: CompressionSpec<D>>(
+    stranded: bool,
+    spec: &S,
+    kmer_exts: &Vec<(K, D)>,
+) -> BaseGraph<K, D> {
+    let mut keys = vec![];
+    let mut exts = vec![];
+    let mut data = vec![];
+
+    let mut kmer_set = std::collections::HashSet::new();
+
+    for (k, _) in kmer_exts {
+        kmer_set.insert(k);
+    }
+
+    let can = |k: K| k.min_rc();
+
+    for (k, d) in kmer_exts {
+        let mut e = Exts::empty();
+
+        for l in 0..4 {
+            let new = can(k.extend_left(l));
+
+            if kmer_set.contains(&new) {
+                e = e.set(Dir::Left, l);
+            }
+        }
+
+        for r in 0..4 {
+            let new = can(k.extend_right(r));
+
+            if kmer_set.contains(&new) {
+                e = e.set(Dir::Right, r);
+            }
+        }
+
+        keys.push(k.clone());
+        data.push(d.clone());
+        exts.push(e.clone());
+    }
+
+    assert_eq!(kmer_set.len(), keys.len());
+
+    let index = BoomHashMap2::new(keys, exts, data);
+    CompressFromHash::<K, D, S>::compress_kmers(stranded, spec, &index)
+}
