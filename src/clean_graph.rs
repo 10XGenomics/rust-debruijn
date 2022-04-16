@@ -46,8 +46,7 @@ where
 
     pub fn find_bad_nodes(&self, graph: &DebruijnGraph<K, D>) -> Vec<usize> {
         (0..graph.len())
-            .map(|i| self.test_tip(graph, i))
-            .flatten()
+            .filter_map(|i| self.test_tip(graph, i))
             .collect()
     }
 }

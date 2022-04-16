@@ -85,7 +85,7 @@ impl<D: Ord> KmerSummarizer<D, Vec<D>> for CountFilterSet<D> {
     fn summarize<K, F: Iterator<Item = (K, Exts, D)>>(&self, items: F) -> (bool, Exts, Vec<D>) {
         let mut all_exts = Exts::empty();
 
-        let mut out_data: Vec<D> = Vec::new();
+        let mut out_data: Vec<D> = Vec::with_capacity(items.size_hint().0);
 
         let mut nobs = 0;
         for (_, exts, d) in items {
@@ -148,11 +148,6 @@ where
 {
     let rc_norm = !stranded;
 
-    let mut all_kmers = Vec::new();
-    let mut valid_kmers = Vec::new();
-    let mut valid_exts = Vec::new();
-    let mut valid_data = Vec::new();
-
     // Estimate memory consumed by Kmer vectors, and set iteration count appropriately
     let input_kmers: usize = seqs
         .iter()
@@ -163,7 +158,7 @@ where
     let slices = kmer_mem / max_mem + 1;
     let sz = 256 / slices + 1;
 
-    let mut bucket_ranges = Vec::new();
+    let mut bucket_ranges = Vec::with_capacity(slices);
     let mut start = 0;
     while start < 256 {
         bucket_ranges.push(start..start + sz);
@@ -181,13 +176,14 @@ where
         );
     }
 
+    let mut all_kmers = Vec::new();
+    let mut valid_kmers = Vec::new();
+    let mut valid_exts = Vec::new();
+    let mut valid_data = Vec::new();
     for (i, bucket_range) in bucket_ranges.into_iter().enumerate() {
         debug!("Processing bucket {} of {}", i, n_buckets);
 
-        let mut kmer_buckets: Vec<Vec<(K, Exts, D1)>> = Vec::new();
-        for _ in 0..256 {
-            kmer_buckets.push(Vec::new());
-        }
+        let mut kmer_buckets = vec![Vec::new(); 256];
 
         for &(ref seq, seq_exts, ref d) in seqs {
             for (kmer, exts) in seq.iter_kmer_exts::<K>(seq_exts) {
@@ -209,7 +205,7 @@ where
         for mut kmer_vec in kmer_buckets {
             kmer_vec.sort_by_key(|elt| elt.0);
 
-            for (kmer, kmer_obs_iter) in &kmer_vec.into_iter().group_by(|elt| elt.0) {
+            for (kmer, kmer_obs_iter) in kmer_vec.into_iter().group_by(|elt| elt.0).into_iter() {
                 let (is_valid, exts, summary_data) = summarizer.summarize(kmer_obs_iter);
                 if report_all_kmers {
                     all_kmers.push(kmer);
@@ -241,7 +237,7 @@ where
 /// know whether these are censored until later, so we retain these extension.
 pub fn remove_censored_exts_sharded<K: Kmer, D>(
     stranded: bool,
-    valid_kmers: &mut Vec<(K, (Exts, D))>,
+    valid_kmers: &mut [(K, (Exts, D))],
     all_kmers: &[K],
 ) {
     for idx in 0..valid_kmers.len() {
@@ -281,7 +277,7 @@ pub fn remove_censored_exts_sharded<K: Kmer, D>(
 
 /// Remove extensions in valid_kmers that point to censored kmers. Use this method in a non-partitioned
 /// context when valid_kmers includes _all_ kmers that will ultimately be included in the graph.
-pub fn remove_censored_exts<K: Kmer, D>(stranded: bool, valid_kmers: &mut Vec<(K, (Exts, D))>) {
+pub fn remove_censored_exts<K: Kmer, D>(stranded: bool, valid_kmers: &mut [(K, (Exts, D))]) {
     for idx in 0..valid_kmers.len() {
         let mut new_exts = Exts::empty();
         let kmer = valid_kmers[idx].0;

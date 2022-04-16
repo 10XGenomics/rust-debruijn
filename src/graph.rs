@@ -84,11 +84,11 @@ impl<K, D> BaseGraph<K, D> {
             stranded.push(g.stranded);
         }
 
-        if !stranded.iter().all(|x| *x) && !stranded.iter().all(|x| !*x) {
+        let out_stranded = stranded.iter().all(|x| *x);
+
+        if !out_stranded && !stranded.iter().all(|x| !*x) {
             panic!("attempted to combine stranded and unstranded graphs");
         }
-
-        let out_stranded = stranded.iter().all(|x| *x);
 
         BaseGraph {
             sequences,
@@ -765,7 +765,7 @@ impl<K: Kmer, D: Debug> DebruijnGraph<K, D> {
         // Beam search until we can't find any more expansions
         let mut active = true;
         while active {
-            let mut new_states = Vec::new();
+            let mut new_states = Vec::with_capacity(states.len());
             active = false;
 
             for s in states {

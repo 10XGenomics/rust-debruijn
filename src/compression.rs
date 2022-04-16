@@ -619,20 +619,15 @@ pub fn compress_kmers<K: Kmer, D: Clone + Debug, S: CompressionSpec<D>>(
 pub fn compress_kmers_no_exts<K: Kmer, D: Clone + Debug, S: CompressionSpec<D>>(
     stranded: bool,
     spec: &S,
-    kmer_exts: &Vec<(K, D)>,
+    kmer_exts: &[(K, D)],
 ) -> BaseGraph<K, D> {
-    let mut keys = vec![];
-    let mut exts = vec![];
-    let mut data = vec![];
-
-    let mut kmer_set = std::collections::HashSet::new();
-
-    for (k, _) in kmer_exts {
-        kmer_set.insert(k);
-    }
+    let kmer_set: std::collections::HashSet<_> = kmer_exts.iter().map(|(k, _)| k).collect();
 
     let can = |k: K| k.min_rc();
 
+    let mut keys = Vec::with_capacity(kmer_exts.len());
+    let mut exts = Vec::with_capacity(kmer_exts.len());
+    let mut data = Vec::with_capacity(kmer_exts.len());
     for (k, d) in kmer_exts {
         let mut e = Exts::empty();
 
@@ -652,9 +647,9 @@ pub fn compress_kmers_no_exts<K: Kmer, D: Clone + Debug, S: CompressionSpec<D>>(
             }
         }
 
-        keys.push(k.clone());
+        keys.push(*k);
         data.push(d.clone());
-        exts.push(e.clone());
+        exts.push(e);
     }
 
     assert_eq!(kmer_set.len(), keys.len());

@@ -311,17 +311,16 @@ where
     };
 
     let dna = DnaSlice(seq);
-    let scanner = Scanner::new(&dna, score, k);
-    let msp_parts = scanner.scan();
-
-    let mut msps = Vec::new();
-    for msp in msp_parts {
-        let v = V::from_slice(&seq[(msp.start as usize)..(msp.start as usize + msp.len as usize)]);
-        let exts = Exts::from_slice_bounds(seq, msp.start as usize, msp.len as usize);
-        msps.push((msp.bucket() as u32, exts, v));
-    }
-
-    msps
+    let msp_parts = Scanner::new(&dna, score, k).scan();
+    msp_parts
+        .into_iter()
+        .map(|msp| {
+            let v =
+                V::from_slice(&seq[(msp.start as usize)..(msp.start as usize + msp.len as usize)]);
+            let exts = Exts::from_slice_bounds(seq, msp.start as usize, msp.len as usize);
+            (msp.bucket() as u32, exts, v)
+        })
+        .collect()
 }
 
 #[cfg(test)]
