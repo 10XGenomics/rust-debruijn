@@ -627,7 +627,7 @@ impl Exts {
 
     pub fn get(&self, dir: Dir) -> Vec<u8> {
         let bits = self.dir_bits(dir);
-        let mut v = Vec::new();
+        let mut v = Vec::with_capacity(4);
         for i in 0..4 {
             if bits & (1 << i) > 0 {
                 v.push(i);
