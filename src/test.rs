@@ -18,17 +18,14 @@ pub fn random_base(r: &mut impl Rng) -> u8 {
 /// Generate uniformly random DNA sequences
 pub fn random_dna(len: usize) -> Vec<u8> {
     let mut r = rand::thread_rng();
-    let mut dna = Vec::new();
-    for _ in 0..len {
-        let b = (r.next_u64() % 4) as u8;
-        dna.push(b);
-    }
-
-    dna
+    (0..len)
+        .into_iter()
+        .map(|_| (r.next_u64() % 4) as u8)
+        .collect()
 }
 
 /// Randomly mutate each base with probability `p`
-pub fn edit_dna<R: Rng>(seq: &mut Vec<u8>, p: f64, r: &mut R) {
+pub fn edit_dna<R: Rng>(seq: &mut [u8], p: f64, r: &mut R) {
     for b in seq.iter_mut() {
         if r.gen_range(0.0, 1.0) < p {
             *b = random_base(r);
@@ -288,7 +285,7 @@ mod tests {
         for n in simp_dbg.iter_nodes() {
             for kmer in n.sequence().iter_kmers() {
                 let r = mphf.try_hash(&kmer).unwrap() as usize;
-                assert_eq!(got_slot[r], false);
+                assert!(!got_slot[r]);
                 got_slot[r] = true;
             }
         }
@@ -306,7 +303,7 @@ mod tests {
         let mut kmers = Vec::new();
         for c in contigs.iter() {
             let mut _kmers = K::kmers_from_bytes(c);
-            kmers.extend(_kmers.iter().map(|k| k.min_rc()));
+            kmers.extend(_kmers.iter().map(Kmer::min_rc));
         }
 
         // True kmer set
@@ -428,7 +425,7 @@ mod tests {
         let mut kmer_set = HashSet::new();
         for c in contigs.iter() {
             let mut _kmers = K::kmers_from_bytes(c);
-            kmer_set.extend(_kmers.iter().map(|k| k.min_rc()));
+            kmer_set.extend(_kmers.iter().map(Kmer::min_rc));
         }
 
         // Bsps of kmers

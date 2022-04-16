@@ -241,7 +241,7 @@ where
 /// know whether these are censored until later, so we retain these extension.
 pub fn remove_censored_exts_sharded<K: Kmer, D>(
     stranded: bool,
-    valid_kmers: &mut Vec<(K, (Exts, D))>,
+    valid_kmers: &mut [(K, (Exts, D))],
     all_kmers: &[K],
 ) {
     for idx in 0..valid_kmers.len() {
@@ -281,7 +281,7 @@ pub fn remove_censored_exts_sharded<K: Kmer, D>(
 
 /// Remove extensions in valid_kmers that point to censored kmers. Use this method in a non-partitioned
 /// context when valid_kmers includes _all_ kmers that will ultimately be included in the graph.
-pub fn remove_censored_exts<K: Kmer, D>(stranded: bool, valid_kmers: &mut Vec<(K, (Exts, D))>) {
+pub fn remove_censored_exts<K: Kmer, D>(stranded: bool, valid_kmers: &mut [(K, (Exts, D))]) {
     for idx in 0..valid_kmers.len() {
         let mut new_exts = Exts::empty();
         let kmer = valid_kmers[idx].0;
