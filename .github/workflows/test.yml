@@ -6,14 +6,16 @@ on:
     branches:
       - master
 
+permissions:
+  contents: read
+
 jobs:
   test:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions-rs/toolchain@v1
+      - uses: dtolnay/rust-toolchain@master
         with:
           toolchain: 1.60.0
-          default: true
           components: rustfmt, clippy
       - name: Checkout Git repository
         uses: actions/checkout@master
@@ -35,9 +37,8 @@ jobs:
       - name: Check Rust formatting
         run: cargo fmt -- --check
       - name: lint with clippy
-        uses: actions-rs/clippy-check@v1
+        uses: 10XGenomics/clippy-check@v1
         with:
-          token: ${{ secrets.GITHUB_TOKEN }}
           args: |
             --all-targets --
             -W clippy::wildcard_imports
