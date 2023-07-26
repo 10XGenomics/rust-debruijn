@@ -278,7 +278,7 @@ mod tests {
         // Test the Boomphf DBG indexing machinery
         // Make an MPHF of the kmers in the DBG.
         // Each kmer should hash to a unique slot.
-        let mphf = Mphf::from_chunked_iterator_parallel(1.7, &simp_dbg, None, valid_kmers.len(), 2);
+        let mphf = Mphf::from_chunked_iterator_parallel(1.7, &simp_dbg, None, valid_kmers.len() as u64, 2);
 
         let mut got_slot = vec![false; total_kmers];
 

@@ -26,5 +26,5 @@ pretty_assertions = "1.3"
 rand = "0.5"
 
 [dependencies.boomphf]
-version = "0.5"
+version = "0.6"
 features = ["serde"]
