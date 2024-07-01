@@ -17,7 +17,7 @@ serde = "^1"
 serde_derive = "^1"
 serde_json = "^1"
 smallvec = "1"
-bit-set = "0.5.1"
+bit-set = "0.6.0"
 itertools = ">=0.7"
 log = "0.4"
 
