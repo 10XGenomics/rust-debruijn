@@ -31,6 +31,12 @@ enum ExtModeNode {
 /// summary data (of type `DS`). It also let's the user introduce new breaks into
 /// paths by inspecting in the per-kmer data of a proposed with `join_test_kmer`
 /// function.
+/// Usage of join_test provides an ordering guarantee:  the compressor always
+/// passes the data in forward (left-to-right along the node sequence) order:
+/// d1 is the left node, d2 the right, regardless of the internal extension direction
+/// Specs implemented here are both symmetric where this is not important,
+/// but the guaranteed ordering allows implementation of asymmetric specs
+/// where colors may merge differently based on ordering.
 pub trait CompressionSpec<D> {
     fn reduce(&self, path_object: D, kmer_object: &D) -> D;
     fn join_test(&self, d1: &D, d2: &D) -> bool;
@@ -170,9 +176,15 @@ where
             // c) the new edge is not of length K and a palindrome
             // d) the color of the current and next node is same
 
+            // Eval whether the colors are compatible, such that the first color
+            // is always the leftmost in the graph
+            let colors_compatible = match dir {
+                Dir::Right => self.spec.join_test(node.data(), next_node.data()),
+                Dir::Left => self.spec.join_test(next_node.data(), node.data()),
+            };
             if !self.available_nodes.contains(next_node_id)
                 || (!self.stranded && next_kmer.is_palindrome())
-                || !self.spec.join_test(node.data(), next_node.data())
+                || !colors_compatible
             {
                 // Next kmer isn't in this partition,
                 // or we've already used it,
@@ -423,7 +435,10 @@ impl<'a, 'b, K: Kmer, D: Clone + Debug, S: CompressionSpec<D>> CompressFromHash<
             let outgoing_exts = next_kmer_exts.single_dir(new_incoming_dir.flip());
 
             // Test if the spec let's us combine these into the same path
-            let can_join = self.spec.join_test(kmer_data, next_kmer_data);
+            let can_join = match dir {
+                Dir::Right => self.spec.join_test(kmer_data, next_kmer_data),
+                Dir::Left => self.spec.join_test(next_kmer_data, kmer_data),
+            };
 
             if incoming_count == 0 && !is_palindrome {
                 println!("{:?}, {:?}, {:?}", kmer, exts, kmer_data);
